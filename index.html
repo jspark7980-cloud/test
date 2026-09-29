@@ -130,13 +130,46 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 #haltOv .modal{text-align:center;border-color:var(--up);width:auto}
 #haltOv .cd{font-size:56px;font-weight:900;color:var(--up)}
 #toasts{position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top) + 10px);z-index:60;display:flex;flex-direction:column;gap:8px;width:min(520px,calc(100% - 32px));pointer-events:none}
-.toast{background:#1e2735;border:1px solid var(--line);border-left:5px solid var(--gold);border-radius:12px;padding:12px 14px;font-size:15px;font-weight:600;box-shadow:0 6px 24px rgba(0,0,0,.5);animation:tin .25s ease-out}
+.toast{background:rgba(30,39,53,.96);border:1px solid var(--line);border-left:5px solid var(--gold);border-radius:12px;padding:9px 12px;font-size:14px;font-weight:600;box-shadow:0 6px 24px rgba(0,0,0,.5);animation:tin .25s ease-out}
 .toast.up{border-left-color:var(--up)}.toast.down{border-left-color:var(--down)}.toast.warn{border-left-color:var(--warn)}
 @keyframes tin{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
 .house{margin-top:14px;padding:16px;border-radius:16px;background:linear-gradient(135deg,#3a1015,#2a0c10);border:2px solid var(--up);text-align:center}
 .house .v{font-size:34px;font-weight:900;color:#ff6b76}
 .stat-grid .kv b{font-size:16px}
 .rec-list{font-size:14px}
+
+/* ---------- 고위험 탭 ---------- */
+.risk-layout{display:grid;gap:12px;grid-template-columns:1fr}
+@media (orientation:landscape) and (min-width:900px){
+  .risk-layout{grid-template-columns:1fr 1fr;align-items:start}
+  .risk-layout .span2{grid-row:span 2}
+}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+.chip{flex:0 0 auto;min-height:50px;padding:6px 12px;border-radius:12px;border:2px solid var(--line);background:var(--panel2);color:var(--text);font-size:14px;font-weight:700;text-align:left;line-height:1.25}
+.chip small{display:block;font-size:12px;font-weight:600}
+.chip.on{border-color:var(--gold)}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px;margin-top:8px}
+.seg button{min-height:48px;border-radius:12px;border:0;background:var(--panel2);color:var(--muted);font-size:16px;font-weight:800;padding:0}
+.seg button.on{background:var(--gold);color:#1a1400}
+.seg.dir button.on[data-v="1"]{background:var(--up);color:#fff}
+.seg.dir button.on[data-v="-1"]{background:var(--down);color:#fff}
+.amt{display:grid;gap:6px;margin-top:8px}
+.amt input{min-height:50px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:20px;font-weight:700;text-align:center;width:100%}
+.pcts4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.pcts4 .btn{min-height:42px;font-size:14px;padding:0}
+canvas.mini{width:100%;height:150px;display:block;margin-top:8px}
+.big-btn{width:100%;min-height:56px;font-size:18px;margin-top:8px}
+.pos{display:grid;grid-template-columns:1fr auto auto;gap:4px 10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.pos .sub{font-size:12px;color:var(--muted)}
+.btn.sm{min-height:44px;font-size:14px;padding:0 14px}
+.hp{height:5px;border-radius:3px;background:var(--panel2);overflow:hidden;grid-column:1/-1}
+.hp i{display:block;height:100%;transition:width .5s}
+.coin-row{display:grid;grid-template-columns:1fr 96px;gap:8px;align-items:center;padding:8px 10px;border-radius:12px;border:2px solid transparent;background:var(--panel2);margin-bottom:6px}
+.coin-row.on{border-color:var(--gold)}
+.coin-row canvas{width:96px;height:34px;display:block}
+.coin-row.rug{opacity:.55}
+.note{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5}
+.empty{color:var(--muted);font-size:14px;padding:10px 0}
 </style>
 </head>
 <body>
@@ -152,6 +185,7 @@ th{color:var(--muted);font-weight:600;font-size:12px}
   <div id="ticker" class="muted">장 시작 전입니다.</div>
   <nav id="tabs">
     <button data-tab="stock" class="on">📈 주식</button>
+    <button data-tab="risk">🎢 고위험</button>
     <button data-tab="record">🏆 기록</button>
   </nav>
   <main>
@@ -215,6 +249,61 @@ th{color:var(--muted);font-weight:600;font-size:12px}
             <h3>뉴스 · 찌라시</h3>
             <div class="news-list" id="newsList"></div>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 고위험 탭 ===== -->
+    <section id="tab-risk" class="tab">
+      <div class="risk-layout">
+        <div class="card span2" id="levCard">
+          <h3>⚡ 레버리지 <span class="muted" style="font-size:12px;font-weight:500">손실이 증거금을 넘으면 강제 청산</span></h3>
+          <div class="chips" id="levStocks"></div>
+          <canvas id="levChart" class="mini"></canvas>
+          <div class="seg dir" id="levDir"><button data-v="1">롱 ▲ 상승에 베팅</button><button data-v="-1">숏 ▼ 하락에 베팅</button></div>
+          <div class="seg" id="levL"><button data-v="1">1x</button><button data-v="2">2x</button><button data-v="5">5x</button><button data-v="10">10x</button><button data-v="50">50x</button><button data-v="100">100x</button></div>
+          <div class="amt">
+            <input id="levAmt" type="text" inputmode="numeric" pattern="[0-9]*" value="0" aria-label="증거금">
+            <div class="pcts4" data-amt="levAmt"><button class="btn" data-p="0.1">10%</button><button class="btn" data-p="0.25">25%</button><button class="btn" data-p="0.5">50%</button><button class="btn" data-p="1">최대</button></div>
+          </div>
+          <div class="trade-info" style="margin-top:8px"><span>포지션 규모 <b id="levSize">-</b></span><span>청산가 <b id="levLiq">-</b></span><span>수수료 <b id="levFee">-</b></span></div>
+          <button class="btn gold big-btn" id="btnLevOpen">포지션 열기</button>
+          <div class="note">수수료: 포지션 규모의 0.05% (열 때·닫을 때). 100배면 증거금의 5%씩 나갑니다.</div>
+          <h3 style="margin-top:14px">내 포지션</h3>
+          <div id="levPos"></div><div class="empty" id="levEmpty">열린 포지션이 없습니다</div>
+        </div>
+
+        <div class="card" id="coinCard">
+          <h3>🐸 밈코인 <span class="muted" style="font-size:12px;font-weight:500">매 초 0.4% 확률로 먹튀</span></h3>
+          <div id="coinList"></div><div class="empty" id="coinEmpty">새 코인 상장 대기 중…</div>
+          <div id="coinTrade" class="hidden">
+            <canvas id="coinChart" class="mini"></canvas>
+            <div class="trade-info" style="margin-top:6px"><span>보유 <b id="coinHold">-</b></span><span>평가 <b id="coinVal">-</b></span><span>손익 <b id="coinPnl">-</b></span></div>
+            <div class="amt">
+              <input id="coinAmt" type="text" inputmode="numeric" pattern="[0-9]*" value="0" aria-label="매수 금액">
+              <div class="pcts4" data-amt="coinAmt"><button class="btn" data-p="0.1">10%</button><button class="btn" data-p="0.25">25%</button><button class="btn" data-p="0.5">50%</button><button class="btn" data-p="1">최대</button></div>
+            </div>
+            <div class="row" style="margin-top:8px">
+              <button class="btn buy" id="btnCoinBuy" style="min-height:54px">매수</button>
+              <button class="btn sell" id="btnCoinHalf" style="min-height:54px">절반 매도</button>
+              <button class="btn sell" id="btnCoinAll" style="min-height:54px">전량 매도</button>
+            </div>
+            <div class="note">거래 수수료 0.1%. 주식 거래 정지와 무관하게 24시간 거래됩니다.</div>
+          </div>
+        </div>
+
+        <div class="card" id="optCard">
+          <h3>🎯 옵션 베팅 <span class="muted" style="font-size:12px;font-weight:500">30초 뒤 방향 맞히면 1.9배</span></h3>
+          <div class="chips" id="optStocks"></div>
+          <div class="seg dir" id="optDir"><button data-v="1">▲ 오른다</button><button data-v="-1">▼ 내린다</button></div>
+          <div class="amt">
+            <input id="optAmt" type="text" inputmode="numeric" pattern="[0-9]*" value="0" aria-label="베팅 금액">
+            <div class="pcts4" data-amt="optAmt"><button class="btn" data-p="0.1">10%</button><button class="btn" data-p="0.25">25%</button><button class="btn" data-p="0.5">50%</button><button class="btn" data-p="1">최대</button></div>
+          </div>
+          <button class="btn gold big-btn" id="btnOpt">베팅하기</button>
+          <div class="note">가격이 그대로면 원금 반환. 하우스 엣지 약 5%.</div>
+          <div id="optList" style="margin-top:8px"></div>
+          <div id="optLog" class="note"></div>
         </div>
       </div>
     </section>
@@ -424,8 +513,20 @@ function newGame(){
     idxOpen: 1000, peak: START_CASH, dayStartNet: START_CASH,
     uid: 1, newNameIdx: 0,
     stats: { stock:0, lev:0, coin:0, option:0, casino:0, lottery:0, loanInterest:0, fees:0 },
-    sel: 'HG'
+    theo: 0,                  // 이론상 하우스 몫(= 건 돈 × 하우스 엣지)의 누적
+    sel: 'HG',
+    // 2단계
+    lev: [], coins: [], coinHold: {}, coinIdx: 0, opts: [], optLog: [],
+    ui: { levSid: 'NX', levDir: 1, levL: 10, coin: null, optSid: 'NX', optDir: 1 }
   };
+}
+// 예전 버전 저장 파일에 없는 필드를 기본값으로 채운다
+function migrate(d){
+  const base = newGame();
+  for (const k in base) if (d[k] === undefined) d[k] = base[k];
+  for (const k in base.stats) if (d.stats[k] === undefined) d.stats[k] = 0;
+  for (const k in base.ui) if (d.ui[k] === undefined) d.ui[k] = base.ui[k];
+  return d;
 }
 
 const getStock = id => S.stocks.find(s => s.id === id);
@@ -438,7 +539,7 @@ function stockValue(){
   for (const id in S.hold){ const s = getStock(id); if (s) v += priceOf(s) * S.hold[id].qty; }
   return v;
 }
-function netWorth(){ return S.cash + stockValue(); }
+function netWorth(){ return S.cash + stockValue() + levTotal() + coinValue() + optPending(); }
 
 /* 한탕지수: 각 종목의 (현재가 / 상장가) 평균 × 1000.
  * 새 종목은 상장가 기준 1000에서 출발한다. */
@@ -598,6 +699,8 @@ function endOfDay(){
     if (s.type !== 'bomb' || s.prevClose >= s.base * DELIST_RATIO) continue;
     const h = S.hold[s.id];
     if (h){ S.stats.stock -= h.avg * h.qty; delete S.hold[s.id]; }
+    // 이 종목의 레버리지 포지션은 마지막 거래가로 강제 정산
+    for (const p of S.lev.filter(p => p.sid === s.id)) closeLev(p.uid, true);
     addNews('event', `☠️ ${s.name} 상장폐지 — 보유 주식은 휴지조각`, true, 'down');
     S.rumors = S.rumors.filter(r => r.id !== s.id);
     const name = NEW_BOMB_NAMES[S.newNameIdx++ % NEW_BOMB_NAMES.length];
@@ -645,7 +748,10 @@ function tick(){
     updateRumors();
     pushHist();
     checkCB();
+    checkLiquidations();
   }
+  stepCoins();          // 코인은 서킷브레이커와 무관하게 움직인다
+  settleOpts();
   if (S.tick >= TPD) endOfDay();
   const nw = netWorth();
   if (nw > S.peak) S.peak = nw;
@@ -716,8 +822,8 @@ function toast(msg, c){
   el.className = 'toast ' + (c || '');
   el.textContent = msg;
   box.appendChild(el);
-  while (box.children.length > 4) box.removeChild(box.firstChild);
-  setTimeout(() => el.remove(), 3500);
+  while (box.children.length > 3) box.removeChild(box.firstChild);
+  setTimeout(() => el.remove(), 3000);
 }
 
 /* =====================================================================
@@ -796,6 +902,285 @@ function drawLine(cv, data, opt){
     ctx.fillStyle = '#fff'; ctx.font = 'bold 11px -apple-system,sans-serif';
     ctx.fillText(fmt(data[n - 1]), w - padR + 5, y + 4);
   }
+}
+
+/* =====================================================================
+ *  2단계: 고위험 상품
+ * ===================================================================== */
+
+/* ---------- 레버리지 ----------
+ *  증거금 m, 배율 L, 진입가 E, 현재가 P, 방향 d(롱 +1 / 숏 -1)
+ *    포지션 규모 = m × L
+ *    평가금액(equity) = m + d × (m×L) × (P/E − 1)
+ *  equity ≤ 0, 즉 손실이 증거금을 넘는 순간 강제 청산(증거금 전액 손실).
+ *    청산가 = E × (1 − d/L)
+ *    예) 100배 롱이면 진입가에서 1%만 빠져도 청산.
+ *  가격이 갭으로 청산가를 뛰어넘어도 손실은 증거금까지만(거래소가 떠안는다고 가정). */
+const LEV_FEE = 0.0005;
+const LEVS = [1, 2, 5, 10, 50, 100];
+function levPrice(p){ const s = getStock(p.sid); return s ? priceOf(s) : p.last; }
+function levEquity(p){ return Math.max(0, p.margin + p.dir * p.margin * p.L * (levPrice(p) / p.entry - 1)); }
+const levLiqPrice = (entry, dir, L) => entry * (1 - dir / L);
+function levTotal(){ return S.lev.reduce((a, p) => a + levEquity(p), 0); }
+function openLev(sid, dir, L, margin){
+  const s = getStock(sid);
+  if (!s) return;
+  if (halted()) return toast('⛔ 거래 정지 중에는 포지션을 열 수 없습니다', 'warn');
+  margin = Math.floor(margin);
+  if (margin < 1000) return toast('증거금은 1,000원 이상이어야 합니다', 'warn');
+  const fee = Math.ceil(margin * L * LEV_FEE);
+  if (margin + fee > S.cash) return toast('현금이 부족합니다 (증거금+수수료)', 'warn');
+  S.cash -= margin + fee; S.stats.fees += fee;
+  const e = priceOf(s);
+  S.lev.push({ uid: S.uid++, sid, dir, L, margin, entry: e, last: e });
+  toast(`⚡ ${s.name} ${dir > 0 ? '롱' : '숏'} ${L}x 진입 · 증거금 ${won(margin)} · 청산가 ${fmt(levLiqPrice(e, dir, L))}`, dir > 0 ? 'up' : 'down');
+  afterAction();
+}
+function closeLev(uid, forced){
+  const i = S.lev.findIndex(p => p.uid === uid); if (i < 0) return;
+  const p = S.lev[i];
+  if (!forced && halted() && getStock(p.sid)) return toast('⛔ 거래 정지 중입니다', 'warn');
+  const eq = levEquity(p);
+  const fee = Math.min(eq, Math.ceil(p.margin * p.L * (levPrice(p) / p.entry) * LEV_FEE));
+  S.cash += eq - fee; S.stats.fees += fee;
+  S.stats.lev += eq - p.margin;
+  S.lev.splice(i, 1);
+  const nm = (getStock(p.sid) || { name: '종목' }).name;
+  toast(`포지션 종료 · ${nm} ${p.L}x (${sgnWon(eq - p.margin)})`, cls(eq - p.margin));
+  if (!forced) afterAction();
+}
+function checkLiquidations(){
+  for (let i = S.lev.length - 1; i >= 0; i--){
+    const p = S.lev[i];
+    p.last = levPrice(p);
+    if (levEquity(p) > 0) continue;
+    S.stats.lev -= p.margin;
+    S.lev.splice(i, 1);
+    const nm = (getStock(p.sid) || { name: '종목' }).name;
+    addNews('event', `💥 강제청산 — ${nm} ${p.dir > 0 ? '롱' : '숏'} ${p.L}x, 증거금 ${won(p.margin)} 전액 손실`, true, 'down');
+  }
+}
+
+/* ---------- 밈코인 ----------
+ *  가격: 주식과 같은 기하 랜덤워크지만 훨씬 거칠다.
+ *    ln P(t+1) = ln P(t) − 0.3% + σ·Z (+ 상장 직후 15틱 동안 '펌핑' +2.5%/틱)
+ *    σ = 4.5~8%/틱 (주식 폭탄형의 약 3~5배), 가격제한폭 없음
+ *    매 틱 2% 확률로 ±20~60% 점프(고래 매수/매도)
+ *  먹튀(러그풀): 매 틱 독립적으로 p = 0.4% 확률로 가격이 0원이 된다.
+ *    1분(60틱) 살아남을 확률 = (1 − 0.004)^60 ≈ 78.6%
+ *    평균 수명 = 1/p = 250틱 ≈ 4게임일
+ *    → 오래 들고 있을수록 먹튀 맞을 확률이 커진다(5일이면 약 70%). */
+const COIN_FEE = 0.001, RUG_P = 0.004, COIN_HIST = 180;
+const COIN_NAMES = [['도지왕','DGK'],['개미코인','ANT'],['떡상토큰','TTS'],['한강뷰','HGV'],['존버코인','JBR'],
+  ['김치펌프','KPM'],['달나라','MOON'],['불장코인','FIRE'],['라면토큰','RMN'],['치킨코인','CHKN'],['고양이왕','CAT'],['로또토큰','LTTO']];
+function coinFmt(p){ return p >= 100 ? fmt(p) : p >= 1 ? p.toFixed(2) : p.toFixed(4); }
+function listCoin(){
+  const [nm, sym] = COIN_NAMES[S.coinIdx % COIN_NAMES.length];
+  const gen = Math.floor(S.coinIdx / COIN_NAMES.length);
+  S.coinIdx++;
+  const p = uni(3, 80);
+  const c = { id: 'C' + S.uid++, name: nm + (gen ? ' ' + (gen + 1) : ''), sym, x: p, base: p, hist: [p],
+    sigma: uni(0.045, 0.08), hype: 15, rug: false, deadLeft: 0 };
+  S.coins.push(c);
+  if (!S.ui.coin) S.ui.coin = c.id;
+  return c;
+}
+const getCoin = id => S.coins.find(c => c.id === id);
+function coinValue(){ let v = 0; for (const id in S.coinHold){ const c = getCoin(id); if (c) v += c.x * S.coinHold[id].qty; } return v; }
+function rugCoin(c){
+  c.rug = true; c.x = 0; c.deadLeft = 20;
+  const h = S.coinHold[c.id];
+  if (h){ S.stats.coin -= h.cost; delete S.coinHold[c.id]; }
+  addNews('event', `🏃 ${c.name}(${c.sym}) 개발자 먹튀! 가격 0원` + (h ? ` — 보유분 ${won(h.cost)} 증발` : ''), true, 'down');
+}
+function stepCoins(){
+  for (let i = S.coins.length - 1; i >= 0; i--){
+    const c = S.coins[i];
+    if (c.rug){
+      c.hist.push(0); if (c.hist.length > COIN_HIST) c.hist.shift();
+      if (--c.deadLeft <= 0){ S.coins.splice(i, 1); if (S.ui.coin === c.id) S.ui.coin = null; }
+      continue;
+    }
+    if (rand() < RUG_P){ rugCoin(c); continue; }
+    let d = -0.003 + c.sigma * randn();
+    if (c.hype > 0){ d += 0.025; c.hype--; }
+    if (rand() < 0.02) d += (rand() < 0.5 ? -1 : 1) * uni(0.2, 0.6);
+    c.x = Math.max(1e-4, c.x * Math.exp(d));
+    c.hist.push(c.x); if (c.hist.length > COIN_HIST) c.hist.shift();
+  }
+  if (S.coins.filter(c => !c.rug).length < 2 && rand() < 1 / 90){
+    const c = listCoin();
+    addNews('event', `🐸 신규 밈코인 상장: ${c.name}(${c.sym}) — 펌핑 시작?!`, true, 'warn');
+  }
+  if (!S.ui.coin || !getCoin(S.ui.coin)){ const a = S.coins.find(c => !c.rug); S.ui.coin = a ? a.id : null; }
+}
+function buyCoin(id, amt){
+  const c = getCoin(id); amt = Math.floor(amt);
+  if (!c || c.rug) return toast('거래할 수 없는 코인입니다', 'warn');
+  if (amt < 1000) return toast('1,000원 이상 매수하세요', 'warn');
+  const fee = Math.ceil(amt * COIN_FEE);
+  if (amt + fee > S.cash) return toast('현금이 부족합니다', 'warn');
+  S.cash -= amt + fee; S.stats.fees += fee;
+  const h = S.coinHold[id] || (S.coinHold[id] = { qty: 0, cost: 0 });
+  h.qty += amt / c.x; h.cost += amt;
+  toast(`🐸 ${c.name} ${won(amt)} 매수 @ ${coinFmt(c.x)}`, 'up');
+  afterAction();
+}
+function sellCoin(id, frac){
+  const c = getCoin(id), h = S.coinHold[id];
+  if (!c || !h) return toast('보유한 코인이 없습니다', 'warn');
+  const q = h.qty * frac, gross = q * c.x, fee = Math.ceil(gross * COIN_FEE);
+  const costPart = h.cost * frac;
+  S.cash += gross - fee; S.stats.fees += fee;
+  S.stats.coin += gross - costPart;
+  h.qty -= q; h.cost -= costPart;
+  if (frac >= 1 || h.qty * c.x < 1) delete S.coinHold[id];
+  toast(`🐸 ${c.name} 매도 ${won(gross)} (${sgnWon(gross - costPart)})`, cls(gross - costPart) || 'down');
+  afterAction();
+}
+
+/* ---------- 옵션 베팅 (30초 뒤 상승/하락) ----------
+ *  적중 시 원금의 1.9배 지급, 가격이 정확히 같으면 원금 반환, 틀리면 0.
+ *  추세가 없는 랜덤워크라면 P(상승) = P(하락) = (1 − P(보합)) / 2 이므로
+ *    기대 회수율 = 1.9 × (1−P보합)/2 + 1 × P보합 = 0.95 + 0.05 × P보합
+ *    → 하우스 엣지 = 5% × (1 − P보합). 보합이 드물면 거의 5%.
+ *  단, 찌라시·상한가 행진처럼 '정보'가 있는 순간엔 확률이 한쪽으로 기운다.
+ *  (그걸 읽어내는 게 이 게임의 실력 요소) */
+const OPT_TICKS = 30, OPT_PAY = 1.9, OPT_EDGE = 0.05;
+function placeOpt(sid, dir, stake){
+  const s = getStock(sid); stake = Math.floor(stake);
+  if (!s) return;
+  if (halted()) return toast('⛔ 거래 정지 중에는 베팅할 수 없습니다', 'warn');
+  if (stake < 1000) return toast('1,000원 이상 걸어야 합니다', 'warn');
+  if (stake > S.cash) return toast('현금이 부족합니다', 'warn');
+  S.cash -= stake;
+  S.theo += stake * OPT_EDGE;
+  S.opts.push({ uid: S.uid++, sid, name: s.name, dir, stake, entry: priceOf(s), at: S.t + OPT_TICKS });
+  toast(`🎯 ${s.name} 30초 뒤 ${dir > 0 ? '상승' : '하락'}에 ${won(stake)}`, dir > 0 ? 'up' : 'down');
+  afterAction();
+}
+function settleOpts(){
+  for (let i = S.opts.length - 1; i >= 0; i--){
+    const o = S.opts[i];
+    if (S.t < o.at) continue;
+    const s = getStock(o.sid), px = s ? priceOf(s) : o.entry;
+    const res = px === o.entry ? 'push' : ((px > o.entry) === (o.dir > 0) ? 'win' : 'lose');
+    const pay = res === 'win' ? Math.floor(o.stake * OPT_PAY) : res === 'push' ? o.stake : 0;
+    S.cash += pay;
+    S.stats.option += pay - o.stake;
+    S.opts.splice(i, 1);
+    const msg = res === 'win' ? `🎯 적중! ${o.name} ${fmt(o.entry)}→${fmt(px)} · ${won(pay)} 수령`
+      : res === 'push' ? `🎯 보합 — ${o.name} 원금 ${won(o.stake)} 반환`
+      : `🎯 실패 — ${o.name} ${fmt(o.entry)}→${fmt(px)} · ${won(o.stake)} 잃음`;
+    S.optLog.unshift(msg); if (S.optLog.length > 5) S.optLog.pop();
+    toast(msg, res === 'win' ? 'up' : res === 'lose' ? 'down' : '');
+  }
+}
+const optPending = () => S.opts.reduce((a, o) => a + o.stake, 0);
+
+/* ---------- 고위험 탭 렌더링 ---------- */
+// 매초 DOM을 통째로 갈아엎으면 터치 도중 버튼이 사라져 탭이 씹히므로, key 기준으로 제자리 갱신한다
+function syncList(box, items, key, make, update){
+  const keys = items.map(key);
+  for (const el of Array.from(box.children)) if (!keys.includes(el.dataset.k)) el.remove();
+  items.forEach((it, i) => {
+    let el = box.querySelector(`[data-k="${key(it)}"]`);
+    if (!el){ el = document.createElement('div'); el.dataset.k = key(it); el.innerHTML = make(it); }
+    if (box.children[i] !== el) box.insertBefore(el, box.children[i] || null);
+    update(el, it);
+  });
+}
+function renderChips(box, selId){
+  syncList(box, S.stocks, s => s.id,
+    s => `<button class="chip" data-sid="${s.id}">${s.name}<small></small></button>`,
+    (el, s) => {
+      const p = priceOf(s), ch = p / s.prevClose - 1, b = el.firstChild;
+      b.classList.toggle('on', s.id === selId);
+      const sm = b.querySelector('small'); sm.textContent = `${fmt(p)} ${pct(ch)}`; sm.className = cls(ch);
+    });
+}
+function segSet(box, v){ for (const b of box.children) b.classList.toggle('on', +b.dataset.v === v); }
+const amtVal = id => Math.max(0, parseInt($(id).value.replace(/[^0-9]/g, ''), 10) || 0);
+
+function renderRisk(){
+  const C = colors(), u = S.ui;
+  // 레버리지
+  if (!getStock(u.levSid)) u.levSid = S.stocks[0].id;
+  renderChips($('levStocks'), u.levSid);
+  segSet($('levDir'), u.levDir); segSet($('levL'), u.levL);
+  const ls = getStock(u.levSid), lp = priceOf(ls), m = amtVal('levAmt');
+  $('levSize').textContent = won(m * u.levL);
+  $('levLiq').textContent = u.levL === 1 && u.levDir === 1 ? '없음(0원)' : fmt(levLiqPrice(lp, u.levDir, u.levL));
+  $('levFee').textContent = won(Math.ceil(m * u.levL * LEV_FEE));
+  const mine = S.lev.filter(p => p.sid === ls.id);
+  drawLine($('levChart'), ls.hist.slice(-120), { axis: true, base: ls.prevClose, t0: S.t, minSpan: 119,
+    refs: mine.slice(0, 2).map(p => ({ v: levLiqPrice(p.entry, p.dir, p.L), c: C.gold, label: `청산가 ${p.L}x` })) });
+  $('btnLevOpen').disabled = halted();
+  $('levEmpty').classList.toggle('hidden', S.lev.length > 0);
+  syncList($('levPos'), S.lev, p => 'L' + p.uid,
+    p => `<div class="pos"><div><b class="nm"></b> <span class="badge"></span><div class="sub"></div></div>
+      <div style="text-align:right"><b class="eq"></b><div class="sub pr"></div></div>
+      <button class="btn sm ghost" data-close="${p.uid}">종료</button><div class="hp"><i></i></div></div>`,
+    (el, p) => {
+      const s = getStock(p.sid), eq = levEquity(p), pnl = eq - p.margin, r = pnl / p.margin;
+      el.querySelector('.nm').textContent = s ? s.name : '?';
+      const bd = el.querySelector('.badge'); bd.textContent = `${p.dir > 0 ? '롱' : '숏'} ${p.L}x`;
+      bd.style.background = p.dir > 0 ? 'var(--up-bg)' : 'var(--down-bg)'; bd.style.color = p.dir > 0 ? 'var(--up)' : 'var(--down)';
+      el.querySelector('.sub').textContent = `증거금 ${fmt(p.margin)} · 진입 ${fmt(p.entry)} · 현재 ${fmt(levPrice(p))} · 청산가 ${fmt(levLiqPrice(p.entry, p.dir, p.L))}`;
+      const e = el.querySelector('.eq'); e.textContent = won(eq); e.className = 'eq ' + cls(pnl);
+      const pr = el.querySelector('.pr'); pr.textContent = `${sgnWon(pnl)} (${pct(r)})`; pr.className = 'sub pr ' + cls(pnl);
+      const hp = Math.min(1, eq / p.margin / 2);
+      const bar = el.querySelector('.hp i'); bar.style.width = (hp * 100) + '%';
+      bar.style.background = hp < 0.2 ? 'var(--down)' : hp < 0.5 ? 'var(--warn)' : 'var(--ok)';
+    });
+
+  // 밈코인
+  $('coinEmpty').classList.toggle('hidden', S.coins.length > 0);
+  syncList($('coinList'), S.coins, c => c.id,
+    c => `<div class="coin-row" data-coin="${c.id}"><div><b class="nm"></b><div class="sub" style="font-size:13px"></div></div><canvas></canvas></div>`,
+    (el, c) => {
+      const row = el.firstChild;
+      row.classList.toggle('on', c.id === S.ui.coin); row.classList.toggle('rug', c.rug);
+      const h = S.coinHold[c.id];
+      row.querySelector('.nm').textContent = `${c.name} (${c.sym})` + (h ? ' 💼' : '');
+      const r = c.x / c.base - 1, sub = row.querySelector('.sub');
+      sub.innerHTML = c.rug ? '<span class="down">☠️ 먹튀 — 0원</span>'
+        : `${coinFmt(c.x)}원 <span class="${cls(r)}">상장가 대비 ${pct(r)}</span>`;
+      drawLine(row.querySelector('canvas'), c.hist.slice(-60), { base: c.hist[Math.max(0, c.hist.length - 60)] });
+    });
+  const c = getCoin(S.ui.coin);
+  $('coinTrade').classList.toggle('hidden', !c);
+  if (c){
+    const h = S.coinHold[c.id];
+    drawLine($('coinChart'), c.hist, { axis: true, base: c.base, minSpan: 119,
+      refs: h ? [{ v: h.cost / h.qty, c: C.gold, label: '평균단가' }] : [] });
+    // 코인은 가격이 작아 축 라벨이 반올림되므로 차트 위 가격 표시는 생략, 정보줄로 대신
+    $('coinHold').textContent = h ? `${h.qty.toFixed(2)}개` : '-';
+    $('coinVal').textContent = h ? won(h.qty * c.x) : '-';
+    const pnl = h ? h.qty * c.x - h.cost : 0;
+    $('coinPnl').textContent = h ? sgnWon(pnl) : '-'; $('coinPnl').className = cls(pnl);
+    $('btnCoinBuy').disabled = c.rug; $('btnCoinHalf').disabled = $('btnCoinAll').disabled = !h;
+  }
+
+  // 옵션
+  if (!getStock(u.optSid)) u.optSid = S.stocks[0].id;
+  renderChips($('optStocks'), u.optSid);
+  segSet($('optDir'), u.optDir);
+  $('btnOpt').disabled = halted();
+  $('btnOpt').textContent = `베팅하기 · 적중 시 ${won(Math.floor(amtVal('optAmt') * OPT_PAY))}`;
+  syncList($('optList'), S.opts, o => 'O' + o.uid,
+    o => `<div class="pos"><div><b class="nm"></b><div class="sub"></div></div><b class="st" style="grid-column:2/4"></b><div class="hp"><i style="background:var(--gold)"></i></div></div>`,
+    (el, o) => {
+      const s = getStock(o.sid), px = s ? priceOf(s) : o.entry;
+      const winning = px === o.entry ? 0 : ((px > o.entry) === (o.dir > 0) ? 1 : -1);
+      el.querySelector('.nm').textContent = `${o.name} ${o.dir > 0 ? '▲상승' : '▼하락'} · ${won(o.stake)}`;
+      el.querySelector('.sub').textContent = `진입 ${fmt(o.entry)} → 현재 ${fmt(px)} · ${Math.max(0, o.at - S.t)}초 남음`;
+      const st = el.querySelector('.st');
+      st.textContent = winning > 0 ? '적중 중' : winning < 0 ? '빗나감' : '보합';
+      st.className = 'st ' + (winning > 0 ? 'up' : winning < 0 ? 'down' : 'muted');
+      el.querySelector('.hp i').style.width = ((OPT_TICKS - (o.at - S.t)) / OPT_TICKS * 100) + '%';
+    });
+  $('optLog').innerHTML = S.optLog.map(x => '· ' + x).join('<br>');
 }
 
 /* =====================================================================
@@ -909,10 +1294,13 @@ function statRows(final){
   // 주식 손익 = 실현손익 + (정산 시점의) 미실현 평가손익
   let unreal = 0;
   for (const id in S.hold){ const s = getStock(id); if (s) unreal += (priceOf(s) - S.hold[id].avg) * S.hold[id].qty; }
+  const levUnreal = S.lev.reduce((a, p) => a + levEquity(p) - p.margin, 0);
+  let coinUnreal = 0;
+  for (const id in S.coinHold){ const c = getCoin(id); if (c) coinUnreal += c.x * S.coinHold[id].qty - S.coinHold[id].cost; }
   return [
     ['주식 손익', st.stock + unreal],
-    ['레버리지 손익', st.lev],
-    ['코인 손익', st.coin],
+    ['레버리지 손익', st.lev + levUnreal],
+    ['코인 손익', st.coin + coinUnreal],
     ['옵션 베팅 손익', st.option],
     ['카지노 손익', st.casino],
     ['복권 손익', st.lottery],
@@ -946,6 +1334,7 @@ function render(){
   if (!S) return;
   renderHeader();
   if (curTab === 'stock'){ renderStockList(); renderDetail(); renderHoldings(); renderNews(); }
+  else if (curTab === 'risk') renderRisk();
   else if (curTab === 'record') renderRecord();
 }
 
@@ -955,7 +1344,7 @@ function render(){
 function save(){ if (S && !S.over) lsSet(SAVE_KEY, S); }
 function load(){
   const d = lsGet(SAVE_KEY);
-  if (d && d.v === 1 && !d.over && Array.isArray(d.stocks)) return d;
+  if (d && d.v === 1 && !d.over && Array.isArray(d.stocks)) return migrate(d);
   return null;
 }
 let timer = null;
@@ -992,6 +1381,7 @@ function gameOver(reason){
 }
 function startNew(){
   S = newGame(); S.started = true;
+  listCoin();
   newsDirty = true; listKey = '';
   addNews('info', '🔔 D1 장이 열렸습니다. 행운을 빕니다!');
   $('overOv').classList.add('hidden'); $('startOv').classList.add('hidden');
@@ -1032,6 +1422,33 @@ $('btnRetire').addEventListener('click', () => {
   if (S && S.started && !S.over && confirm('지금 자산으로 게임을 끝내고 정산할까요?')) gameOver('retire');
 });
 $('btnRestart').addEventListener('click', startNew);
+
+// --- 고위험 탭 ---
+$('levStocks').addEventListener('click', e => { const b = e.target.closest('[data-sid]'); if (b){ S.ui.levSid = b.dataset.sid; render(); } });
+$('optStocks').addEventListener('click', e => { const b = e.target.closest('[data-sid]'); if (b){ S.ui.optSid = b.dataset.sid; render(); } });
+$('levDir').addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (b){ S.ui.levDir = +b.dataset.v; render(); } });
+$('levL').addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (b){ S.ui.levL = +b.dataset.v; render(); } });
+$('optDir').addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (b){ S.ui.optDir = +b.dataset.v; render(); } });
+// 금액 % 버튼: 입력칸마다 '최대 금액' 계산식이 다르다(수수료 포함 여부)
+const AMT_MAX = {
+  levAmt: () => S.cash / (1 + S.ui.levL * LEV_FEE),
+  coinAmt: () => S.cash / (1 + COIN_FEE),
+  optAmt: () => S.cash
+};
+document.querySelectorAll('[data-amt]').forEach(g => g.addEventListener('click', e => {
+  const b = e.target.closest('[data-p]'); if (!b) return;
+  const id = g.dataset.amt;
+  $(id).value = String(Math.floor(AMT_MAX[id]() * +b.dataset.p));
+  render();
+}));
+['levAmt', 'coinAmt', 'optAmt'].forEach(id => $(id).addEventListener('input', () => render()));
+$('btnLevOpen').addEventListener('click', () => openLev(S.ui.levSid, S.ui.levDir, S.ui.levL, amtVal('levAmt')));
+$('levPos').addEventListener('click', e => { const b = e.target.closest('[data-close]'); if (b) closeLev(+b.dataset.close); });
+$('coinList').addEventListener('click', e => { const r = e.target.closest('[data-coin]'); if (r){ S.ui.coin = r.dataset.coin; render(); } });
+$('btnCoinBuy').addEventListener('click', () => buyCoin(S.ui.coin, amtVal('coinAmt')));
+$('btnCoinHalf').addEventListener('click', () => sellCoin(S.ui.coin, 0.5));
+$('btnCoinAll').addEventListener('click', () => sellCoin(S.ui.coin, 1));
+$('btnOpt').addEventListener('click', () => placeOpt(S.ui.optSid, S.ui.optDir, amtVal('optAmt')));
 $('btnNew').addEventListener('click', () => { if (confirm('저장된 게임을 버리고 새로 시작할까요?')) startNew(); });
 $('btnStart').addEventListener('click', () => {
   if (S && S.started){ $('startOv').classList.add('hidden'); render(); setRunning(true); }
