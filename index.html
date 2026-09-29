@@ -170,6 +170,52 @@ canvas.mini{width:100%;height:150px;display:block;margin-top:8px}
 .coin-row.rug{opacity:.55}
 .note{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5}
 .empty{color:var(--muted);font-size:14px;padding:10px 0}
+
+/* ---------- 카지노 탭 ---------- */
+.subnav{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.subnav button{min-height:52px;border-radius:12px;border:0;background:var(--panel);color:var(--muted);font-size:16px;font-weight:800}
+.subnav button.on{background:var(--panel2);color:var(--gold);box-shadow:inset 0 -3px 0 var(--gold)}
+.betbar{display:grid;grid-template-columns:1.3fr repeat(4,1fr);gap:6px;align-items:end}
+.betbar input{min-height:52px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--gold);font-size:22px;font-weight:800;text-align:center;width:100%}
+.betbar .btn{min-height:52px;font-size:14px;padding:0}
+.betbar2{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px}
+.betbar2 .btn{min-height:44px;font-size:14px}
+@media (max-width:600px){.betbar{grid-template-columns:1fr 1fr}.betbar input{grid-column:1/-1}}
+.cas{margin-top:12px}
+.cas-grid{display:grid;grid-template-columns:1fr;gap:14px}
+@media (orientation:landscape) and (min-width:900px){.cas-grid{grid-template-columns:minmax(280px,40%) 1fr;align-items:start}}
+#wheel{width:100%;max-width:340px;aspect-ratio:1;display:block;margin:0 auto}
+.rl-res{text-align:center;font-size:15px;margin-top:6px;min-height:22px}
+.rl-opts{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.rl-opts button,.numgrid button{border:2px solid transparent;border-radius:10px;font-weight:800;color:#fff}
+.rl-opts button{min-height:48px;font-size:15px;background:var(--panel2)}
+.numgrid{display:grid;grid-template-columns:repeat(13,1fr);gap:4px;margin-top:8px}
+.numgrid button{min-height:42px;font-size:14px;padding:0}
+.numgrid .z{grid-row:1/4;background:#12803c}
+.nR{background:#b3202c}.nB{background:#20242c}
+.rl-opts button.on,.numgrid button.on{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold) inset}
+.reels{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:460px;margin:0 auto}
+.reel{aspect-ratio:1;border-radius:18px;background:linear-gradient(#0c1018,#1d2533 50%,#0c1018);border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:clamp(44px,9vw,84px)}
+.reel.win{border-color:var(--gold);box-shadow:0 0 18px rgba(245,197,66,.5)}
+.paytable{display:grid;grid-template-columns:1fr 1fr;gap:2px 16px;font-size:14px;margin-top:10px}
+.paytable div{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed var(--line)}
+.bj-area{min-height:120px}
+.bj-cards{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+.pcard{width:62px;height:88px;border-radius:9px;background:#f6f3ea;color:#161616;display:flex;flex-direction:column;justify-content:space-between;padding:5px 7px;font-weight:800;font-size:20px;box-shadow:0 3px 8px rgba(0,0,0,.4)}
+.pcard .s{align-self:flex-end;font-size:26px}
+.pcard.red{color:#c1121f}
+.pcard.back{background:repeating-linear-gradient(45deg,#8a1722,#8a1722 6px,#6a0f18 6px,#6a0f18 12px);border:3px solid #f6f3ea}
+.bj-hand{padding:8px;border-radius:12px;border:2px solid transparent}
+.bj-hand.act{border-color:var(--gold)}
+.bj-actions{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:10px}
+.bj-actions .btn{min-height:58px}
+.bj-msg{font-size:18px;font-weight:800;text-align:center;min-height:28px;margin-top:8px}
+.lotto-grid{display:grid;grid-template-columns:repeat(9,1fr);gap:5px;margin-top:8px}
+.lotto-grid button{min-height:44px;border-radius:50%;aspect-ratio:1;border:0;background:var(--panel2);color:var(--text);font-weight:800;font-size:15px;padding:0}
+.lotto-grid button.on{background:var(--gold);color:#1a1400}
+.balls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.ball{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;color:#111;font-size:16px}
+.ball.hit{outline:3px solid #fff}
 </style>
 </head>
 <body>
@@ -186,6 +232,7 @@ canvas.mini{width:100%;height:150px;display:block;margin-top:8px}
   <nav id="tabs">
     <button data-tab="stock" class="on">📈 주식</button>
     <button data-tab="risk">🎢 고위험</button>
+    <button data-tab="casino">🎰 카지노</button>
     <button data-tab="record">🏆 기록</button>
   </nav>
   <main>
@@ -305,6 +352,68 @@ canvas.mini{width:100%;height:150px;display:block;margin-top:8px}
           <div id="optList" style="margin-top:8px"></div>
           <div id="optLog" class="note"></div>
         </div>
+      </div>
+    </section>
+
+    <!-- ===== 카지노 탭 ===== -->
+    <section id="tab-casino" class="tab">
+      <div class="subnav" id="casNav"><button data-v="roulette">🎡 룰렛</button><button data-v="slot">🎰 슬롯</button><button data-v="bj">🃏 블랙잭</button><button data-v="lotto">🎟️ 복권</button></div>
+      <div class="card" id="casBetBox" style="margin-top:10px">
+        <div class="betbar">
+          <input id="casBet" type="text" inputmode="numeric" pattern="[0-9]*" value="10000" aria-label="베팅 금액">
+          <button class="btn" data-add="10000">+1만</button><button class="btn" data-add="50000">+5만</button>
+          <button class="btn" data-add="100000">+10만</button><button class="btn" data-add="500000">+50만</button>
+        </div>
+        <div class="betbar2"><button class="btn" data-bet="half">½</button><button class="btn" data-bet="all">올인 🔥</button><button class="btn ghost" data-bet="clear">초기화</button></div>
+      </div>
+
+      <div class="card cas" id="cas-roulette">
+        <div class="cas-grid">
+          <div><canvas id="wheel"></canvas><div class="rl-res" id="rlRes">유럽식 룰렛 · 0~36</div></div>
+          <div>
+            <div class="rl-opts" id="rlOpts">
+              <button data-b="red" class="nR">빨강 ×2</button><button data-b="black" class="nB">검정 ×2</button><button data-b="odd">홀 ×2</button>
+              <button data-b="even">짝 ×2</button><button data-b="low">1~18 ×2</button><button data-b="high">19~36 ×2</button>
+            </div>
+            <div class="numgrid" id="numGrid"></div>
+            <div class="muted" style="font-size:13px;margin-top:6px">숫자 하나에 걸면 적중 시 ×36 (35:1). 0이 나오면 숫자 0 베팅 외엔 모두 패배.</div>
+            <button class="btn gold big-btn" id="btnSpin">스핀</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card cas hidden" id="cas-slot">
+        <div class="reels"><div class="reel" id="reel0">🍒</div><div class="reel" id="reel1">🍋</div><div class="reel" id="reel2">💎</div></div>
+        <div class="bj-msg" id="slotMsg">돌려라!</div>
+        <button class="btn gold big-btn" id="btnSlot" style="max-width:460px;display:block;margin:8px auto 0">레버 당기기</button>
+        <div class="paytable" id="payTable"></div>
+        <div class="note">이론 환수율(RTP) 95.05% · 하우스 엣지 4.95%</div>
+      </div>
+
+      <div class="card cas hidden" id="cas-bj">
+        <div class="bj-area"><div class="muted">딜러 <b id="bjDealerT"></b></div><div class="bj-cards" id="bjDealer"></div></div>
+        <div class="bj-area"><div class="muted">플레이어</div><div id="bjHands"></div></div>
+        <div class="bj-msg" id="bjMsg">베팅 금액을 정하고 딜을 누르세요</div>
+        <div class="bj-actions">
+          <button class="btn gold" id="bjDeal">딜</button><button class="btn buy" id="bjHit">히트</button>
+          <button class="btn sell" id="bjStand">스탠드</button><button class="btn" id="bjDouble">더블</button><button class="btn" id="bjSplit">스플릿</button>
+        </div>
+        <div class="note">6덱 · 딜러 소프트17 스탠드 · 블랙잭 3:2 · 스플릿 1회(에이스 스플릿은 한 장만) · 스플릿 후 더블 가능 · 기본전략 기준 하우스 엣지 약 0.45%</div>
+      </div>
+
+      <div class="card cas hidden" id="cas-lotto">
+        <h3>🎟️ 한탕 로또 6/45 <span class="muted" style="font-size:13px;font-weight:500">1장 5,000원 · 게임일마다 1장 · 장 마감 때 추첨</span></h3>
+        <div id="lottoMine"></div>
+        <div id="lottoBuy">
+          <div class="muted" style="font-size:14px">번호 6개를 고르세요 (<b id="lottoCnt">0</b>/6)</div>
+          <div class="lotto-grid" id="lottoGrid"></div>
+          <div class="row" style="margin-top:8px"><button class="btn" id="lottoAuto">자동 선택</button><button class="btn ghost" id="lottoClear">지우기</button><button class="btn gold" id="lottoBtn">구매 5,000원</button></div>
+        </div>
+        <h3 style="margin-top:14px">지난 추첨</h3>
+        <div id="lottoLast" class="muted">아직 추첨 결과가 없습니다</div>
+        <h3 style="margin-top:14px">당첨금과 확률</h3>
+        <table id="lottoTable"></table>
+        <div class="note">1~3등은 실제 로또처럼 판매액의 50%를 돌려주는 구조를 기준으로 고정 금액을 정했습니다(기대 회수율 약 50%).</div>
       </div>
     </section>
 
@@ -517,7 +626,11 @@ function newGame(){
     sel: 'HG',
     // 2단계
     lev: [], coins: [], coinHold: {}, coinIdx: 0, opts: [], optLog: [],
-    ui: { levSid: 'NX', levDir: 1, levL: 10, coin: null, optSid: 'NX', optDir: 1 }
+    ui: { levSid: 'NX', levDir: 1, levL: 10, coin: null, optSid: 'NX', optDir: 1 },
+    // 3단계
+    spin: null, lastRl: null,
+    bj: { shoe: [], hands: [], dealer: [], active: 0, phase: 'bet', msg: '' },
+    lotto: null, lottoLast: null
   };
 }
 // 예전 버전 저장 파일에 없는 필드를 기본값으로 채운다
@@ -539,7 +652,7 @@ function stockValue(){
   for (const id in S.hold){ const s = getStock(id); if (s) v += priceOf(s) * S.hold[id].qty; }
   return v;
 }
-function netWorth(){ return S.cash + stockValue() + levTotal() + coinValue() + optPending(); }
+function netWorth(){ return S.cash + stockValue() + levTotal() + coinValue() + optPending() + spinPending() + bjPending(); }
 
 /* 한탕지수: 각 종목의 (현재가 / 상장가) 평균 × 1000.
  * 새 종목은 상장가 기준 1000에서 출발한다. */
@@ -690,6 +803,7 @@ function endOfDay(){
   const net = netWorth();
   const diff = net - S.dayStartNet;
   toast(`🔔 D${S.day} 장 마감 · 총자산 ${won(net)} (${sgnWon(diff)})`, cls(diff));
+  drawLotto();
 
   for (const s of S.stocks) s.prevClose = priceOf(s);
 
@@ -1184,6 +1298,373 @@ function renderRisk(){
 }
 
 /* =====================================================================
+ *  3단계: 카지노
+ *  공통: 베팅 즉시 결과를 난수로 '먼저' 확정해 S.spin에 저장한 뒤 애니메이션만
+ *  보여준다. 도중에 새로고침해도 결과가 바뀌지 않는다(되돌리기 꼼수 방지).
+ * ===================================================================== */
+function casBetAmt(){ return Math.max(0, parseInt($('casBet').value.replace(/[^0-9]/g, ''), 10) || 0); }
+function takeBet(bet){
+  if (bet < 1000){ toast('1,000원 이상 걸어야 합니다', 'warn'); return false; }
+  if (bet > S.cash){ toast('현금이 부족합니다', 'warn'); return false; }
+  S.cash -= bet;
+  return true;
+}
+// 확정됐지만 아직 공개 전인 베팅(룰렛·슬롯) — 총자산에는 원금으로 잡아 둔다
+const spinPending = () => S.spin ? S.spin.bet : 0;
+function finishSpin(silent){
+  const sp = S.spin; if (!sp) return;
+  S.spin = null;
+  S.cash += sp.pay;
+  S.stats.casino += sp.pay - sp.bet;
+  if (!silent) toast(sp.msg, sp.pay > sp.bet ? 'up' : sp.pay === sp.bet ? '' : 'down');
+  afterAction();
+}
+
+/* ---------- 룰렛 (유럽식, 0 하나) ----------
+ *  37칸(0~36) 중 하나가 균등확률 1/37로 나온다.
+ *  · 빨강/검정·홀/짝·1~18/19~36 : 18칸 적중, 2배 지급
+ *      기대 회수율 = 18/37 × 2 = 36/37 = 97.30%
+ *  · 숫자 하나 : 1칸 적중, 36배 지급(35:1)
+ *      기대 회수율 = 1/37 × 36 = 36/37 = 97.30%
+ *  → 어떤 베팅이든 하우스 엣지 = 1/37 ≈ 2.70% (0이 하우스 몫을 만든다) */
+const WHEEL = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
+const REDS = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+const numColor = n => n === 0 ? 'g' : REDS.has(n) ? 'r' : 'b';
+const RL_EDGE = 1 / 37;
+let rlBet = 'red', wheelAng = 0, rlAnim = false;
+function rlWins(bet, n){
+  if (typeof bet === 'number') return bet === n;
+  if (n === 0) return false;
+  return bet === 'red' ? REDS.has(n) : bet === 'black' ? !REDS.has(n) : bet === 'odd' ? n % 2 === 1
+    : bet === 'even' ? n % 2 === 0 : bet === 'low' ? n <= 18 : n >= 19;
+}
+const RL_NAME = { red:'빨강', black:'검정', odd:'홀', even:'짝', low:'1~18', high:'19~36' };
+function drawWheel(ang, hi){
+  const c = prepCanvas($('wheel')); if (!c) return;
+  const { ctx, w } = c, R = w / 2, a = Math.PI * 2 / 37;
+  ctx.save(); ctx.translate(R, R);
+  ctx.beginPath(); ctx.arc(0, 0, R - 2, 0, Math.PI * 2); ctx.fillStyle = '#5a3a1a'; ctx.fill();
+  for (let i = 0; i < 37; i++){
+    const n = WHEEL[i], st = -Math.PI / 2 + ang + i * a - a / 2;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, R * 0.9, st, st + a); ctx.closePath();
+    ctx.fillStyle = n === 0 ? '#12803c' : REDS.has(n) ? '#b3202c' : '#1b1e24'; ctx.fill();
+    ctx.strokeStyle = '#c9a44a'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.save(); ctx.rotate(st + a / 2); ctx.translate(R * 0.78, 0); ctx.rotate(Math.PI / 2);
+    ctx.fillStyle = '#fff'; ctx.font = `bold ${Math.max(9, R * 0.075)}px -apple-system,sans-serif`;
+    ctx.textAlign = 'center'; ctx.fillText(String(n), 0, 4); ctx.restore();
+  }
+  ctx.beginPath(); ctx.arc(0, 0, R * 0.55, 0, Math.PI * 2); ctx.fillStyle = '#2a1c0e'; ctx.fill();
+  ctx.fillStyle = hi != null ? (numColor(hi) === 'r' ? '#ff5a66' : numColor(hi) === 'g' ? '#3ee07f' : '#fff') : '#c9a44a';
+  ctx.font = `900 ${R * 0.32}px -apple-system,sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(hi != null ? String(hi) : '🎡', 0, 2);
+  ctx.restore();
+  // 고정 포인터(위쪽)
+  ctx.fillStyle = '#f5c542'; ctx.beginPath(); ctx.moveTo(R - 11, 0); ctx.lineTo(R + 11, 0); ctx.lineTo(R, R * 0.2); ctx.closePath(); ctx.fill();
+}
+function spinRoulette(){
+  if (rlAnim || S.spin) return;
+  const bet = casBetAmt();
+  if (!takeBet(bet)) return;
+  const n = randInt(0, 36);                       // 결과 확정: 0~36 균등
+  const win = rlWins(rlBet, n);
+  const mult = typeof rlBet === 'number' ? 36 : 2;
+  const pay = win ? bet * mult : 0;
+  const bname = typeof rlBet === 'number' ? '숫자 ' + rlBet : RL_NAME[rlBet];
+  S.theo += bet * RL_EDGE;
+  S.lastRl = n;
+  S.spin = { game: 'roulette', bet, pay, n,
+    msg: win ? `🎡 ${n}! ${bname} 적중 — ${won(pay)} 획득` : `🎡 ${n} — ${bname} 실패, ${won(bet)} 잃음` };
+  save();
+  // 애니메이션: 결과 칸이 위쪽 포인터에 멈추도록 회전각 계산 (칸 i가 위에 오려면 각도 = −i·a)
+  rlAnim = true; render();
+  const a = Math.PI * 2 / 37, idx = WHEEL.indexOf(n);
+  const from = wheelAng, base = ((-idx * a - from) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+  const to = from + Math.PI * 2 * 5 + base, T = 3200, t0 = performance.now();
+  $('rlRes').textContent = '돌아가는 중…';
+  (function step(now){
+    const k = Math.min(1, (now - t0) / T), e = 1 - Math.pow(1 - k, 3);
+    wheelAng = from + (to - from) * e;
+    drawWheel(wheelAng, k >= 1 ? n : null);
+    if (k < 1) return requestAnimationFrame(step);
+    wheelAng %= Math.PI * 2;
+    rlAnim = false;
+    $('rlRes').innerHTML = `결과 <b class="${numColor(n) === 'r' ? 'up' : ''}">${n}</b> ${n === 0 ? '(초록)' : REDS.has(n) ? '빨강' : '검정'}`;
+    finishSpin();
+  })(t0);
+}
+
+/* ---------- 슬롯머신 ----------
+ *  릴 3개, 각 릴은 32칸(가중치)에서 독립적으로 하나를 뽑는다.
+ *    🍒5 🍋8 🍉7 🔔5 ⭐4 7️⃣2 💎1  (합 32)
+ *  한 조합의 확률 = w1·w2·w3 / 32³ (=32,768)
+ *  배당(원금 대비 배수):
+ *    같은 그림 3개: 💎500 7️⃣100 ⭐35 🔔25 🍒20 🍉12 🍋8
+ *    🍒 2개(아무 자리): 5 / 첫 번째 릴 🍒 1개: 1(원금)
+ *  모든 조합(7³=343가지)의 확률×배당을 더하면 환수율(RTP) = 31,147/32,768 ≈ 95.05%
+ *  → 하우스 엣지 4.95%. (당첨이라도 원금보다 적거나 같은 경우가 많아 '이긴 기분'만 자주 든다) */
+const SLOT_SYM = ['🍒','🍋','🍉','🔔','⭐','7️⃣','💎'];
+const SLOT_W   = [5, 8, 7, 5, 4, 2, 1];
+const SLOT_PAY3 = { '💎':500, '7️⃣':100, '⭐':35, '🔔':25, '🍒':20, '🍉':12, '🍋':8 };
+const SLOT_RTP = 31147 / 32768;
+function slotReel(){
+  let r = rand() * 32;
+  for (let i = 0; i < SLOT_SYM.length; i++){ r -= SLOT_W[i]; if (r < 0) return SLOT_SYM[i]; }
+  return SLOT_SYM[SLOT_SYM.length - 1];
+}
+function slotPay(r){
+  if (r[0] === r[1] && r[1] === r[2]) return SLOT_PAY3[r[0]];
+  const ch = r.filter(x => x === '🍒').length;
+  if (ch === 2) return 5;
+  if (r[0] === '🍒') return 1;
+  return 0;
+}
+let slotAnim = false;
+function spinSlot(){
+  if (slotAnim || S.spin) return;
+  const bet = casBetAmt();
+  if (!takeBet(bet)) return;
+  const res = [slotReel(), slotReel(), slotReel()];
+  const m = slotPay(res), pay = bet * m;
+  S.theo += bet * (1 - SLOT_RTP);
+  S.spin = { game: 'slot', bet, pay, res,
+    msg: m > 1 ? `🎰 ${res.join('')} ×${m} — ${won(pay)}!` : m === 1 ? `🎰 ${res.join('')} 원금 반환` : `🎰 ${res.join('')} 꽝 — ${won(bet)} 잃음` };
+  save();
+  slotAnim = true; render();
+  const els = [0, 1, 2].map(i => $('reel' + i));
+  els.forEach(e => e.classList.remove('win'));
+  $('slotMsg').textContent = '…';
+  const t0 = performance.now(), stops = [700, 1100, 1500];
+  const iv = setInterval(() => {
+    const el = performance.now() - t0;
+    els.forEach((e, i) => { e.textContent = el < stops[i] ? pick(SLOT_SYM) : res[i]; });
+    if (el >= stops[2]){
+      clearInterval(iv); slotAnim = false;
+      if (m > 0) els.forEach(e => e.classList.add('win'));
+      $('slotMsg').innerHTML = m > 1 ? `<span class="up">×${m} 당첨! ${won(pay)}</span>` : m === 1 ? '원금 반환' : '<span class="down">꽝</span>';
+      finishSpin();
+    }
+  }, 70);
+}
+
+/* ---------- 블랙잭 ----------
+ *  6덱(312장) 슈, 75% 소진 시 재셔플. 카드 = 0~51 정수(숫자 = i%13+1, 무늬 = ⌊i/13⌋).
+ *  규칙: 딜러 소프트17 스탠드(S17), 블랙잭 3:2, 첫 두 장에서 더블,
+ *        스플릿 1회(같은 점수 두 장), 에이스 스플릿은 한 장씩만, 스플릿 후 더블 가능.
+ *  딜러 업카드가 A/10이면 바로 블랙잭 확인(피크) — 딜러 블랙잭이면 원금만 잃는다.
+ *  하우스 엣지: 확률표를 직접 계산하기 어려워, 같은 규칙 + 기본전략으로
+ *  500만 판을 시뮬레이션한 값(플레이어 기대값 약 −0.45%)을 사용.
+ *  기본전략을 벗어날수록(예: 16에서 스탠드 남발) 엣지는 커진다. */
+const BJ_EDGE = 0.0045;
+const cardVal = c => Math.min(c % 13 + 1, 10);
+function newShoe(){
+  const s = [];
+  for (let d = 0; d < 6; d++) for (let i = 0; i < 52; i++) s.push(i);
+  for (let i = s.length - 1; i > 0; i--){ const j = Math.floor(rand() * (i + 1)); const t = s[i]; s[i] = s[j]; s[j] = t; }  // Fisher–Yates 셔플
+  return s;
+}
+function bjDraw(){ if (!S.bj.shoe.length) S.bj.shoe = newShoe(); return S.bj.shoe.pop(); }
+function handTotal(h){
+  let t = 0, aces = 0;
+  for (const c of h){ const v = cardVal(c); t += v; if (v === 1) aces++; }
+  const soft = aces > 0 && t + 10 <= 21;
+  return { t: soft ? t + 10 : t, soft };
+}
+const isBJ = h => h.length === 2 && handTotal(h).t === 21;
+const bjPending = () => S.bj && S.bj.phase === 'play' ? S.bj.hands.reduce((a, h) => a + h.bet, 0) : 0;
+function bjDeal(){
+  const b = S.bj;
+  if (b.phase === 'play') return;
+  const bet = casBetAmt();
+  if (!takeBet(bet)) return;
+  if (b.shoe.length < 78){ if (b.shoe.length) toast('🃏 새 슈로 셔플했습니다'); b.shoe = newShoe(); }
+  S.theo += bet * BJ_EDGE;
+  b.hands = [{ c: [bjDraw(), bjDraw()], bet, done: false, split: false, ace: false }];
+  b.dealer = [bjDraw(), bjDraw()];
+  b.active = 0; b.phase = 'play'; b.msg = '';
+  const pB = isBJ(b.hands[0].c), dB = isBJ(b.dealer);
+  if (pB || dB) return bjSettle();
+  afterAction();
+}
+function bjCur(){ const b = S.bj; return b.phase === 'play' ? b.hands[b.active] : null; }
+function bjNext(){
+  const b = S.bj;
+  while (b.active < b.hands.length && b.hands[b.active].done) b.active++;
+  if (b.active >= b.hands.length) return bjSettle();
+  afterAction();
+}
+function bjHit(){
+  const h = bjCur(); if (!h) return;
+  h.c.push(bjDraw());
+  const t = handTotal(h.c).t;
+  if (t >= 21) h.done = true;
+  bjNext();
+}
+function bjStand(){ const h = bjCur(); if (!h) return; h.done = true; bjNext(); }
+function bjDouble(){
+  const h = bjCur(); if (!h || h.c.length !== 2 || h.ace) return;
+  if (h.bet > S.cash) return toast('더블할 현금이 부족합니다', 'warn');
+  S.cash -= h.bet; S.theo += h.bet * BJ_EDGE; h.bet *= 2; h.dbl = true;
+  h.c.push(bjDraw()); h.done = true;
+  bjNext();
+}
+function bjSplit(){
+  const b = S.bj, h = bjCur();
+  if (!h || b.hands.length > 1 || h.c.length !== 2 || cardVal(h.c[0]) !== cardVal(h.c[1])) return;
+  if (h.bet > S.cash) return toast('스플릿할 현금이 부족합니다', 'warn');
+  S.cash -= h.bet; S.theo += h.bet * BJ_EDGE;
+  const ace = cardVal(h.c[0]) === 1;
+  b.hands = [
+    { c: [h.c[0], bjDraw()], bet: h.bet, done: ace, split: true, ace },
+    { c: [h.c[1], bjDraw()], bet: h.bet, done: ace, split: true, ace }
+  ];
+  for (const x of b.hands) if (handTotal(x.c).t === 21) x.done = true;
+  b.active = 0;
+  bjNext();
+}
+function bjSettle(){
+  const b = S.bj;
+  const natural = b.hands.length === 1 && !b.hands[0].split && isBJ(b.hands[0].c);
+  const dBJ = isBJ(b.dealer);
+  // 버스트되지 않은 손이 있고, 양쪽 모두 내추럴이 아닐 때만 딜러가 카드를 더 받는다
+  if (!natural && !dBJ && b.hands.some(h => handTotal(h.c).t <= 21))
+    while (handTotal(b.dealer).t < 17) b.dealer.push(bjDraw());
+  const dt = handTotal(b.dealer).t;
+  let totalBet = 0, totalPay = 0; const msgs = [];
+  for (const h of b.hands){
+    const pt = handTotal(h.c).t; let pay = 0, m;
+    totalBet += h.bet;
+    if (natural && dBJ){ pay = h.bet; m = '둘 다 블랙잭 — 푸시'; }
+    else if (natural){ pay = h.bet * 2.5; m = '블랙잭! 3:2'; }
+    else if (dBJ){ pay = 0; m = '딜러 블랙잭'; }
+    else if (pt > 21){ pay = 0; m = '버스트'; }
+    else if (dt > 21 || pt > dt){ pay = h.bet * 2; m = '승리'; }
+    else if (pt === dt){ pay = h.bet; m = '푸시'; }
+    else { pay = 0; m = '패배'; }
+    h.res = m; totalPay += pay; msgs.push(m);
+  }
+  totalPay = Math.floor(totalPay);
+  S.cash += totalPay;
+  S.stats.casino += totalPay - totalBet;
+  b.phase = 'done';
+  const net = totalPay - totalBet;
+  b.msg = msgs.join(' / ') + ` (${sgnWon(net)})`;
+  toast('🃏 ' + b.msg, cls(net));
+  afterAction();
+}
+function cardHTML(c, hidden){
+  if (hidden) return '<div class="pcard back"></div>';
+  const r = c % 13 + 1, s = Math.floor(c / 13) % 4;
+  const rk = r === 1 ? 'A' : r === 11 ? 'J' : r === 12 ? 'Q' : r === 13 ? 'K' : String(r);
+  const sym = ['♠','♥','♦','♣'][s];
+  return `<div class="pcard ${s === 1 || s === 2 ? 'red' : ''}"><span>${rk}</span><span class="s">${sym}</span></div>`;
+}
+
+/* ---------- 복권 (6/45) ----------
+ *  1~45 중 6개를 고르고, 추첨 번호 6개 + 보너스 1개와 비교.
+ *  전체 조합 수 C(45,6) = 8,145,060
+ *    1등 6개 일치            1가지        → 1/8,145,060
+ *    2등 5개 + 보너스        6가지        → 1/1,357,510
+ *    3등 5개(보너스 제외)    C(6,5)×C(39,1) − 6 = 228가지 → 1/35,724
+ *    4등 4개                 C(6,4)×C(39,2) = 11,115가지 → 1/733
+ *    5등 3개                 C(6,3)×C(39,3) = 182,780가지 → 1/45
+ *  당첨금(티켓값 배수): 1등 1,952,000 / 2등 54,000 / 3등 1,430 / 4등 50 / 5등 5
+ *  기대 회수율 = Σ(가짓수 × 배수) / 8,145,060 ≈ 49.99%  → 하우스 엣지 약 50%
+ *  (실제 한국 로또도 판매액의 약 50%만 당첨금으로 돌려준다) */
+const LOTTO_PRICE = 5000;
+const LOTTO_PRIZE = [null, 1952000, 54000, 1430, 50, 5];
+const LOTTO_ODDS = [null, 8145060, 1357510, 35724, 733, 45];
+let lottoPick = [];
+function drawNums(k){
+  const a = []; for (let i = 1; i <= 45; i++) a.push(i);
+  for (let i = 0; i < k; i++){ const j = i + Math.floor(rand() * (45 - i)); const t = a[i]; a[i] = a[j]; a[j] = t; }
+  return a.slice(0, k);
+}
+function buyLotto(){
+  if (S.lotto && S.lotto.day === S.day) return toast('오늘은 이미 구매했습니다', 'warn');
+  if (lottoPick.length !== 6) return toast('번호 6개를 고르세요', 'warn');
+  if (LOTTO_PRICE > S.cash) return toast('현금이 부족합니다', 'warn');
+  S.cash -= LOTTO_PRICE;
+  S.stats.lottery -= LOTTO_PRICE;
+  S.theo += LOTTO_PRICE * 0.5;
+  S.lotto = { day: S.day, nums: lottoPick.slice().sort((a, b) => a - b) };
+  lottoPick = [];
+  toast(`🎟️ 복권 구매: ${S.lotto.nums.join(', ')} — 오늘 장 마감에 추첨`);
+  afterAction();
+}
+function drawLotto(){
+  if (!S.lotto || S.lotto.day !== S.day) return;
+  const d = drawNums(7), win = d.slice(0, 6).sort((a, b) => a - b), bonus = d[6];
+  const mine = S.lotto.nums, hit = mine.filter(n => win.includes(n)).length, hb = mine.includes(bonus);
+  const rank = hit === 6 ? 1 : hit === 5 && hb ? 2 : hit === 5 ? 3 : hit === 4 ? 4 : hit === 3 ? 5 : 0;
+  const prize = rank ? LOTTO_PRICE * LOTTO_PRIZE[rank] : 0;
+  S.cash += prize; S.stats.lottery += prize;
+  S.lottoLast = { day: S.day, win, bonus, mine, rank, prize };
+  S.lotto = null;
+  addNews('info', rank ? `🎟️ D${S.day} 복권 ${rank}등 당첨! ${won(prize)}` : `🎟️ D${S.day} 복권 낙첨 (${hit}개 일치)`, true, rank ? 'up' : '');
+}
+function ballColor(n){ return n <= 10 ? '#fbc400' : n <= 20 ? '#69c8f2' : n <= 30 ? '#ff7272' : n <= 40 ? '#aaa' : '#b0d840'; }
+const ballHTML = (n, hit) => `<span class="ball${hit ? ' hit' : ''}" style="background:${ballColor(n)}">${n}</span>`;
+
+/* ---------- 카지노 렌더링 ---------- */
+let casSub = 'roulette', casBuilt = false;
+function buildCasino(){
+  // 룰렛 숫자판: 실제 테이블처럼 3줄 × 12열 + 왼쪽 0
+  let h = '<button class="z" data-n="0">0</button>';
+  for (let row = 0; row < 3; row++) for (let col = 0; col < 12; col++){
+    const n = col * 3 + (3 - row);
+    h += `<button data-n="${n}" class="${REDS.has(n) ? 'nR' : 'nB'}">${n}</button>`;
+  }
+  $('numGrid').innerHTML = h;
+  $('payTable').innerHTML = Object.entries(SLOT_PAY3).map(([k, v]) => `<div><span>${k}${k}${k}</span><b>×${v}</b></div>`).join('')
+    + '<div><span>🍒🍒 (아무 자리)</span><b>×5</b></div><div><span>🍒 첫 릴</span><b>×1</b></div>';
+  let g = ''; for (let n = 1; n <= 45; n++) g += `<button data-l="${n}">${n}</button>`;
+  $('lottoGrid').innerHTML = g;
+  $('lottoTable').innerHTML = '<tr><th>등수</th><th>조건</th><th>확률</th><th>당첨금</th></tr>' +
+    [1,2,3,4,5].map(r => `<tr><td>${r}등</td><td>${['','6개','5개+보너스','5개','4개','3개'][r]}</td><td>1/${fmt(LOTTO_ODDS[r])}</td><td>${shortWon(LOTTO_PRICE * LOTTO_PRIZE[r])}원</td></tr>`).join('');
+  casBuilt = true;
+}
+function renderCasino(){
+  if (!casBuilt) buildCasino();
+  for (const b of $('casNav').children) b.classList.toggle('on', b.dataset.v === casSub);
+  for (const k of ['roulette','slot','bj','lotto']) $('cas-' + k).classList.toggle('hidden', k !== casSub);
+  $('casBetBox').classList.toggle('hidden', casSub === 'lotto');
+  if (casSub === 'roulette'){
+    for (const b of $('rlOpts').children) b.classList.toggle('on', b.dataset.b === rlBet);
+    for (const b of $('numGrid').children) b.classList.toggle('on', +b.dataset.n === rlBet);
+    const bet = casBetAmt(), nm = typeof rlBet === 'number' ? '숫자 ' + rlBet : RL_NAME[rlBet];
+    $('btnSpin').textContent = rlAnim ? '돌아가는 중…' : `스핀 · ${nm}에 ${won(bet)} (적중 시 ${won(bet * (typeof rlBet === 'number' ? 36 : 2))})`;
+    $('btnSpin').disabled = rlAnim;
+    if (!rlAnim) drawWheel(wheelAng, S.lastRl);
+  } else if (casSub === 'slot'){
+    $('btnSlot').disabled = slotAnim;
+    $('btnSlot').textContent = slotAnim ? '…' : `레버 당기기 · ${won(casBetAmt())}`;
+  } else if (casSub === 'bj'){
+    const b = S.bj, play = b.phase === 'play';
+    $('bjDealer').innerHTML = b.dealer.map((c, i) => cardHTML(c, play && i === 1)).join('');
+    $('bjDealerT').textContent = b.dealer.length ? (play ? `(${cardVal(b.dealer[0]) === 1 ? 'A' : cardVal(b.dealer[0])} + ?)` : `(${handTotal(b.dealer).t})`) : '';
+    $('bjHands').innerHTML = b.hands.map((h, i) => {
+      const t = handTotal(h.c);
+      return `<div class="bj-hand ${play && i === b.active ? 'act' : ''}"><div class="muted" style="font-size:13px">베팅 ${won(h.bet)}${h.dbl ? ' (더블)' : ''} · 합계 <b style="color:var(--text)">${t.soft && t.t < 21 ? 'soft ' : ''}${t.t}</b>${h.res ? ' · <b class="gold">' + h.res + '</b>' : ''}</div><div class="bj-cards">${h.c.map(c => cardHTML(c)).join('')}</div></div>`;
+    }).join('');
+    $('bjMsg').textContent = play ? '히트 / 스탠드 / 더블 / 스플릿' : (b.msg || '베팅 금액을 정하고 딜을 누르세요');
+    const h = bjCur();
+    $('bjDeal').disabled = play;
+    $('bjHit').disabled = $('bjStand').disabled = !h;
+    $('bjDouble').disabled = !h || h.c.length !== 2 || h.ace || h.bet > S.cash;
+    $('bjSplit').disabled = !h || b.hands.length > 1 || h.c.length !== 2 || cardVal(h.c[0]) !== cardVal(h.c[1]) || h.bet > S.cash;
+  } else {
+    const have = S.lotto && S.lotto.day === S.day;
+    $('lottoBuy').classList.toggle('hidden', !!have);
+    $('lottoMine').innerHTML = have ? `<div style="margin-bottom:8px">오늘(D${S.day}) 내 번호</div><div class="balls">${S.lotto.nums.map(n => ballHTML(n)).join('')}</div><div class="note">장 마감(15:30)에 추첨합니다</div>` : '';
+    for (const b of $('lottoGrid').children) b.classList.toggle('on', lottoPick.includes(+b.dataset.l));
+    $('lottoCnt').textContent = lottoPick.length;
+    const L = S.lottoLast;
+    $('lottoLast').innerHTML = L ? `<div class="muted" style="font-size:13px;margin-bottom:6px">D${L.day} 당첨 번호</div><div class="balls">${L.win.map(n => ballHTML(n, L.mine.includes(n))).join('')} + ${ballHTML(L.bonus, L.mine.includes(L.bonus))}</div>
+      <div style="margin-top:8px">내 번호 ${L.mine.join(', ')} → <b class="${L.rank ? 'up' : 'muted'}">${L.rank ? L.rank + '등 ' + won(L.prize) : '낙첨'}</b></div>` : '아직 추첨 결과가 없습니다';
+  }
+}
+
+/* =====================================================================
  *  렌더링
  * ===================================================================== */
 let listKey = '', newsDirty = true;
@@ -1335,6 +1816,7 @@ function render(){
   renderHeader();
   if (curTab === 'stock'){ renderStockList(); renderDetail(); renderHoldings(); renderNews(); }
   else if (curTab === 'risk') renderRisk();
+  else if (curTab === 'casino') renderCasino();
   else if (curTab === 'record') renderRecord();
 }
 
@@ -1423,6 +1905,37 @@ $('btnRetire').addEventListener('click', () => {
 });
 $('btnRestart').addEventListener('click', startNew);
 
+// --- 카지노 탭 ---
+$('casNav').addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (b){ casSub = b.dataset.v; render(); } });
+$('casBetBox').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  let v = casBetAmt();
+  if (b.dataset.add) v += +b.dataset.add;
+  else if (b.dataset.bet === 'half') v = Math.floor(v / 2);
+  else if (b.dataset.bet === 'all') v = Math.floor(S.cash);
+  else if (b.dataset.bet === 'clear') v = 0;
+  $('casBet').value = String(v); render();
+});
+$('casBet').addEventListener('input', () => render());
+$('rlOpts').addEventListener('click', e => { const b = e.target.closest('[data-b]'); if (b && !rlAnim){ rlBet = b.dataset.b; render(); } });
+$('numGrid').addEventListener('click', e => { const b = e.target.closest('[data-n]'); if (b && !rlAnim){ rlBet = +b.dataset.n; render(); } });
+$('btnSpin').addEventListener('click', spinRoulette);
+$('btnSlot').addEventListener('click', spinSlot);
+$('bjDeal').addEventListener('click', bjDeal);
+$('bjHit').addEventListener('click', bjHit);
+$('bjStand').addEventListener('click', bjStand);
+$('bjDouble').addEventListener('click', bjDouble);
+$('bjSplit').addEventListener('click', bjSplit);
+$('lottoGrid').addEventListener('click', e => {
+  const b = e.target.closest('[data-l]'); if (!b) return;
+  const n = +b.dataset.l, i = lottoPick.indexOf(n);
+  if (i >= 0) lottoPick.splice(i, 1); else if (lottoPick.length < 6) lottoPick.push(n);
+  render();
+});
+$('lottoAuto').addEventListener('click', () => { lottoPick = drawNums(6); render(); });
+$('lottoClear').addEventListener('click', () => { lottoPick = []; render(); });
+$('lottoBtn').addEventListener('click', buyLotto);
+
 // --- 고위험 탭 ---
 $('levStocks').addEventListener('click', e => { const b = e.target.closest('[data-sid]'); if (b){ S.ui.levSid = b.dataset.sid; render(); } });
 $('optStocks').addEventListener('click', e => { const b = e.target.closest('[data-sid]'); if (b){ S.ui.optSid = b.dataset.sid; render(); } });
@@ -1466,6 +1979,7 @@ window.addEventListener('resize', () => { clearTimeout(rzT); rzT = setTimeout(re
   const b = lsGet(BEST_KEY);
   if (saved){
     S = saved;
+    if (S.spin) finishSpin(true);   // 애니메이션 도중 종료된 룰렛·슬롯은 이미 정해진 결과로 정산
     $('btnStart').textContent = `이어하기 (D${S.day})`;
     $('btnNew').classList.remove('hidden');
     $('startInfo').innerHTML = `저장된 게임: D${S.day} · 총자산 <b>${won(netWorth())}</b>`;
