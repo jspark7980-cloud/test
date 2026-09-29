@@ -224,7 +224,7 @@ canvas.mini{width:100%;height:150px;display:block;margin-top:8px}
     <div class="brand">한탕 증권<span class="tag">가상머니</span></div>
     <div class="clock"><div class="t"><span id="hDay">D1</span> · <span id="hTime">09:00</span></div><div class="bar"><i id="hBar"></i></div></div>
     <div class="kpi"><label>총자산</label><b id="hNet">-</b><small id="hNetPct"></small></div>
-    <div class="kpi"><label>현금</label><b id="hCash">-</b></div>
+    <div class="kpi"><label>현금</label><b id="hCash">-</b><small id="hDebt" class="down"></small></div>
     <div class="kpi"><label>한탕지수</label><b id="hIdx">-</b><small id="hIdxPct"></small></div>
     <button id="btnPause" class="btn icon" aria-label="일시정지">⏸</button>
   </header>
@@ -233,6 +233,7 @@ canvas.mini{width:100%;height:150px;display:block;margin-top:8px}
     <button data-tab="stock" class="on">📈 주식</button>
     <button data-tab="risk">🎢 고위험</button>
     <button data-tab="casino">🎰 카지노</button>
+    <button data-tab="loan">💀 사채</button>
     <button data-tab="record">🏆 기록</button>
   </nav>
   <main>
@@ -417,6 +418,39 @@ canvas.mini{width:100%;height:150px;display:block;margin-top:8px}
       </div>
     </section>
 
+    <!-- ===== 사채 탭 ===== -->
+    <section id="tab-loan" class="tab">
+      <div style="display:grid;gap:12px;max-width:820px;margin:0 auto">
+        <div class="card" style="border-color:#5a1a20">
+          <h3>💀 (주)한방캐피탈 <span class="muted" style="font-size:12px;font-weight:500">가상의 사채업체 · 무서류 즉시 입금</span></h3>
+          <div class="grid2">
+            <div class="kv"><span class="muted">남은 빚</span><b id="lnBal" class="down">0원</b></div>
+            <div class="kv"><span class="muted">하루 이자율(복리)</span><b id="lnRate">-</b></div>
+            <div class="kv"><span class="muted">상환 기한</span><b id="lnDue">-</b></div>
+            <div class="kv"><span class="muted">대출 가능 한도</span><b id="lnLimit">-</b></div>
+          </div>
+          <div id="lnWarn" class="note" style="font-size:14px"></div>
+        </div>
+        <div class="card">
+          <h3>빌리기</h3>
+          <div class="amt">
+            <input id="lnAmt" type="text" inputmode="numeric" pattern="[0-9]*" value="100000" aria-label="대출 금액">
+            <div class="pcts4" id="lnChips"><button class="btn" data-v="100000">10만</button><button class="btn" data-v="500000">50만</button><button class="btn" data-v="1000000">100만</button><button class="btn" data-v="max">한도</button></div>
+          </div>
+          <button class="btn buy big-btn" id="btnBorrow">빌리기</button>
+          <div class="note">하루 5% 복리 · 첫 대출일로부터 5일 안에 갚아야 합니다. 연체 하루마다 이자율 +3%p, 연체 3일째 장 마감에 전 재산 압류.</div>
+        </div>
+        <div class="card">
+          <h3>갚기</h3>
+          <div class="row"><button class="btn" id="btnRepayHalf">절반 상환</button><button class="btn gold" id="btnRepayAll">전액 상환</button></div>
+        </div>
+        <div class="card">
+          <h3>빚이 불어나는 속도</h3>
+          <table id="lnProj"></table>
+        </div>
+      </div>
+    </section>
+
     <!-- ===== 기록 탭 ===== -->
     <section id="tab-record" class="tab">
       <div style="display:grid;gap:12px;max-width:760px;margin:0 auto">
@@ -437,7 +471,11 @@ canvas.mini{width:100%;height:150px;display:block;margin-top:8px}
             · 1게임일 = 실제 60초, 가격은 1초마다 움직입니다 (09:00~15:30 장).<br>
             · 가격제한폭 ±30% (전일 종가 기준). 폭탄형 종목은 주가가 상장가의 8% 아래로 마감하면 상장폐지됩니다.<br>
             · 찌라시는 50% 확률로 진짜입니다. 나머지는 '사실무근' 해명과 함께 반대로 움직입니다.<br>
-            · 총자산이 0원 이하가 되면 파산입니다.
+            · 레버리지: 손실이 증거금에 닿으면 강제 청산. 밈코인: 매 초 0.4% 확률로 먹튀(0원).<br>
+            · 옵션: 30초 뒤 방향 적중 시 1.9배, 보합이면 원금 반환.<br>
+            · 카지노: 룰렛 엣지 2.70%, 슬롯 4.95%, 블랙잭 약 0.45%(기본전략 기준), 복권 약 50%.<br>
+            · 사채: 하루 5% 복리, 5일 기한, 연체 시 이자율 상승, 연체 3일째 압류.<br>
+            · 총자산(재산 − 빚)이 0원 이하가 되면 파산입니다.
           </p>
         </div>
         <div class="row">
@@ -567,7 +605,7 @@ const floorTick = p => { const t = tickSize(p); return Math.max(t, Math.floor(p 
 const ceilTick  = p => { const t = tickSize(p); return Math.ceil(p / t) * t; };
 
 // ---------- 포맷 ----------
-const fmt = n => Math.round(n).toLocaleString('ko-KR');
+const fmt = n => (Math.round(n) || 0).toLocaleString('ko-KR');   // || 0 : '-0' 표시 방지
 const won = n => fmt(n) + '원';
 const sgnWon = n => (n > 0 ? '+' : '') + fmt(n) + '원';
 const pct = v => (v > 0 ? '+' : '') + (v * 100).toFixed(2) + '%';
@@ -630,7 +668,9 @@ function newGame(){
     // 3단계
     spin: null, lastRl: null,
     bj: { shoe: [], hands: [], dealer: [], active: 0, phase: 'bet', msg: '' },
-    lotto: null, lottoLast: null
+    lotto: null, lottoLast: null,
+    // 4단계
+    loan: null
   };
 }
 // 예전 버전 저장 파일에 없는 필드를 기본값으로 채운다
@@ -652,7 +692,7 @@ function stockValue(){
   for (const id in S.hold){ const s = getStock(id); if (s) v += priceOf(s) * S.hold[id].qty; }
   return v;
 }
-function netWorth(){ return S.cash + stockValue() + levTotal() + coinValue() + optPending() + spinPending() + bjPending(); }
+function netWorth(){ return S.cash + stockValue() + levTotal() + coinValue() + optPending() + spinPending() + bjPending() - debt(); }
 
 /* 한탕지수: 각 종목의 (현재가 / 상장가) 평균 × 1000.
  * 새 종목은 상장가 기준 1000에서 출발한다. */
@@ -804,6 +844,7 @@ function endOfDay(){
   const diff = net - S.dayStartNet;
   toast(`🔔 D${S.day} 장 마감 · 총자산 ${won(net)} (${sgnWon(diff)})`, cls(diff));
   drawLotto();
+  loanEndOfDay();
 
   for (const s of S.stocks) s.prevClose = priceOf(s);
 
@@ -891,10 +932,10 @@ function buyStock(id, qty){
   toast(`매수 체결 · ${s.name} ${fmt(qty)}주 @ ${won(p)}`, 'up');
   afterAction();
 }
-function sellStock(id, qty){
+function sellStock(id, qty, forced){
   const s = getStock(id), h = S.hold[id];
   if (!s || !h || qty <= 0) return toast('보유 수량이 없습니다', 'warn');
-  if (halted()) return toast('⛔ 거래 정지 중입니다', 'warn');
+  if (halted() && !forced) return toast('⛔ 거래 정지 중입니다', 'warn');
   qty = Math.min(qty, h.qty);
   const p = priceOf(s), gross = p * qty;
   const fee = Math.ceil(gross * FEE_RATE), tax = Math.ceil(gross * TAX_RATE);
@@ -904,6 +945,7 @@ function sellStock(id, qty){
   S.stats.stock += pnl;
   h.qty -= qty;
   if (h.qty <= 0) delete S.hold[id];
+  if (forced) return;
   toast(`매도 체결 · ${s.name} ${fmt(qty)}주 (${sgnWon(pnl)})`, cls(pnl) || 'down');
   afterAction();
 }
@@ -1140,7 +1182,7 @@ function buyCoin(id, amt){
   toast(`🐸 ${c.name} ${won(amt)} 매수 @ ${coinFmt(c.x)}`, 'up');
   afterAction();
 }
-function sellCoin(id, frac){
+function sellCoin(id, frac, forced){
   const c = getCoin(id), h = S.coinHold[id];
   if (!c || !h) return toast('보유한 코인이 없습니다', 'warn');
   const q = h.qty * frac, gross = q * c.x, fee = Math.ceil(gross * COIN_FEE);
@@ -1149,6 +1191,7 @@ function sellCoin(id, frac){
   S.stats.coin += gross - costPart;
   h.qty -= q; h.cost -= costPart;
   if (frac >= 1 || h.qty * c.x < 1) delete S.coinHold[id];
+  if (forced) return;
   toast(`🐸 ${c.name} 매도 ${won(gross)} (${sgnWon(gross - costPart)})`, cls(gross - costPart) || 'down');
   afterAction();
 }
@@ -1665,6 +1708,88 @@ function renderCasino(){
 }
 
 /* =====================================================================
+ *  4단계: 사채
+ * ---------------------------------------------------------------------
+ *  장 마감마다 복리 이자:  빚(t+1) = 빚(t) × (1 + r)
+ *    → n일 뒤 빚 = 원금 × (1 + r)^n.  r = 5%면 5일 뒤 1.28배, 14일 뒤 약 2배, 30일 뒤 4.3배.
+ *  상환 기한(첫 대출일 + 5일)을 넘기면 연체 하루마다 r이 3%p씩 오른다(5% → 8% → 11% …).
+ *  연체 3일째 장 마감에 '압류': 주식·코인을 시장가로 팔고 레버리지를 강제 청산해 빚을 갚는다.
+ *  그래도 모자라면 빚이 남고, 총자산(= 재산 − 빚)이 0원 이하가 되면 파산.
+ *  한도 = max(50만, 총자산) − 이미 빌린 돈  (빚이 늘수록 더 못 빌린다)
+ * ===================================================================== */
+const LOAN_RATE = 0.05, LOAN_TERM = 5, LOAN_PENALTY = 0.03, SEIZE_AFTER = 3;
+const debt = () => S.loan ? S.loan.bal : 0;
+function loanLimit(){ return Math.max(0, Math.floor(Math.max(500000, netWorth()) - debt())); }
+function loanRate(){
+  if (!S.loan) return LOAN_RATE;
+  return LOAN_RATE + LOAN_PENALTY * Math.max(0, S.day - S.loan.due);
+}
+function borrow(amt){
+  amt = Math.floor(amt);
+  if (amt < 10000) return toast('1만원 이상 빌릴 수 있습니다', 'warn');
+  if (S.loan && S.day > S.loan.due) return toast('연체 중에는 추가 대출이 안 됩니다', 'warn');
+  if (amt > loanLimit()) return toast(`한도 초과 — 최대 ${won(loanLimit())}`, 'warn');
+  if (!S.loan) S.loan = { bal: 0, due: S.day + LOAN_TERM };
+  S.loan.bal += amt;
+  S.cash += amt;
+  toast(`💀 ${won(amt)} 입금 완료. D${S.loan.due} 장 마감까지 갚으세요`, 'warn');
+  afterAction();
+}
+function repay(amt){
+  if (!S.loan) return toast('갚을 빚이 없습니다', 'warn');
+  amt = Math.min(Math.floor(amt), Math.ceil(S.loan.bal), Math.floor(S.cash));
+  if (amt <= 0) return toast('현금이 없습니다', 'warn');
+  S.cash -= amt; S.loan.bal -= amt;
+  if (S.loan.bal < 1){ S.loan = null; toast('🎉 빚을 모두 갚았습니다!', 'up'); }
+  else toast(`${won(amt)} 상환 · 남은 빚 ${won(S.loan.bal)}`);
+  afterAction();
+}
+function loanEndOfDay(){
+  if (!S.loan) return;
+  const r = loanRate(), interest = S.loan.bal * r;
+  S.loan.bal += interest;
+  S.stats.loanInterest += interest;
+  const over = S.day - S.loan.due;
+  if (over >= SEIZE_AFTER) return seize();
+  if (over >= 0)
+    addNews('event', over === 0 ? `💀 오늘이 상환 기한이었습니다. 내일부터 이자율 ${((LOAN_RATE + LOAN_PENALTY) * 100).toFixed(0)}%`
+      : `💀 연체 ${over}일째 — 이자율 ${((r + LOAN_PENALTY) * 100).toFixed(0)}%로 상승. ${SEIZE_AFTER - over}일 뒤 압류`, true, 'down');
+  else if (over === -1) addNews('event', `💀 내일(D${S.loan.due}) 장 마감이 상환 기한입니다. 남은 빚 ${won(S.loan.bal)}`, true, 'warn');
+}
+function seize(){
+  const before = netWorth();
+  for (const id of Object.keys(S.hold)) sellStock(id, S.hold[id].qty, true);
+  for (const p of S.lev.slice()) closeLev(p.uid, true);
+  for (const id of Object.keys(S.coinHold)) if (getCoin(id) && !getCoin(id).rug) sellCoin(id, 1, true);
+  const pay = Math.min(S.cash, S.loan.bal);
+  S.cash -= pay; S.loan.bal -= pay;
+  const left = S.loan.bal;
+  if (left < 1) S.loan = null;
+  addNews('event', `🚨 압류 집행 — 전 재산 처분, ${won(pay)} 회수` + (left >= 1 ? `, 그래도 ${won(left)} 남음` : ''), true, 'down');
+  return before;
+}
+function renderLoan(){
+  const L = S.loan;
+  $('lnBal').textContent = won(debt());
+  $('lnRate').textContent = (loanRate() * 100).toFixed(0) + '% / 일';
+  $('lnDue').textContent = L ? `D${L.due} 장 마감` + (S.day > L.due ? ` (연체 ${S.day - L.due}일)` : ` (D-${L.due - S.day})`) : '-';
+  $('lnDue').className = L && S.day >= L.due ? 'down' : '';
+  $('lnLimit').textContent = won(loanLimit());
+  $('lnWarn').innerHTML = `지금까지 낸 이자 <b class="down">${won(S.stats.loanInterest)}</b>` +
+    (L && S.day > L.due ? `<br><b class="down">⚠️ 연체 중! D${L.due + SEIZE_AFTER} 장 마감에 압류됩니다.</b>` : '');
+  $('btnBorrow').disabled = !!(L && S.day > L.due);
+  $('btnRepayHalf').disabled = $('btnRepayAll').disabled = !L;
+  const P = L ? L.bal : amtVal('lnAmt');
+  let h = `<tr><th>경과</th><th>이자율 5% 유지 시</th><th>기한 넘겨 연체 시</th></tr>`;
+  for (const n of [1, 3, 5, 7, 10, 20, 30]){
+    // 연체 시나리오: 5일까지 5%, 이후 하루마다 3%p씩 상승 (압류 없다고 가정한 계산)
+    let v = P; for (let k = 1; k <= n; k++) v *= 1 + (k <= LOAN_TERM ? LOAN_RATE : LOAN_RATE + LOAN_PENALTY * (k - LOAN_TERM));
+    h += `<tr><td>${n}일 뒤</td><td>${won(P * Math.pow(1 + LOAN_RATE, n))}</td><td class="down">${won(v)}</td></tr>`;
+  }
+  $('lnProj').innerHTML = h + `<tr><td colspan="3" class="muted" style="text-align:left">기준 금액 ${won(P)} (빚이 있으면 현재 빚, 없으면 입력 금액)</td></tr>`;
+}
+
+/* =====================================================================
  *  렌더링
  * ===================================================================== */
 let listKey = '', newsDirty = true;
@@ -1762,6 +1887,7 @@ function renderHeader(){
   $('hNet').textContent = won(nw); $('hNet').className = cls(r);
   $('hNetPct').textContent = pct(r); $('hNetPct').className = cls(r);
   $('hCash').textContent = won(S.cash);
+  $('hDebt').textContent = S.loan ? '빚 ' + shortWon(S.loan.bal) : '';
   const idx = marketIndex(), ir = idx / S.idxOpen - 1;
   $('hIdx').textContent = idx.toFixed(1); $('hIdxPct').textContent = pct(ir); $('hIdxPct').className = cls(ir);
   $('btnPause').textContent = running ? '⏸' : '▶';
@@ -1786,7 +1912,7 @@ function statRows(final){
     ['카지노 손익', st.casino],
     ['복권 손익', st.lottery],
     ['수수료·세금', -st.fees],
-    ['사채 이자 낸 돈', -st.loanInterest]
+    ['사채 이자', -st.loanInterest]
   ];
 }
 /* 하우스(증권사·카지노·복권·사채업자)가 가져간 돈
@@ -1817,6 +1943,7 @@ function render(){
   if (curTab === 'stock'){ renderStockList(); renderDetail(); renderHoldings(); renderNews(); }
   else if (curTab === 'risk') renderRisk();
   else if (curTab === 'casino') renderCasino();
+  else if (curTab === 'loan') renderLoan();
   else if (curTab === 'record') renderRecord();
 }
 
@@ -1856,7 +1983,8 @@ function gameOver(reason){
   renderStatsInto($('oStats'));
   const ht = houseTake();
   $('oHouse').textContent = ht >= 0 ? won(ht) : '하우스가 오히려 ' + won(-ht) + ' 잃음';
-  $('oHouseSub').textContent = '수수료·세금 + 사채 이자 + 카지노·복권·옵션에서 잃은 돈';
+  $('oHouseSub').innerHTML = `수수료·세금 ${won(S.stats.fees)} + 사채 이자 ${won(S.stats.loanInterest)} + 카지노·복권·옵션 순손실 ${won(-(S.stats.casino + S.stats.lottery + S.stats.option))}` +
+    `<br>이론상 하우스 몫(건 돈 × 하우스 엣지): ${won(S.theo)} — 오래 할수록 실제 값이 이 숫자에 수렴합니다`;
   $('oBest').textContent = (newBest ? '🎉 최고 자산 신기록! ' : '') + (newDays ? '🎉 최장 생존 신기록! ' : '') +
     `역대 최고 ${won(b.best)} · 최장 ${b.days}일`;
   $('overOv').classList.remove('hidden');
@@ -1904,6 +2032,16 @@ $('btnRetire').addEventListener('click', () => {
   if (S && S.started && !S.over && confirm('지금 자산으로 게임을 끝내고 정산할까요?')) gameOver('retire');
 });
 $('btnRestart').addEventListener('click', startNew);
+
+// --- 사채 탭 ---
+$('lnChips').addEventListener('click', e => {
+  const b = e.target.closest('[data-v]'); if (!b) return;
+  $('lnAmt').value = String(b.dataset.v === 'max' ? loanLimit() : +b.dataset.v); render();
+});
+$('lnAmt').addEventListener('input', () => render());
+$('btnBorrow').addEventListener('click', () => borrow(amtVal('lnAmt')));
+$('btnRepayHalf').addEventListener('click', () => S.loan && repay(Math.ceil(S.loan.bal / 2)));
+$('btnRepayAll').addEventListener('click', () => S.loan && repay(S.loan.bal));
 
 // --- 카지노 탭 ---
 $('casNav').addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (b){ casSub = b.dataset.v; render(); } });
