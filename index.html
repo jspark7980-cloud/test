@@ -262,7 +262,7 @@ const Menu = {
     if (!b) return;
     sfx.tap();
     if (b.id === 'hockey') setScene(Hockey);
-    else if (b.id === 'reaction' && typeof Reaction !== 'undefined') setScene(Reaction);
+    else if (b.id === 'reaction') setScene(Reaction);
   },
   move() {}, up() {},
 };
@@ -576,6 +576,154 @@ const Hockey = {
 };
 
 /* =========================================================
+   모드 2: 반응속도 대결 (5판 3선승)
+   ---------------------------------------------------------
+   상태 흐름: pre(라운드 표시, 터치 무시) → wait(1~4초 무작위, 터치하면 부정출발)
+             → go(화면이 강조색=초록, 먼저 자기 쪽 터치한 사람 승) → result → 다음 라운드
+   반응 시간 = 터치 이벤트 시각 − 초록 화면을 그리기 시작한 프레임 시각 (ms).
+   (화면 갱신 지연 때문에 실제보다 최대 1프레임 ≈ 16ms 크게 나올 수 있음 — 양쪽에 동일하게 적용)
+   ========================================================= */
+const REACTION_WIN = 3;
+
+const Reaction = {
+  enter() {
+    this.score = [0, 0];
+    this.best = [null, null];
+    this.round = 0;
+    this.nextRound();
+  },
+  nextRound() {
+    this.round++;
+    this.state = 'pre';
+    this.timer = 1.2;
+    this.result = null;
+  },
+  onPause() {},
+  onResume() {
+    // 대기/초록 도중에 멈췄다면 공정하게 이번 라운드를 다시 진행
+    if (this.state === 'wait' || this.state === 'go' || this.state === 'pre') { this.round--; this.nextRound(); }
+  },
+  resize() {},
+  update(dt, now) {
+    if (this.state === 'pre') {
+      this.timer -= dt;
+      if (this.timer <= 0) {
+        this.state = 'wait';
+        this.goAt = now + 1000 + Math.random() * 3000; // 1~4초 무작위
+      }
+    } else if (this.state === 'wait') {
+      if (now >= this.goAt) {
+        this.state = 'go';
+        this.goTime = now;
+        tone(1320, 0.08, 'sine', 0.2);
+      }
+    } else if (this.state === 'result') {
+      this.timer -= dt;
+      if (this.timer <= 0) {
+        const s = this.score;
+        if (s[0] >= REACTION_WIN || s[1] >= REACTION_WIN) {
+          const w = s[0] > s[1] ? 0 : 1;
+          const bestLine = i => `최고 반응  ${this.best[i] != null ? this.best[i] + ' ms' : '—'}`;
+          endGame(w, [
+            [`${s[0]} : ${s[1]}`, bestLine(0)],
+            [`${s[1]} : ${s[0]}`, bestLine(1)],
+          ]);
+        } else {
+          this.nextRound();
+        }
+      }
+    }
+  },
+  down(id, x, y) {
+    const who = y < H / 2 ? 0 : 1;
+    const now = eventNow; // 같은 터치 이벤트의 손가락들은 같은 시각으로 판정
+    if (this.state === 'wait') {
+      // 부정출발: 상대에게 점수
+      this.score[1 - who]++;
+      this.result = { type: 'foul', by: who, winner: 1 - who };
+      this.state = 'result';
+      this.timer = 2.0;
+      tone(120, 0.35, 'sawtooth', 0.15, 70);
+    } else if (this.state === 'go') {
+      const ms = Math.max(0, Math.round(now - this.goTime));
+      this.score[who]++;
+      const times = [null, null]; times[who] = ms;
+      this.result = { type: 'win', winner: who, times };
+      if (this.best[who] == null || ms < this.best[who]) this.best[who] = ms;
+      this.state = 'result';
+      this.timer = 2.2;
+      sfx.goal();
+    } else if (this.state === 'result' && this.result.type === 'win') {
+      // 진 쪽의 반응 시간도 참고용으로 표시
+      const r = this.result;
+      if (who !== r.winner && r.times[who] == null) {
+        r.times[who] = Math.round(now - this.goTime);
+        sfx.tap();
+      }
+    }
+  },
+  move() {}, up() {},
+
+  draw(now) {
+    const go = this.state === 'go';
+    ctx.fillStyle = go ? ACCENT : BG;
+    ctx.fillRect(0, 0, W, H);
+
+    // 결과: 승자 쪽 반쪽을 강조색으로 옅게
+    const r = this.result;
+    if (this.state === 'result' && r) {
+      ctx.globalAlpha = 0.18;
+      ctx.fillStyle = ACCENT;
+      ctx.fillRect(0, r.winner === 0 ? 0 : H / 2, W, H / 2);
+      ctx.globalAlpha = 1;
+    }
+
+    const ink = go ? BG : FG;
+    ctx.fillStyle = go ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.25)';
+    ctx.fillRect(0, H / 2 - 1, W, 2);
+
+    const u = Math.min(W, H);
+    mirrored((who, w, h) => {
+      // 점수 + 3선승 점
+      const ss = Math.min(h * 0.12, u * 0.07);
+      text(String(this.score[who]), w - ss * 0.9, ss * 0.9, ss, go ? BG : 'rgba(255,255,255,0.6)', 800);
+      for (let i = 0; i < REACTION_WIN; i++) {
+        ctx.beginPath();
+        ctx.arc(w - ss * 1.9 - i * ss * 0.45, ss * 0.9, ss * 0.13, 0, Math.PI * 2);
+        if (i < this.score[who]) { ctx.fillStyle = go ? BG : ACCENT; ctx.fill(); }
+        else { ctx.lineWidth = 1.5; ctx.strokeStyle = go ? BG : 'rgba(255,255,255,0.4)'; ctx.stroke(); }
+      }
+
+      const big = Math.min(h * 0.2, u * 0.12), mid = Math.min(h * 0.08, u * 0.045);
+      const cy = h * 0.5;
+      if (this.state === 'pre') {
+        text(`ROUND ${this.round}`, w / 2, cy - big * 0.3, big * 0.6, FG, 800);
+        text('준비…', w / 2, cy + big * 0.5, mid, 'rgba(255,255,255,0.6)', 500);
+      } else if (this.state === 'wait') {
+        text('기다리세요', w / 2, cy - big * 0.2, big * 0.6, FG, 800);
+        text('초록색이 되면 자기 쪽을 터치!', w / 2, cy + big * 0.5, mid, 'rgba(255,255,255,0.55)', 500);
+      } else if (go) {
+        text('터치!', w / 2, cy, big * 1.2, BG, 900);
+      } else if (this.state === 'result' && r) {
+        if (r.type === 'win') {
+          const won = r.winner === who;
+          text(won ? '승리' : '패배', w / 2, cy - big * 0.55, big * 0.7, won ? ACCENT : FG, 800);
+          const t = r.times[who];
+          const label = t == null ? '—' : won ? `${t} ms` : `${t} ms (+${t - r.times[r.winner]})`;
+          text(label, w / 2, cy + big * 0.35, won ? big * 0.75 : big * 0.45, won ? FG : 'rgba(255,255,255,0.6)', 700);
+        } else {
+          const fouled = r.by === who;
+          text(fouled ? '부정출발!' : '상대 부정출발', w / 2, cy - big * 0.2, big * 0.6, fouled ? FG : ACCENT, 800);
+          text(fouled ? '상대에게 1점' : '+1점', w / 2, cy + big * 0.5, mid, 'rgba(255,255,255,0.6)', 500);
+        }
+      }
+    });
+
+    drawPauseBtn(ink, go ? ACCENT : BG);
+  },
+};
+
+/* =========================================================
    입력 (멀티터치: touch.identifier 로 손가락을 각각 추적)
    ========================================================= */
 function onDown(id, x, y) {
@@ -611,7 +759,9 @@ function onDown(id, x, y) {
 function onMove(id, x, y) { if (!app.paused && !app.over) app.scene.move(id, x, y); }
 function onUp(id) { app.scene.up(id); }
 
+let eventNow = 0;
 function eachTouch(e, fn) {
+  eventNow = performance.now();
   const rect = canvas.getBoundingClientRect();
   for (let i = 0; i < e.changedTouches.length; i++) {
     const t = e.changedTouches[i];
@@ -631,7 +781,7 @@ canvas.addEventListener('touchcancel', e => { e.preventDefault(); eachTouch(e, i
 
 // 데스크톱 테스트용 마우스 (터치 기기에서는 위 preventDefault 로 호환 마우스 이벤트가 안 생김)
 let mouseDown = false;
-canvas.addEventListener('mousedown', e => { mouseDown = true; onDown('mouse', e.clientX, e.clientY); });
+canvas.addEventListener('mousedown', e => { mouseDown = true; eventNow = performance.now(); onDown('mouse', e.clientX, e.clientY); });
 window.addEventListener('mousemove', e => { if (mouseDown) onMove('mouse', e.clientX, e.clientY); });
 window.addEventListener('mouseup', () => { if (mouseDown) { mouseDown = false; onUp('mouse'); } });
 
