@@ -1,0 +1,16 @@
+{
+  "rules": {
+    ".read": "auth != null",
+    "players": {
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "rl": { ".write": "auth != null" },
+    "rlBets": { ".write": "auth != null" },
+    "bj": { ".write": "auth != null" },
+    "lotto": { ".write": "auth != null" },
+    "ltSold": { ".write": "auth != null" },
+    "feed": { ".write": "auth != null" }
+  }
+}

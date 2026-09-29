@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0d13">
+<meta name="color-scheme" content="dark">
+<title>한탕 카지노 LIVE</title>
+<!--
+  한탕 카지노 LIVE — 친구들과 실시간으로 하는 가상머니 카지노 (실제 돈과 무관)
+
+  [설정]
+  1) https://console.firebase.google.com 에서 프로젝트 생성
+  2) Build → Authentication → Sign-in method → '익명(Anonymous)' 사용 설정
+  3) Build → Realtime Database → 데이터베이스 만들기 (위치 아무 곳, '잠금 모드'로 시작)
+     → '규칙' 탭에 저장소의 database.rules.json 내용을 붙여넣고 게시
+  4) 프로젝트 설정(톱니) → 내 앱 → 웹 앱(</>) 추가 → 나오는 firebaseConfig 객체를
+     아래 <script> 맨 위 FIREBASE_CONFIG 에 붙여넣기 (databaseURL 이 꼭 들어 있어야 함)
+
+  FIREBASE_CONFIG 가 null 이면 '로컬 테스트 모드': 같은 브라우저의 여러 탭끼리만 공유된다.
+-->
+<style>
+:root{
+  --bg:#0a0d13; --panel:#131923; --panel2:#1a2230; --line:#263042;
+  --text:#e8edf4; --muted:#8a97aa;
+  --up:#ff4b58; --down:#3b8cff; --gold:#f5c542; --warn:#ffb020; --ok:#2ecc71;
+  --r:14px; color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif;
+  touch-action:manipulation;-webkit-text-size-adjust:100%;overscroll-behavior:none}
+body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+input{-webkit-user-select:text;user-select:text}
+b,.num{font-variant-numeric:tabular-nums}
+.up{color:var(--up)}.down{color:var(--down)}.muted{color:var(--muted)}.gold{color:var(--gold)}
+.hidden{display:none!important}
+#app{display:flex;flex-direction:column;height:100vh;height:100dvh;padding:env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left)}
+header{display:flex;gap:16px;align-items:center;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.brand{font-weight:800;font-size:20px;white-space:nowrap}
+.live{font-size:11px;font-weight:800;color:#fff;background:var(--up);border-radius:6px;padding:2px 6px;margin-left:4px;vertical-align:middle;animation:blink 1.6s infinite}
+@keyframes blink{50%{opacity:.45}}
+.kpi label{display:block;font-size:12px;color:var(--muted)}
+.kpi b{font-size:18px;white-space:nowrap}
+.mode{margin-left:auto;font-size:12px;color:var(--warn);border:1px solid var(--warn);border-radius:8px;padding:4px 8px}
+.mode.ok{color:var(--ok);border-color:var(--ok)}
+#ticker{padding:8px 16px;font-size:14px;background:#0f141d;border-bottom:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:36px}
+nav#tabs{display:flex;gap:6px;padding:8px 16px;border-bottom:1px solid var(--line);overflow-x:auto}
+nav#tabs button{flex:1;min-width:76px;min-height:48px;border:0;border-radius:12px;background:var(--panel);color:var(--muted);font-size:16px;font-weight:800}
+nav#tabs button.on{background:var(--gold);color:#1a1400}
+main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 16px calc(28px + env(safe-area-inset-bottom))}
+.layout{display:grid;grid-template-columns:1fr;gap:12px}
+@media (orientation:landscape) and (min-width:900px){.layout{grid-template-columns:1fr 290px;align-items:start}.side{position:sticky;top:0}}
+.tab{display:none}.tab.on{display:block}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px}
+.card h3{margin:0 0 10px;font-size:16px}
+.btn{min-height:48px;padding:0 14px;border:0;border-radius:12px;background:var(--panel2);color:var(--text);font-size:16px;font-weight:800}
+.btn:active{filter:brightness(1.3)}.btn:disabled{opacity:.35}
+.btn.gold{background:var(--gold);color:#1a1400}.btn.red{background:var(--up);color:#fff}.btn.blue{background:var(--down);color:#fff}
+.btn.ghost{background:transparent;border:1px solid var(--line)}
+.row{display:flex;gap:8px}.row>*{flex:1}
+.big-btn{width:100%;min-height:56px;font-size:18px;margin-top:8px}
+.note{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:8px 6px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--muted);font-weight:600;font-size:12px}
+/* 베팅 금액 */
+.betbar{display:grid;grid-template-columns:1.4fr repeat(4,1fr);gap:6px}
+.betbar input{min-height:52px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--gold);font-size:22px;font-weight:800;text-align:center;width:100%}
+.betbar .btn{font-size:14px;padding:0}
+.betbar2{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px}
+.betbar2 .btn{min-height:42px;font-size:14px}
+@media (max-width:600px){.betbar{grid-template-columns:1fr 1fr}.betbar input{grid-column:1/-1}}
+/* 단계 배너 */
+.phase{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 14px;border-radius:12px;background:var(--panel2);font-weight:800;font-size:17px;margin-bottom:10px}
+.phase .cd{font-size:22px;color:var(--gold)}
+.pbar{height:6px;border-radius:3px;background:var(--bg);overflow:hidden;margin:-4px 0 10px}
+.pbar i{display:block;height:100%;background:var(--gold);transition:width .5s linear}
+/* 룰렛 */
+.cas-grid{display:grid;grid-template-columns:1fr;gap:14px}
+@media (orientation:landscape) and (min-width:900px){.cas-grid{grid-template-columns:minmax(240px,38%) 1fr;align-items:start}}
+#wheel{width:100%;max-width:320px;aspect-ratio:1;display:block;margin:0 auto}
+.hist{display:flex;gap:4px;flex-wrap:wrap;justify-content:center;margin-top:8px}
+.dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff}
+.dR{background:#b3202c}.dB{background:#20242c;border:1px solid #3a4150}.dG{background:#12803c}
+.rl-opts{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.rl-opts button,.numgrid button{border:2px solid transparent;border-radius:10px;font-weight:800;color:#fff}
+.rl-opts button{min-height:48px;font-size:15px;background:var(--panel2)}
+.numgrid{display:grid;grid-template-columns:repeat(13,1fr);gap:4px;margin-top:8px}
+.numgrid button{min-height:42px;font-size:14px;padding:0}
+.numgrid .z{grid-row:1/4;background:#12803c}
+.nR{background:#b3202c!important}.nB{background:#20242c!important}
+.rl-opts button.on,.numgrid button.on{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold) inset}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.chip{font-size:13px;font-weight:700;padding:5px 9px;border-radius:999px;background:var(--panel2);border:1px solid var(--line)}
+.chip.me{border-color:var(--gold);color:var(--gold)}
+/* 블랙잭 */
+.seats{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+@media (max-width:820px) and (orientation:portrait){.seats{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:520px){.seats{grid-template-columns:repeat(2,1fr)}}
+.seat{background:var(--panel2);border:2px solid var(--line);border-radius:12px;padding:8px;min-height:150px;display:flex;flex-direction:column;gap:4px}
+.seat.me{border-color:var(--gold)}.seat.turn{box-shadow:0 0 0 3px var(--up)}
+.seat .nm{font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.seat .info{font-size:12px;color:var(--muted)}
+.cards{display:flex;flex-wrap:wrap;gap:3px}
+.pcard{width:34px;height:48px;border-radius:6px;background:#f6f3ea;color:#161616;display:flex;flex-direction:column;justify-content:space-between;padding:2px 4px;font-weight:800;font-size:13px;line-height:1}
+.pcard .s{align-self:flex-end;font-size:15px}
+.pcard.red{color:#c1121f}
+.pcard.back{background:repeating-linear-gradient(45deg,#8a1722,#8a1722 5px,#6a0f18 5px,#6a0f18 10px);border:2px solid #f6f3ea}
+.dealer .pcard{width:52px;height:74px;font-size:18px;border-radius:8px;padding:4px 6px}
+.dealer .pcard .s{font-size:22px}
+.hand{border-radius:8px;padding:3px;border:1px solid transparent}
+.hand.act{border-color:var(--up)}
+.res{font-size:13px;font-weight:800;color:var(--gold)}
+.bj-actions{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px}
+.bj-actions .btn{min-height:58px}
+/* 슬롯 */
+.reels{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:460px;margin:0 auto}
+.reel{aspect-ratio:1;border-radius:18px;background:linear-gradient(#0c1018,#1d2533 50%,#0c1018);border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:clamp(44px,9vw,84px)}
+.reel.win{border-color:var(--gold);box-shadow:0 0 18px rgba(245,197,66,.5)}
+.msg{font-size:18px;font-weight:800;text-align:center;min-height:28px;margin-top:8px}
+.paytable{display:grid;grid-template-columns:1fr 1fr;gap:2px 16px;font-size:14px;margin-top:10px}
+.paytable div{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed var(--line)}
+/* 복권 */
+.lotto-grid{display:grid;grid-template-columns:repeat(9,1fr);gap:5px;margin-top:8px;max-width:560px}
+.lotto-grid button{min-height:44px;border-radius:50%;aspect-ratio:1;border:0;background:var(--panel2);color:var(--text);font-weight:800;font-size:15px;padding:0}
+.lotto-grid button.on{background:var(--gold);color:#1a1400}
+.balls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.ball{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;color:#111;font-size:15px}
+.ball.hit{outline:3px solid #fff}
+/* 사이드 */
+.plist .p{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--line);font-size:14px;gap:8px}
+.plist .p .n{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.on-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok);margin-right:6px}
+.off-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#444;margin-right:6px}
+.feed{max-height:340px;overflow-y:auto;font-size:13px;line-height:1.45}
+.feed div{padding:6px 0;border-bottom:1px solid var(--line)}
+.house{margin-top:12px;padding:14px;border-radius:14px;background:linear-gradient(135deg,#3a1015,#2a0c10);border:2px solid var(--up);text-align:center}
+.house .v{font-size:30px;font-weight:900;color:#ff6b76}
+/* 오버레이 / 토스트 */
+.overlay{position:fixed;inset:0;background:rgba(5,7,11,.88);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:22px;width:min(520px,100%);max-height:92vh;overflow-y:auto}
+.modal h1{margin:0 0 6px;font-size:26px}
+.modal p{color:var(--muted);line-height:1.55;margin:8px 0}
+.modal input{width:100%;min-height:54px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:20px;font-weight:700;padding:0 14px;margin-top:8px}
+#toasts{position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top) + 10px);z-index:60;display:flex;flex-direction:column;gap:8px;width:min(520px,calc(100% - 32px));pointer-events:none}
+.toast{background:rgba(30,39,53,.96);border:1px solid var(--line);border-left:5px solid var(--gold);border-radius:12px;padding:9px 12px;font-size:14px;font-weight:600;box-shadow:0 6px 24px rgba(0,0,0,.5)}
+.toast.up{border-left-color:var(--up)}.toast.down{border-left-color:var(--down)}.toast.warn{border-left-color:var(--warn)}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand">한탕 카지노<span class="live">LIVE</span></div>
+    <div class="kpi"><label id="hName">-</label><b id="hBal">-</b></div>
+    <div class="kpi"><label>접속 중</label><b id="hOnline">-</b></div>
+    <div class="mode" id="hMode">연결 중…</div>
+  </header>
+  <div id="ticker" class="muted">가상머니 전용 · 실제 돈과 무관합니다</div>
+  <nav id="tabs">
+    <button data-tab="rl" class="on">🎡 룰렛</button>
+    <button data-tab="bj">🃏 블랙잭</button>
+    <button data-tab="slot">🎰 슬롯</button>
+    <button data-tab="lotto">🎟️ 복권</button>
+    <button data-tab="rank">🏆 랭킹</button>
+  </nav>
+  <main>
+    <div class="layout">
+      <div>
+        <div class="card" id="betBox" style="margin-bottom:12px">
+          <div class="betbar">
+            <input id="bet" type="text" inputmode="numeric" pattern="[0-9]*" value="10000" aria-label="베팅 금액">
+            <button class="btn" data-add="10000">+1만</button><button class="btn" data-add="50000">+5만</button>
+            <button class="btn" data-add="100000">+10만</button><button class="btn" data-add="500000">+50만</button>
+          </div>
+          <div class="betbar2"><button class="btn" data-set="half">½</button><button class="btn" data-set="all">올인 🔥</button><button class="btn ghost" data-set="clear">초기화</button></div>
+        </div>
+
+        <!-- 룰렛 -->
+        <section class="tab on" id="tab-rl"><div class="card">
+          <div class="phase"><span id="rlPhase">-</span><span class="cd" id="rlCd"></span></div>
+          <div class="pbar"><i id="rlBar"></i></div>
+          <div class="cas-grid">
+            <div><canvas id="wheel"></canvas><div class="hist" id="rlHist"></div></div>
+            <div>
+              <div class="rl-opts" id="rlOpts">
+                <button data-b="red" class="nR">빨강 ×2</button><button data-b="black" class="nB">검정 ×2</button><button data-b="odd">홀 ×2</button>
+                <button data-b="even">짝 ×2</button><button data-b="low">1~18 ×2</button><button data-b="high">19~36 ×2</button>
+              </div>
+              <div class="numgrid" id="numGrid"></div>
+              <button class="btn gold big-btn" id="rlBetBtn">베팅</button>
+              <div class="note">한 판에 여러 번 걸 수 있습니다. 모두 같은 공을 봅니다. 유럽식(0 하나) · 하우스 엣지 2.70%</div>
+              <div class="chips" id="rlBets"></div>
+            </div>
+          </div>
+        </div></section>
+
+        <!-- 블랙잭 -->
+        <section class="tab" id="tab-bj"><div class="card">
+          <div class="phase"><span id="bjPhase">-</span><span class="cd" id="bjCd"></span></div>
+          <div class="pbar"><i id="bjBar"></i></div>
+          <div class="dealer"><div class="muted">딜러 <b id="bjDealerT"></b></div><div class="cards" id="bjDealer" style="min-height:78px;margin:6px 0 12px"></div></div>
+          <div class="seats" id="bjSeats"></div>
+          <div class="bj-actions">
+            <button class="btn gold" id="bjBet" style="grid-column:1/-1">베팅</button>
+            <button class="btn red" id="bjHit">히트</button><button class="btn blue" id="bjStand">스탠드</button>
+            <button class="btn" id="bjDouble">더블</button><button class="btn" id="bjSplit">스플릿</button>
+          </div>
+          <button class="btn ghost" id="bjLeave" style="width:100%;margin-top:8px">자리에서 일어나기</button>
+          <div class="note">자리 5개 · 6덱 · 딜러 소프트17 스탠드 · 블랙잭 3:2 · 스플릿 1회 · 스플릿 후 더블 가능 · 차례마다 20초(넘기면 자동 스탠드) · 하우스 엣지 약 0.45%(기본전략 기준)</div>
+        </div></section>
+
+        <!-- 슬롯 -->
+        <section class="tab" id="tab-slot"><div class="card">
+          <div class="reels"><div class="reel" id="reel0">🍒</div><div class="reel" id="reel1">🍋</div><div class="reel" id="reel2">💎</div></div>
+          <div class="msg" id="slotMsg">돌려라!</div>
+          <button class="btn gold big-btn" id="slotBtn" style="max-width:460px;display:block;margin:8px auto 0">레버 당기기</button>
+          <div class="paytable" id="payTable"></div>
+          <div class="note">혼자 돌리는 기계입니다. ×20 이상 당첨은 모두에게 알려집니다. 환수율(RTP) 95.05% · 하우스 엣지 4.95%</div>
+        </div></section>
+
+        <!-- 복권 -->
+        <section class="tab" id="tab-lotto"><div class="card">
+          <div class="phase"><span>🎟️ <span id="ltDraw">-</span>회차 추첨까지</span><span class="cd" id="ltCd"></span></div>
+          <div class="note" id="ltSold" style="margin:-4px 0 10px"></div>
+          <div id="ltMine"></div>
+          <div id="ltBuy">
+            <div class="muted" style="font-size:14px">번호 6개 (<b id="ltCnt">0</b>/6) · 1장 5,000원 · 회차당 1장</div>
+            <div class="lotto-grid" id="ltGrid"></div>
+            <div class="row" style="margin-top:8px"><button class="btn" id="ltAuto">자동</button><button class="btn ghost" id="ltClear">지우기</button><button class="btn gold" id="ltBtn">구매</button></div>
+          </div>
+          <h3 style="margin-top:14px">지난 회차</h3>
+          <div id="ltLast" class="muted">아직 추첨 결과가 없습니다</div>
+          <table id="ltTable" style="margin-top:12px"></table>
+          <div class="note">3분마다 모두 같은 번호로 추첨. 당첨금은 티켓값의 배수로 고정(기대 회수율 약 50%).</div>
+        </div></section>
+
+        <!-- 랭킹 -->
+        <section class="tab" id="tab-rank"><div class="card">
+          <h3>🏆 랭킹</h3>
+          <div style="overflow-x:auto"><table id="rankTable"></table></div>
+          <div class="house">
+            <div style="font-weight:800">🏦 하우스가 모두에게서 가져간 돈</div>
+            <div class="v" id="houseAll">-</div>
+            <div class="note" id="houseSub"></div>
+          </div>
+          <button class="btn ghost" id="bustBtn" style="width:100%;margin-top:12px">파산 신청 (잔고 1,000원 미만일 때 1,000,000원으로 재시작)</button>
+        </div></section>
+      </div>
+
+      <aside class="side">
+        <div class="card"><h3>접속자</h3><div class="plist" id="plist"></div></div>
+        <div class="card" style="margin-top:12px"><h3>실시간 소식</h3><div class="feed" id="feed"></div></div>
+      </aside>
+    </div>
+  </main>
+</div>
+<div id="toasts"></div>
+
+<div class="overlay" id="loginOv">
+  <div class="modal">
+    <h1>🎰 한탕 카지노 LIVE</h1>
+    <p>친구들과 같은 룰렛·블랙잭 테이블에서 실시간으로 즐기는 <b>가상머니</b> 카지노입니다. 실제 돈과 전혀 무관합니다.</p>
+    <p id="loginMode"></p>
+    <input id="nick" maxlength="10" placeholder="닉네임 (최대 10자)" autocomplete="off">
+    <button class="btn gold big-btn" id="loginBtn" disabled>입장</button>
+  </div>
+</div>
+
+<script type="module">
+/* ===================================================================== */
+const FIREBASE_CONFIG = null;   // ← 여기에 Firebase 웹 앱 설정 객체를 붙여넣으세요 (위 설정 안내 참고)
+/* ===================================================================== */
+
+const START = 1000000;
+const ONLINE_MS = 25000;       // 마지막 신호가 25초 이내면 '접속 중'
+const F = /[?&]fast=1/.test(location.search) ? 0.1 : 1;   // 테스트용: 주소 끝에 ?local=1&fast=1 → 모든 시간 1/10
+const RL_BET_MS = 20000 * F, RL_SPIN_MS = 9000 * F, RL_ANIM_MS = 5500 * F;
+const BJ_SEATS = 5, BJ_BET_MS = 12000 * F, BJ_TURN_MS = 20000 * F, BJ_DONE_MS = 6000 * F;
+const LT_MS = 180000 * F, LT_PRICE = 5000;
+const RL_EDGE = 1 / 37, BJ_EDGE = 0.0045, SLOT_RTP = 31147 / 32768, LT_EDGE = 0.5;
+
+// ---------- 유틸 ----------
+// 브라우저 암호학적 난수 (Math.random보다 예측이 어렵다)
+const rand = () => crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296;
+const randInt = (a, b) => a + Math.floor(rand() * (b - a + 1));
+const pick = a => a[Math.floor(rand() * a.length)];
+const fmt = n => (Math.round(n) || 0).toLocaleString('ko-KR');
+const won = n => fmt(n) + '원';
+const sgnWon = n => (n > 0 ? '+' : '') + fmt(n) + '원';
+const cls = v => v > 0 ? 'up' : v < 0 ? 'down' : '';
+const $ = id => document.getElementById(id);
+// 다른 사람이 입력한 닉네임 등은 반드시 이스케이프 (HTML 주입 방지)
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+function shortWon(n){ const a = Math.abs(n), s = n < 0 ? '-' : ''; if (a >= 1e8) return s + (a / 1e8).toFixed(2) + '억'; if (a >= 1e4) return s + Math.floor(a / 1e4).toLocaleString('ko-KR') + '만'; return s + fmt(a); }
+function lsGet(k){ try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch(e){ return null; } }
+function lsSet(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
+// Realtime Database는 배열을 {0:..,1:..} 객체로 돌려주거나 빈 배열을 지워버린다 → 읽을 때마다 배열로 정규화
+function arr(x){
+  if (Array.isArray(x)) return x.filter(v => v !== null && v !== undefined);
+  if (x && typeof x === 'object') return Object.keys(x).sort((a, b) => a - b).map(k => x[k]);
+  return [];
+}
+const clean = v => v === undefined ? null : JSON.parse(JSON.stringify(v));   // undefined 제거 (DB가 거부함)
+function toast(msg, c){
+  const box = $('toasts'), el = document.createElement('div');
+  el.className = 'toast ' + (c || ''); el.textContent = msg; box.appendChild(el);
+  while (box.children.length > 3) box.removeChild(box.firstChild);
+  setTimeout(() => el.remove(), 3000);
+}
+
+/* =====================================================================
+ *  DB 계층: Firebase Realtime Database 또는 로컬 테스트용 가짜 DB
+ *  둘 다 같은 인터페이스: uid, now(), onValue, set, update, transaction
+ *  transaction(path, fn): 현재 값을 fn에 넘기고, fn이 돌려준 값으로 원자적으로 교체.
+ *   fn이 undefined를 돌려주면 취소. 여러 사람이 동시에 시도해도 하나만 성공한다
+ *   → 룰렛 결과·블랙잭 카드처럼 '딱 한 번만' 정해져야 하는 것을 이걸로 처리.
+ * ===================================================================== */
+async function makeFirebaseDB(cfg){
+  const B = 'https://www.gstatic.com/firebasejs/10.12.2/';
+  const [A, AU, D] = await Promise.all([import(B + 'firebase-app.js'), import(B + 'firebase-auth.js'), import(B + 'firebase-database.js')]);
+  const app = A.initializeApp(cfg);
+  const auth = AU.getAuth(app);
+  const user = await new Promise((res, rej) => {
+    AU.onAuthStateChanged(auth, u => { if (u) res(u); else AU.signInAnonymously(auth).catch(rej); });
+  });
+  const db = D.getDatabase(app);
+  let offset = 0;
+  D.onValue(D.ref(db, '.info/serverTimeOffset'), s => { offset = s.val() || 0; });   // 서버 시계와의 차이 → 모두 같은 시계로 카운트다운
+  return {
+    mode: 'firebase', uid: user.uid,
+    now: () => Date.now() + offset,
+    onValue: (p, cb) => D.onValue(D.ref(db, p), s => cb(s.val())),
+    set: (p, v) => D.set(D.ref(db, p), clean(v)),
+    update: (p, o) => D.update(D.ref(db, p), clean(o)),
+    transaction: async (p, fn) => {
+      const r = await D.runTransaction(D.ref(db, p), cur => { const v = fn(cur); return v === undefined ? undefined : clean(v); }, { applyLocally: false });
+      return { committed: r.committed, value: r.snapshot.val() };
+    }
+  };
+}
+function makeLocalDB(){
+  const KEY = 'hc_localdb';
+  const ch = 'BroadcastChannel' in window ? new BroadcastChannel('hc_localdb') : null;
+  let tree = load();
+  const subs = new Set();
+  function load(){ try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch(e){ return {}; } }
+  // RTDB 흉내: 배열 → 인덱스 키 객체, 빈 값 삭제 (실제 서버와 같은 함정을 테스트 때 드러내기 위함)
+  function norm(v){
+    if (v === undefined || v === null) return null;
+    if (Array.isArray(v)){ const o = {}; v.forEach((x, i) => { const n = norm(x); if (n !== null) o[i] = n; }); return Object.keys(o).length ? o : null; }
+    if (typeof v === 'object'){ const o = {}; for (const k in v){ const n = norm(v[k]); if (n !== null) o[k] = n; } return Object.keys(o).length ? o : null; }
+    return v;
+  }
+  const parts = p => p.split('/').filter(Boolean);
+  function get(p){ let n = tree; for (const k of parts(p)){ if (n == null || typeof n !== 'object') return null; n = n[k]; } return n === undefined ? null : JSON.parse(JSON.stringify(n)); }
+  function put(p, v){
+    v = norm(v); const ks = parts(p);
+    let n = tree;
+    for (let i = 0; i < ks.length - 1; i++){ if (typeof n[ks[i]] !== 'object' || n[ks[i]] === null) n[ks[i]] = {}; n = n[ks[i]]; }
+    if (v === null) delete n[ks[ks.length - 1]]; else n[ks[ks.length - 1]] = v;
+  }
+  function notify(){ for (const s of subs){ const v = get(s.p), j = JSON.stringify(v); if (j !== s.last){ s.last = j; try { s.cb(v); } catch(e){ console.error(e); } } } }
+  function persist(){ try { localStorage.setItem(KEY, JSON.stringify(tree)); } catch(e){} if (ch) ch.postMessage(1); notify(); }
+  if (ch) ch.onmessage = () => { tree = load(); notify(); };
+  window.addEventListener('storage', e => { if (e.key === KEY){ tree = load(); notify(); } });
+  let uid = null;
+  try { uid = sessionStorage.getItem('hc_uid'); if (!uid){ uid = 'L' + Math.random().toString(36).slice(2, 10); sessionStorage.setItem('hc_uid', uid); } } catch(e){ uid = 'L' + Math.random().toString(36).slice(2, 10); }
+  return {
+    mode: 'local', uid, now: () => Date.now(),
+    onValue(p, cb){ const s = { p, cb, last: undefined }; subs.add(s); setTimeout(notify, 0); return () => subs.delete(s); },
+    async set(p, v){ tree = load(); put(p, v); persist(); },
+    async update(p, o){ tree = load(); for (const k in o) put(p + '/' + k, o[k]); persist(); },
+    async transaction(p, fn){ tree = load(); const cur = get(p); const v = fn(cur); if (v === undefined) return { committed: false, value: cur }; put(p, clean(v)); persist(); return { committed: true, value: get(p) }; }
+  };
+}
+
+/* =====================================================================
+ *  공유 상태
+ * ===================================================================== */
+let DB = null, ME = null;          // ME = 내 uid
+const st = { players: {}, rl: null, rlBets: {}, bj: null, lotto: null, ltSold: {}, feed: [] };
+const me = () => st.players[ME] || null;
+const online = p => p && DB.now() - (p.seen || 0) < ONLINE_MS;
+const myName = () => (me() && me().name) || '나';
+
+// ---------- 지갑 (내 잔고는 나만 쓴다: 규칙으로 강제) ----------
+// delta<0 이면 잔고가 모자랄 때 취소. sd = 통계 증감 {wag: 건 돈, net: 순손익, theo: 이론상 하우스 몫}
+async function wallet(delta, sd){
+  const r = await DB.transaction('players/' + ME, cur => {
+    if (!cur) return cur;
+    if (delta < 0 && (cur.bal || 0) < -delta) return;
+    cur.bal = Math.round((cur.bal || 0) + delta);
+    cur.peak = Math.max(cur.peak || 0, cur.bal);
+    cur.st = cur.st || {};
+    if (sd) for (const k in sd) cur.st[k] = (cur.st[k] || 0) + sd[k];
+    return cur;
+  });
+  return r.committed && r.value && typeof r.value === 'object';
+}
+async function feed(text){
+  await DB.transaction('feed', cur => { const a = arr(cur); a.unshift({ t: DB.now(), x: text }); return a.slice(0, 40); });
+}
+function betAmt(){ return Math.max(0, parseInt($('bet').value.replace(/[^0-9]/g, ''), 10) || 0); }
+function checkBet(a){
+  if (a < 1000){ toast('1,000원 이상 걸어야 합니다', 'warn'); return false; }
+  if (!me() || me().bal < a){ toast('잔고가 부족합니다', 'warn'); return false; }
+  return true;
+}
+
+/* =====================================================================
+ *  룰렛 (공유 테이블)
+ * ---------------------------------------------------------------------
+ *  확률: 37칸(0~36) 균등 → 빨강/검정·홀짝·높낮이 적중 18/37, 2배 지급
+ *        기대 회수율 = 18/37×2 = 36/37 → 하우스 엣지 1/37 ≈ 2.70%
+ *        숫자 하나: 1/37 × 36배 = 36/37 → 역시 2.70%
+ *  진행: 베팅 20초 → 스핀 9초 → 다음 판. 서버 시각 기준이라 모두 같은 카운트다운을 본다.
+ *  결과를 정하는 사람: 마감 시각이 지나면 접속한 모두가 동시에 '결과 확정' 트랜잭션을
+ *  시도하고, 그중 딱 한 명만 성공한다. 그 사람의 난수가 이번 판 결과가 된다.
+ * ===================================================================== */
+const WHEEL = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
+const REDS = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+const RL_NAME = { red:'빨강', black:'검정', odd:'홀', even:'짝', low:'1~18', high:'19~36' };
+const rlBetName = b => typeof b === 'number' ? '숫자 ' + b : RL_NAME[b];
+function rlWins(b, n){
+  if (typeof b === 'number') return b === n;
+  if (n === 0) return false;
+  return b === 'red' ? REDS.has(n) : b === 'black' ? !REDS.has(n) : b === 'odd' ? n % 2 === 1 : b === 'even' ? n % 2 === 0 : b === 'low' ? n <= 18 : n >= 19;
+}
+const rlMult = b => typeof b === 'number' ? 36 : 2;
+let rlSel = 'red', wheelAng = 0, rlAnimRound = 0, rlAnimating = false, rlShown = null;
+
+async function rlDrive(now){
+  const r = st.rl;
+  if (!r){ await DB.transaction('rl', cur => cur ? undefined : { round: 1, phase: 'bet', endsAt: now + RL_BET_MS, hist: [] }); return; }
+  if (r.phase === 'bet' && now >= r.endsAt){
+    await DB.transaction('rl', cur => {
+      if (!cur || cur.round !== r.round || cur.phase !== 'bet' || DB.now() < cur.endsAt) return;
+      const n = randInt(0, 36);
+      cur.phase = 'spin'; cur.result = n; cur.spinEndsAt = DB.now() + RL_SPIN_MS;
+      cur.hist = [{ r: cur.round, n }].concat(arr(cur.hist)).slice(0, 20);
+      return cur;
+    });
+  } else if (r.phase === 'spin' && now >= r.spinEndsAt){
+    const res = await DB.transaction('rl', cur => {
+      if (!cur || cur.round !== r.round || cur.phase !== 'spin' || DB.now() < cur.spinEndsAt) return;
+      return { round: cur.round + 1, phase: 'bet', endsAt: DB.now() + RL_BET_MS, hist: arr(cur.hist) };
+    });
+    if (res.committed) DB.set('rlBets/' + (r.round - 1), null);   // 지난 판 베팅 기록 정리
+  }
+}
+// 내가 건 베팅은 기기에 따로 적어 둔다 → 결과가 나오면 내 지갑에 스스로 정산
+const myRlKey = () => 'hc_rl_' + ME;
+function myRl(){ return lsGet(myRlKey()) || { round: 0, bets: [] }; }
+async function rlPlace(){
+  const r = st.rl, now = DB.now();
+  if (!r || r.phase !== 'bet' || now > r.endsAt - 800 * F) return toast('베팅 마감 — 다음 판을 기다리세요', 'warn');
+  const a = betAmt(); if (!checkBet(a)) return;
+  const mine = myRl();
+  if (mine.round && mine.round !== r.round && mine.bets.length) return toast('지난 판 정산 중입니다. 잠시 후 다시', 'warn');
+  if (!await wallet(-a, { wag: a, net: -a, theo: a * RL_EDGE })) return toast('잔고가 부족합니다', 'warn');
+  const b = rlSel;
+  lsSet(myRlKey(), { round: r.round, bets: (mine.round === r.round ? mine.bets : []).concat([{ b, a }]) });
+  await DB.transaction(`rlBets/${r.round}/${ME}`, cur => arr(cur).concat([{ b, a, nm: myName() }]));
+  toast(`🎡 ${rlBetName(b)}에 ${won(a)}`);
+}
+let rlSettling = false;
+async function rlSettle(){
+  const mine = myRl(), r = st.rl;
+  if (!mine.round || !mine.bets.length || !r || rlSettling) return;
+  const h = arr(r.hist).find(x => x.r === mine.round);
+  const revealed = h && (r.round > mine.round || (r.phase === 'spin' && DB.now() >= r.spinEndsAt - RL_SPIN_MS + RL_ANIM_MS));
+  const lost = !h && r.round > mine.round + 15;        // 기록이 너무 오래돼 결과를 못 찾으면 원금 반환
+  if (!revealed && !lost) return;
+  rlSettling = true;
+  lsSet(myRlKey(), { round: 0, bets: [] });            // 먼저 비워서 두 번 정산되지 않게
+  let pay = 0; const wins = [];
+  for (const x of mine.bets){
+    if (lost){ pay += x.a; continue; }
+    if (rlWins(x.b, h.n)){ pay += x.a * rlMult(x.b); wins.push(rlBetName(x.b)); }
+  }
+  const betSum = mine.bets.reduce((s, x) => s + x.a, 0);
+  if (pay) await wallet(pay, { net: pay });
+  if (lost) toast('결과를 찾지 못해 원금을 돌려받았습니다');
+  else {
+    toast(pay ? `🎡 ${h.n}! ${wins.join('·')} 적중 — ${won(pay)}` : `🎡 ${h.n} — ${won(betSum)} 잃음`, pay > betSum ? 'up' : 'down');
+    if (pay - betSum >= 100000) feed(`🎡 ${myName()}님 룰렛 ${h.n}번으로 +${won(pay - betSum)}!`);
+  }
+  rlSettling = false;
+}
+
+/* =====================================================================
+ *  블랙잭 (공유 테이블, 자리 5개)
+ * ---------------------------------------------------------------------
+ *  6덱 슈를 테이블 데이터에 넣어 두고, 모든 행동(히트·스탠드…)을 트랜잭션으로 처리한다.
+ *  → 두 사람이 동시에 눌러도 카드가 겹치거나 순서가 꼬이지 않는다.
+ *  규칙: S17, 블랙잭 3:2, 첫 두 장 더블, 스플릿 1회(에이스 스플릿은 한 장씩), 스플릿 후 더블.
+ *  하우스 엣지 ≈ 0.45%: 같은 규칙 + 기본전략으로 500만 판 모의실험한 값.
+ *  진행: 누군가 첫 베팅 → 12초 뒤(또는 앉은 사람 모두 베팅하면 즉시) 딜
+ *        → 자리 순서대로 차례(20초, 넘기면 자동 스탠드) → 딜러 → 6초간 결과 → 다음 판
+ * ===================================================================== */
+const cardVal = c => Math.min(c % 13 + 1, 10);
+function handTotal(h){ let t = 0, a = 0; for (const c of h){ const v = cardVal(c); t += v; if (v === 1) a++; } const soft = a > 0 && t + 10 <= 21; return { t: soft ? t + 10 : t, soft }; }
+const isBJ = h => h.length === 2 && handTotal(h).t === 21;
+function newShoe(){ const s = []; for (let d = 0; d < 6; d++) for (let i = 0; i < 52; i++) s.push(i); for (let i = s.length - 1; i > 0; i--){ const j = Math.floor(rand() * (i + 1)); [s[i], s[j]] = [s[j], s[i]]; } return s; }
+function bjNorm(v){
+  const T = v && typeof v === 'object' ? v : {};
+  const seats = {};
+  for (let i = 0; i < BJ_SEATS; i++){
+    const s = T.seats && T.seats['s' + i];
+    if (s && s.uid) seats['s' + i] = { uid: s.uid, name: s.name || '?', bet: s.bet || 0, collected: s.collected !== false,
+      hands: arr(s.hands).map(h => ({ c: arr(h.c), bet: h.bet || 0, done: !!h.done, dbl: !!h.dbl, split: !!h.split, ace: !!h.ace, res: h.res || '', pay: h.pay || 0 })) };
+  }
+  return { round: T.round || 1, phase: T.phase || 'bet', betEndsAt: T.betEndsAt || 0, seats, dealer: arr(T.dealer),
+    turn: T.turn && T.turn.s ? { s: T.turn.s, h: T.turn.h || 0 } : null, turnEndsAt: T.turnEndsAt || 0, doneEndsAt: T.doneEndsAt || 0, shoe: arr(T.shoe) };
+}
+const seatKeys = T => Object.keys(T.seats).sort();
+function bjDraw(T){ if (!T.shoe.length) T.shoe = newShoe(); return T.shoe.pop(); }
+function bjNextTurn(T){
+  for (const k of seatKeys(T)){ const hs = T.seats[k].hands; for (let i = 0; i < hs.length; i++) if (!hs[i].done) return { s: k, h: i }; }
+  return null;
+}
+function bjDeal(T, now){
+  if (T.shoe.length < 78) T.shoe = newShoe();          // 75% 쓰면 새 슈
+  let any = false;
+  for (const k of seatKeys(T)){
+    const s = T.seats[k];
+    s.hands = []; s.collected = true;
+    if (s.bet > 0){ any = true; const c = [bjDraw(T), bjDraw(T)]; s.hands = [{ c, bet: s.bet, done: isBJ(c), dbl: false, split: false, ace: false, res: '', pay: 0 }]; }
+  }
+  if (!any) return false;
+  T.dealer = [bjDraw(T), bjDraw(T)];
+  T.phase = 'play';
+  if (isBJ(T.dealer)) return bjFinish(T, now), true;   // 딜러 블랙잭 피크 → 바로 정산
+  bjAdvance(T, now);
+  return true;
+}
+function bjAdvance(T, now){
+  T.turn = bjNextTurn(T);
+  if (!T.turn) return bjFinish(T, now);
+  T.turnEndsAt = now + BJ_TURN_MS;
+}
+function bjFinish(T, now){
+  const dBJ = isBJ(T.dealer);
+  const natural = s => s.hands.length === 1 && !s.hands[0].split && isBJ(s.hands[0].c);
+  const live = seatKeys(T).some(k => { const s = T.seats[k]; return !natural(s) && s.hands.some(h => handTotal(h.c).t <= 21); });
+  if (live && !dBJ) while (handTotal(T.dealer).t < 17) T.dealer.push(bjDraw(T));
+  const dt = handTotal(T.dealer).t;
+  for (const k of seatKeys(T)){
+    const s = T.seats[k], nat = natural(s);
+    for (const h of s.hands){
+      const pt = handTotal(h.c).t;
+      if (nat && dBJ){ h.pay = h.bet; h.res = '푸시'; }
+      else if (nat){ h.pay = Math.floor(h.bet * 2.5); h.res = '블랙잭!'; }
+      else if (dBJ){ h.pay = 0; h.res = '딜러 BJ'; }
+      else if (pt > 21){ h.pay = 0; h.res = '버스트'; }
+      else if (dt > 21 || pt > dt){ h.pay = h.bet * 2; h.res = '승리'; }
+      else if (pt === dt){ h.pay = h.bet; h.res = '푸시'; }
+      else { h.pay = 0; h.res = '패배'; }
+    }
+    if (s.hands.length) s.collected = false;
+  }
+  T.phase = 'done'; T.turn = null; T.doneEndsAt = now + BJ_DONE_MS;
+}
+// 행동 적용 (순수 함수: 규칙 위반이면 null)
+function bjAct(T, uid, act, now){
+  if (T.phase !== 'play' || !T.turn) return null;
+  const s = T.seats[T.turn.s]; if (!s) return null;
+  if (uid && s.uid !== uid) return null;
+  const h = s.hands[T.turn.h]; if (!h || h.done) return null;
+  if (act === 'hit'){ h.c.push(bjDraw(T)); if (handTotal(h.c).t >= 21) h.done = true; }
+  else if (act === 'stand'){ h.done = true; }
+  else if (act === 'double'){ if (h.c.length !== 2 || h.ace) return null; h.bet *= 2; h.dbl = true; h.c.push(bjDraw(T)); h.done = true; }
+  else if (act === 'split'){
+    if (s.hands.length !== 1 || h.c.length !== 2 || cardVal(h.c[0]) !== cardVal(h.c[1])) return null;
+    const ace = cardVal(h.c[0]) === 1;
+    s.hands = [0, 1].map(i => { const c = [h.c[i], bjDraw(T)]; return { c, bet: h.bet, done: ace || handTotal(c).t === 21, dbl: false, split: true, ace, res: '', pay: 0 }; });
+  } else return null;
+  bjAdvance(T, now);
+  return T;
+}
+async function bjTx(fn){ return DB.transaction('bj', cur => { const T = bjNorm(cur); const r = fn(T, DB.now()); return r === null || r === undefined ? undefined : r; }); }
+const offlineUid = uid => !online(st.players[uid]);
+async function bjDrive(now){
+  const T = bjNorm(st.bj);
+  if (T.phase === 'bet'){
+    const seated = seatKeys(T).map(k => T.seats[k]);
+    const allIn = seated.length && seated.every(s => s.bet > 0);
+    if ((T.betEndsAt && now >= T.betEndsAt) || (allIn && T.betEndsAt)){
+      await bjTx((T, n) => { if (T.phase !== 'bet' || !T.betEndsAt) return null; const al = seatKeys(T).every(k => T.seats[k].bet > 0); if (n < T.betEndsAt && !al) return null; return bjDeal(T, n) ? T : null; });
+    } else if (seated.some(s => !s.bet && offlineUid(s.uid))){
+      await bjTx(T => { let ch = false; for (const k of seatKeys(T)) if (!T.seats[k].bet && offlineUid(T.seats[k].uid)){ delete T.seats[k]; ch = true; } return ch ? T : null; });
+    }
+  } else if (T.phase === 'play' && now >= T.turnEndsAt){
+    await bjTx((T, n) => n >= T.turnEndsAt ? bjAct(T, null, 'stand', n) : null);    // 시간 초과 → 자동 스탠드
+  } else if (T.phase === 'done' && now >= T.doneEndsAt){
+    await bjTx((T, n) => {
+      if (T.phase !== 'done' || n < T.doneEndsAt) return null;
+      T.round++; T.phase = 'bet'; T.betEndsAt = 0; T.dealer = []; T.turn = null;
+      for (const k of seatKeys(T)){ const s = T.seats[k]; if (offlineUid(s.uid)) delete T.seats[k]; else { s.bet = 0; s.hands = []; s.collected = true; } }
+      return T;
+    });
+  }
+}
+const mySeatKey = T => seatKeys(T).find(k => T.seats[k].uid === ME);
+async function bjSit(i){
+  const r = await bjTx(T => {
+    if (mySeatKey(T)) return null;
+    const cur = T.seats['s' + i];
+    if (cur && !(offlineUid(cur.uid) && !cur.hands.length)) return null;
+    T.seats['s' + i] = { uid: ME, name: myName(), bet: 0, hands: [], collected: true };
+    return T;
+  });
+  if (!r.committed) toast('앉을 수 없는 자리입니다', 'warn');
+}
+async function bjLeave(){
+  const r = await bjTx(T => { const k = mySeatKey(T); if (!k || T.seats[k].hands.length || T.seats[k].bet) return null; delete T.seats[k]; return T; });
+  if (!r.committed) toast('베팅했거나 게임 중에는 일어날 수 없습니다', 'warn');
+}
+async function bjBet(){
+  const T = bjNorm(st.bj), k = mySeatKey(T);
+  if (!k) return toast('먼저 빈 자리에 앉으세요', 'warn');
+  if (T.phase !== 'bet' || T.seats[k].bet) return toast('지금은 베팅할 수 없습니다', 'warn');
+  const a = betAmt(); if (!checkBet(a)) return;
+  if (!await wallet(-a, { wag: a, net: -a, theo: a * BJ_EDGE })) return toast('잔고가 부족합니다', 'warn');
+  const r = await bjTx((T, n) => { const k = mySeatKey(T); if (!k || T.phase !== 'bet' || T.seats[k].bet) return null; T.seats[k].bet = a; if (!T.betEndsAt) T.betEndsAt = n + BJ_BET_MS; return T; });
+  if (!r.committed){ await wallet(a, { wag: -a, net: a, theo: -a * BJ_EDGE }); toast('베팅이 늦었습니다 — 환불', 'warn'); }
+}
+async function bjDo(act){
+  const T = bjNorm(st.bj);
+  if (!T.turn || !T.seats[T.turn.s] || T.seats[T.turn.s].uid !== ME) return;
+  let extra = 0;
+  if (act === 'double' || act === 'split'){
+    extra = T.seats[T.turn.s].hands[T.turn.h].bet;
+    if (!await wallet(-extra, { wag: extra, net: -extra, theo: extra * BJ_EDGE })) return toast('잔고가 부족합니다', 'warn');
+  }
+  const r = await bjTx((T, n) => bjAct(T, ME, act, n));
+  if (!r.committed && extra) await wallet(extra, { wag: -extra, net: extra, theo: -extra * BJ_EDGE });
+}
+let bjCollecting = false;
+async function bjCollect(){
+  const T = bjNorm(st.bj), k = mySeatKey(T);
+  if (bjCollecting || T.phase !== 'done' || !k || T.seats[k].collected) return;
+  bjCollecting = true;
+  let pay = 0, bet = 0, res = [];
+  // 먼저 '수령함'으로 표시(한 번만 성공) → 그 다음 내 지갑에 입금
+  const r = await bjTx(T => { const k = mySeatKey(T); if (T.phase !== 'done' || !k || T.seats[k].collected) return null;
+    const s = T.seats[k]; s.collected = true; pay = s.hands.reduce((a, h) => a + h.pay, 0); bet = s.hands.reduce((a, h) => a + h.bet, 0); res = s.hands.map(h => h.res); return T; });
+  if (r.committed){
+    if (pay) await wallet(pay, { net: pay });
+    const net = pay - bet;
+    toast(`🃏 ${res.join(' / ')} (${sgnWon(net)})`, cls(net));
+    if (net >= 100000) feed(`🃏 ${myName()}님 블랙잭 테이블에서 +${won(net)}!`);
+  }
+  bjCollecting = false;
+}
+
+/* =====================================================================
+ *  슬롯 (개인 기계)
+ * ---------------------------------------------------------------------
+ *  릴 3개, 각 릴 32칸 가중치: 🍒5 🍋8 🍉7 🔔5 ⭐4 7️⃣2 💎1
+ *  조합 확률 = w1·w2·w3 / 32³, 배당: 같은 그림 3개 💎500 7️⃣100 ⭐35 🔔25 🍒20 🍉12 🍋8,
+ *  🍒 2개 ×5, 첫 릴 🍒 ×1  →  343가지 조합 전체 합산 RTP = 31,147/32,768 ≈ 95.05%
+ * ===================================================================== */
+const SLOT_SYM = ['🍒','🍋','🍉','🔔','⭐','7️⃣','💎'], SLOT_W = [5, 8, 7, 5, 4, 2, 1];
+const SLOT_PAY3 = { '💎':500, '7️⃣':100, '⭐':35, '🔔':25, '🍒':20, '🍉':12, '🍋':8 };
+function slotReel(){ let r = rand() * 32; for (let i = 0; i < 7; i++){ r -= SLOT_W[i]; if (r < 0) return SLOT_SYM[i]; } return SLOT_SYM[6]; }
+function slotPay(r){ if (r[0] === r[1] && r[1] === r[2]) return SLOT_PAY3[r[0]]; const c = r.filter(x => x === '🍒').length; if (c === 2) return 5; return r[0] === '🍒' ? 1 : 0; }
+let slotAnim = false, hideDelta = 0;
+async function slotSpin(){
+  if (slotAnim) return;
+  const a = betAmt(); if (!checkBet(a)) return;
+  const res = [slotReel(), slotReel(), slotReel()], m = slotPay(res), pay = a * m;
+  // 결과를 한 번에 반영(새로고침 되돌리기 방지). 릴이 멈출 때까지 헤더 잔고에는 당첨금을 숨긴다
+  hideDelta = pay; slotAnim = true;
+  if (!await wallet(pay - a, { wag: a, net: pay - a, theo: a * (1 - SLOT_RTP) })){ hideDelta = 0; slotAnim = false; return toast('잔고가 부족합니다', 'warn'); }
+  const els = [0, 1, 2].map(i => $('reel' + i)); els.forEach(e => e.classList.remove('win'));
+  $('slotMsg').textContent = '…'; $('slotBtn').disabled = true;
+  const t0 = performance.now(), stops = [700, 1100, 1500];
+  const iv = setInterval(() => {
+    const el = performance.now() - t0;
+    els.forEach((e, i) => { e.textContent = el < stops[i] ? pick(SLOT_SYM) : res[i]; });
+    if (el < stops[2]) return;
+    clearInterval(iv); slotAnim = false; hideDelta = 0; $('slotBtn').disabled = false;
+    if (m) els.forEach(e => e.classList.add('win'));
+    $('slotMsg').innerHTML = m > 1 ? `<span class="up">×${m} 당첨! ${won(pay)}</span>` : m === 1 ? '원금 반환' : '<span class="down">꽝</span>';
+    if (m >= 20) feed(`🎰 ${myName()}님 슬롯 ${res.join('')} ×${m} — ${won(pay)}!`);
+    render();
+  }, 70);
+}
+
+/* =====================================================================
+ *  복권 (3분마다 공동 추첨)
+ * ---------------------------------------------------------------------
+ *  C(45,6) = 8,145,060가지.  1등 1가지, 2등(5+보너스) 6가지, 3등(5) 228가지,
+ *  4등(4) C(6,4)·C(39,2) = 11,115가지, 5등(3) C(6,3)·C(39,3) = 182,780가지
+ *  당첨금(티켓값 배수) 1,952,000 / 54,000 / 1,430 / 50 / 5 → 기대 회수율 ≈ 49.99%
+ * ===================================================================== */
+const LT_PRIZE = [0, 1952000, 54000, 1430, 50, 5], LT_ODDS = [0, 8145060, 1357510, 35724, 733, 45];
+function drawNums(k){ const a = []; for (let i = 1; i <= 45; i++) a.push(i); for (let i = 0; i < k; i++){ const j = i + Math.floor(rand() * (45 - i)); [a[i], a[j]] = [a[j], a[i]]; } return a.slice(0, k); }
+let ltPick = [];
+const myLtKey = () => 'hc_lt_' + ME;
+async function ltDrive(now){
+  const L = st.lotto;
+  if (!L){ await DB.transaction('lotto', cur => cur ? undefined : { draw: 1, endsAt: now + LT_MS, hist: [] }); return; }
+  if (now >= L.endsAt){
+    const r = await DB.transaction('lotto', cur => {
+      if (!cur || cur.draw !== L.draw || DB.now() < cur.endsAt) return;
+      const d = drawNums(7);
+      cur.hist = [{ draw: cur.draw, win: d.slice(0, 6).sort((a, b) => a - b), bonus: d[6] }].concat(arr(cur.hist)).slice(0, 10);
+      cur.draw++; cur.endsAt = DB.now() + LT_MS;
+      return cur;
+    });
+    if (r.committed) DB.set('ltSold/' + (L.draw - 1), null);
+  }
+}
+async function ltBuy(){
+  const L = st.lotto; if (!L) return;
+  const mine = lsGet(myLtKey());
+  if (mine && mine.draw === L.draw) return toast('이번 회차는 이미 샀습니다', 'warn');
+  if (mine && mine.draw < L.draw) return toast('지난 회차 결과 확인 중입니다', 'warn');
+  if (ltPick.length !== 6) return toast('번호 6개를 고르세요', 'warn');
+  if (L.endsAt - DB.now() < 2000) return toast('추첨 직전이라 판매 마감', 'warn');
+  if (!checkBet(LT_PRICE)) return;
+  if (!await wallet(-LT_PRICE, { wag: LT_PRICE, net: -LT_PRICE, theo: LT_PRICE * LT_EDGE })) return;
+  const nums = ltPick.slice().sort((a, b) => a - b);
+  lsSet(myLtKey(), { draw: L.draw, nums });
+  ltPick = [];
+  DB.transaction('ltSold/' + L.draw, c => (c || 0) + 1);
+  toast(`🎟️ ${L.draw}회 구매: ${nums.join(', ')}`);
+  render();
+}
+let ltSettling = false;
+async function ltSettle(){
+  const mine = lsGet(myLtKey()), L = st.lotto;
+  if (!mine || !L || ltSettling || L.draw <= mine.draw) return;
+  const h = arr(L.hist).find(x => x.draw === mine.draw);
+  ltSettling = true;
+  lsSet(myLtKey(), null);
+  if (!h){ await wallet(LT_PRICE, { wag: -LT_PRICE, net: LT_PRICE, theo: -LT_PRICE * LT_EDGE }); toast('결과를 찾지 못해 복권값을 환불했습니다'); ltSettling = false; return; }
+  const win = arr(h.win), hit = mine.nums.filter(n => win.includes(n)).length, hb = mine.nums.includes(h.bonus);
+  const rank = hit === 6 ? 1 : hit === 5 && hb ? 2 : hit === 5 ? 3 : hit === 4 ? 4 : hit === 3 ? 5 : 0;
+  const prize = rank ? LT_PRICE * LT_PRIZE[rank] : 0;
+  if (prize) await wallet(prize, { net: prize });
+  lsSet('hc_ltlast_' + ME, { draw: mine.draw, nums: mine.nums, rank, prize });
+  toast(rank ? `🎟️ ${mine.draw}회 ${rank}등! ${won(prize)}` : `🎟️ ${mine.draw}회 낙첨 (${hit}개 일치)`, rank ? 'up' : '');
+  if (rank && rank <= 4) feed(`🎟️ ${myName()}님 복권 ${rank}등 당첨! ${won(prize)}`);
+  ltSettling = false;
+}
+
+/* =====================================================================
+ *  렌더링
+ * ===================================================================== */
+let tab = 'rl';
+function numColorCls(n){ return n === 0 ? 'dG' : REDS.has(n) ? 'dR' : 'dB'; }
+function prepCanvas(cv){
+  const dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+  if (!w || !h) return null;
+  if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)){ cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+  const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
+  return { ctx, w, h };
+}
+function drawWheel(ang, hi){
+  const c = prepCanvas($('wheel')); if (!c) return;
+  const { ctx, w } = c, R = w / 2, a = Math.PI * 2 / 37;
+  ctx.save(); ctx.translate(R, R);
+  ctx.beginPath(); ctx.arc(0, 0, R - 2, 0, Math.PI * 2); ctx.fillStyle = '#5a3a1a'; ctx.fill();
+  for (let i = 0; i < 37; i++){
+    const n = WHEEL[i], s0 = -Math.PI / 2 + ang + i * a - a / 2;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, R * 0.9, s0, s0 + a); ctx.closePath();
+    ctx.fillStyle = n === 0 ? '#12803c' : REDS.has(n) ? '#b3202c' : '#1b1e24'; ctx.fill();
+    ctx.strokeStyle = '#c9a44a'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.save(); ctx.rotate(s0 + a / 2); ctx.translate(R * 0.78, 0); ctx.rotate(Math.PI / 2);
+    ctx.fillStyle = '#fff'; ctx.font = `bold ${Math.max(9, R * 0.075)}px -apple-system,sans-serif`; ctx.textAlign = 'center'; ctx.fillText(String(n), 0, 4);
+    ctx.restore();
+  }
+  ctx.beginPath(); ctx.arc(0, 0, R * 0.55, 0, Math.PI * 2); ctx.fillStyle = '#2a1c0e'; ctx.fill();
+  ctx.fillStyle = hi == null ? '#c9a44a' : hi === 0 ? '#3ee07f' : REDS.has(hi) ? '#ff5a66' : '#fff';
+  ctx.font = `900 ${R * 0.32}px -apple-system,sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(hi == null ? '🎡' : String(hi), 0, 2);
+  ctx.restore();
+  ctx.fillStyle = '#f5c542'; ctx.beginPath(); ctx.moveTo(R - 11, 0); ctx.lineTo(R + 11, 0); ctx.lineTo(R, R * 0.2); ctx.closePath(); ctx.fill();
+}
+// 결과 칸이 위쪽 포인터에 멈추도록 회전 (칸 i가 위에 오는 각도 = −i·2π/37)
+function animateWheel(n, dur){
+  const a = Math.PI * 2 / 37, idx = WHEEL.indexOf(n);
+  const from = wheelAng, base = ((-idx * a - from) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+  const to = from + (dur > 800 ? Math.PI * 2 * 5 : 0) + base, t0 = performance.now();
+  rlAnimating = true;
+  (function step(t){
+    const k = dur > 0 ? Math.min(1, (t - t0) / dur) : 1, e = 1 - Math.pow(1 - k, 3);
+    wheelAng = from + (to - from) * e;
+    drawWheel(wheelAng, k >= 1 ? n : null);
+    if (k < 1) return requestAnimationFrame(step);
+    wheelAng %= Math.PI * 2; rlAnimating = false; rlShown = n;
+  })(t0);
+}
+function cardHTML(c, hidden){
+  if (hidden) return '<div class="pcard back"></div>';
+  const r = c % 13 + 1, s = Math.floor(c / 13) % 4, rk = r === 1 ? 'A' : r === 11 ? 'J' : r === 12 ? 'Q' : r === 13 ? 'K' : String(r);
+  return `<div class="pcard ${s === 1 || s === 2 ? 'red' : ''}"><span>${rk}</span><span class="s">${['♠','♥','♦','♣'][s]}</span></div>`;
+}
+function ballHTML(n, hit){ const c = n <= 10 ? '#fbc400' : n <= 20 ? '#69c8f2' : n <= 30 ? '#ff7272' : n <= 40 ? '#aaa' : '#b0d840'; return `<span class="ball${hit ? ' hit' : ''}" style="background:${c}">${n}</span>`; }
+function phaseBar(el, left, total){ el.style.width = Math.max(0, Math.min(100, left / total * 100)) + '%'; }
+const sec = ms => Math.max(0, Math.ceil(ms / 1000)) + '초';
+
+function renderHeader(){
+  const m = me();
+  $('hName').textContent = m ? m.name : '-';
+  $('hBal').textContent = m ? won(m.bal - hideDelta) : '-';
+  $('hOnline').textContent = Object.values(st.players).filter(online).length + '명';
+}
+function renderRL(){
+  const r = st.rl, now = DB.now(); if (!r) return;
+  if (r.phase === 'bet'){ $('rlPhase').textContent = `🎡 ${r.round}번째 판 · 베팅 중`; $('rlCd').textContent = sec(r.endsAt - now); phaseBar($('rlBar'), r.endsAt - now, RL_BET_MS); }
+  else { $('rlPhase').textContent = `🎡 ${r.round}번째 판 · 스핀!`; $('rlCd').textContent = ''; phaseBar($('rlBar'), 0, 1); }
+  // 새 스핀을 처음 보면 애니메이션 (늦게 들어와 거의 끝난 판이면 바로 결과)
+  if (r.phase === 'spin' && r.result != null && rlAnimRound !== r.round){
+    rlAnimRound = r.round;
+    const elapsed = now - (r.spinEndsAt - RL_SPIN_MS);
+    animateWheel(r.result, Math.max(0, RL_ANIM_MS - elapsed));
+  }
+  if (!rlAnimating) drawWheel(wheelAng, r.phase === 'spin' ? rlShown : null);
+  $('rlHist').innerHTML = arr(r.hist).slice(0, 14).map(h => `<span class="dot ${numColorCls(h.n)}">${h.n}</span>`).join('');
+  for (const b of $('rlOpts').children) b.classList.toggle('on', b.dataset.b === rlSel);
+  for (const b of $('numGrid').children) b.classList.toggle('on', +b.dataset.n === rlSel);
+  const a = betAmt();
+  $('rlBetBtn').disabled = r.phase !== 'bet';
+  $('rlBetBtn').textContent = r.phase === 'bet' ? `${rlBetName(rlSel)}에 ${won(a)} 베팅 (적중 시 ${won(a * rlMult(rlSel))})` : '스핀 중 — 다음 판을 기다리세요';
+  const bets = st.rlBets || {}; let html = '';
+  for (const uid in bets) for (const x of arr(bets[uid])) html += `<span class="chip ${uid === ME ? 'me' : ''}">${esc(x.nm)} · ${rlBetName(x.b)} ${shortWon(x.a)}</span>`;
+  $('rlBets').innerHTML = html || '<span class="muted" style="font-size:13px">아직 이번 판 베팅이 없습니다</span>';
+}
+let bjSig = '';
+function renderBJ(){
+  const T = bjNorm(st.bj), now = DB.now(), myK = mySeatKey(T);
+  const turnSeat = T.turn && T.seats[T.turn.s];
+  // 카운트다운
+  if (T.phase === 'bet'){ $('bjPhase').textContent = T.betEndsAt ? '🃏 베팅 중' : '🃏 첫 베팅을 기다리는 중'; $('bjCd').textContent = T.betEndsAt ? sec(T.betEndsAt - now) : ''; phaseBar($('bjBar'), T.betEndsAt ? T.betEndsAt - now : 0, BJ_BET_MS); }
+  else if (T.phase === 'play'){ $('bjPhase').textContent = turnSeat ? `🃏 ${turnSeat.uid === ME ? '내' : turnSeat.name + '님'} 차례` : '🃏 진행 중'; $('bjCd').textContent = sec(T.turnEndsAt - now); phaseBar($('bjBar'), T.turnEndsAt - now, BJ_TURN_MS); }
+  else { $('bjPhase').textContent = '🃏 결과'; $('bjCd').textContent = sec(T.doneEndsAt - now); phaseBar($('bjBar'), T.doneEndsAt - now, BJ_DONE_MS); }
+  // 판 내용은 바뀌었을 때만 다시 그림 (매초 갈아엎으면 '앉기' 버튼 탭이 씹힘)
+  const sig = JSON.stringify([T.phase, T.seats, T.dealer, T.turn, ME, Object.keys(st.players).filter(u => online(st.players[u]))]);
+  if (sig !== bjSig){
+    bjSig = sig;
+    const hide = T.phase === 'play';
+    $('bjDealer').innerHTML = T.dealer.map((c, i) => cardHTML(c, hide && i === 1)).join('');
+    $('bjDealerT').textContent = !T.dealer.length ? '' : hide ? `(${cardVal(T.dealer[0]) === 1 ? 'A' : cardVal(T.dealer[0])} + ?)` : `(${handTotal(T.dealer).t})`;
+    let h = '';
+    for (let i = 0; i < BJ_SEATS; i++){
+      const k = 's' + i, s = T.seats[k];
+      if (!s){ h += `<div class="seat"><div class="nm muted">빈 자리 ${i + 1}</div><button class="btn" data-sit="${i}" ${myK ? 'disabled' : ''} style="margin-top:auto">앉기</button></div>`; continue; }
+      const isTurn = T.turn && T.turn.s === k;
+      h += `<div class="seat ${s.uid === ME ? 'me' : ''} ${isTurn ? 'turn' : ''}"><div class="nm">${s.uid === ME ? '⭐ ' : ''}${esc(s.name)}${offlineUid(s.uid) ? ' 💤' : ''}</div>`;
+      h += `<div class="info">${s.bet ? '베팅 ' + shortWon(s.bet) : T.phase === 'bet' ? '베팅 대기' : '관전'}</div>`;
+      s.hands.forEach((hd, j) => {
+        const t = handTotal(hd.c);
+        h += `<div class="hand ${isTurn && T.turn.h === j ? 'act' : ''}"><div class="cards">${hd.c.map(c => cardHTML(c)).join('')}</div><div class="info">${t.soft && t.t < 21 ? 'soft ' : ''}${t.t}${hd.dbl ? ' · 더블' : ''}${hd.bet !== s.bet || s.hands.length > 1 ? ' · ' + shortWon(hd.bet) : ''}</div>${hd.res ? `<div class="res">${hd.res}</div>` : ''}</div>`;
+      });
+      h += '</div>';
+    }
+    $('bjSeats').innerHTML = h;
+  }
+  const mine = myK && T.seats[myK];
+  const myTurn = T.phase === 'play' && turnSeat && turnSeat.uid === ME;
+  const hd = myTurn ? turnSeat.hands[T.turn.h] : null;
+  $('bjBet').disabled = !mine || T.phase !== 'bet' || !!mine.bet;
+  $('bjBet').textContent = !mine ? '빈 자리에 앉으면 베팅할 수 있습니다' : mine.bet ? `베팅 완료 (${won(mine.bet)})` : `${won(betAmt())} 베팅`;
+  $('bjHit').disabled = $('bjStand').disabled = !myTurn;
+  $('bjDouble').disabled = !hd || hd.c.length !== 2 || hd.ace || (me() && me().bal < hd.bet);
+  $('bjSplit').disabled = !hd || turnSeat.hands.length !== 1 || hd.c.length !== 2 || cardVal(hd.c[0]) !== cardVal(hd.c[1]) || (me() && me().bal < hd.bet);
+  $('bjLeave').disabled = !mine || !!mine.bet || mine.hands.length > 0;
+}
+function renderSlot(){ $('slotBtn').textContent = slotAnim ? '…' : `레버 당기기 · ${won(betAmt())}`; }
+function renderLotto(){
+  const L = st.lotto; if (!L) return;
+  $('ltDraw').textContent = L.draw; $('ltCd').textContent = sec(L.endsAt - DB.now());
+  $('ltSold').textContent = `이번 회차 판매 ${(st.ltSold && st.ltSold[L.draw]) || 0}장`;
+  const mine = lsGet(myLtKey()), have = mine && mine.draw === L.draw;
+  $('ltBuy').classList.toggle('hidden', !!have);
+  $('ltMine').innerHTML = have ? `<div style="margin-bottom:8px">내 번호 (${L.draw}회)</div><div class="balls">${mine.nums.map(n => ballHTML(n)).join('')}</div>` : '';
+  for (const b of $('ltGrid').children) b.classList.toggle('on', ltPick.includes(+b.dataset.l));
+  $('ltCnt').textContent = ltPick.length;
+  const h = arr(L.hist)[0], my = lsGet('hc_ltlast_' + ME);
+  $('ltLast').innerHTML = h ? `<div class="muted" style="font-size:13px;margin-bottom:6px">${h.draw}회 당첨 번호</div><div class="balls">${arr(h.win).map(n => ballHTML(n, my && my.draw === h.draw && my.nums.includes(n))).join('')} + ${ballHTML(h.bonus)}</div>` +
+    (my && my.draw === h.draw ? `<div style="margin-top:8px">내 번호 ${my.nums.join(', ')} → <b class="${my.rank ? 'up' : 'muted'}">${my.rank ? my.rank + '등 ' + won(my.prize) : '낙첨'}</b></div>` : '') : '아직 추첨 결과가 없습니다';
+}
+function renderRank(){
+  const ps = Object.entries(st.players).map(([uid, p]) => ({ uid, ...p })).sort((a, b) => (b.bal || 0) - (a.bal || 0));
+  $('rankTable').innerHTML = '<tr><th>순위</th><th>이름</th><th>잔고</th><th>최고</th><th>파산</th><th>하우스에 낸 돈</th></tr>' +
+    ps.map((p, i) => { const take = -((p.st && p.st.net) || 0); return `<tr><td>${i + 1}</td><td style="text-align:left">${online(p) ? '<span class="on-dot"></span>' : '<span class="off-dot"></span>'}${esc(p.name)}${p.uid === ME ? ' (나)' : ''}</td><td>${fmt(p.bal)}</td><td>${fmt(p.peak)}</td><td>${p.busts || 0}</td><td class="${take > 0 ? 'up' : 'down'}">${fmt(take)}</td></tr>`; }).join('');
+  const all = ps.reduce((s, p) => s - ((p.st && p.st.net) || 0), 0), theo = ps.reduce((s, p) => s + ((p.st && p.st.theo) || 0), 0), wag = ps.reduce((s, p) => s + ((p.st && p.st.wag) || 0), 0);
+  $('houseAll').textContent = all >= 0 ? won(all) : '하우스가 오히려 ' + won(-all) + ' 잃음';
+  $('houseSub').textContent = `모두가 건 돈 ${won(wag)} · 이론상 하우스 몫(건 돈 × 엣지) ${won(theo)} — 오래 할수록 실제 값이 여기에 가까워집니다`;
+  $('bustBtn').disabled = !me() || me().bal >= 1000;
+}
+function renderSide(){
+  const ps = Object.entries(st.players).map(([uid, p]) => ({ uid, ...p })).filter(online).sort((a, b) => b.bal - a.bal);
+  $('plist').innerHTML = ps.map(p => `<div class="p"><span class="n"><span class="on-dot"></span>${esc(p.name)}${p.uid === ME ? ' (나)' : ''}</span><b>${shortWon(p.bal)}</b></div>`).join('') || '<div class="muted">-</div>';
+  const f = arr(st.feed);
+  $('feed').innerHTML = f.map(x => `<div>${esc(x.x)}</div>`).join('') || '<div class="muted">조용합니다…</div>';
+  if (f[0]) $('ticker').textContent = f[0].x;
+}
+function render(){
+  if (!DB || !ME) return;
+  renderHeader(); renderSide();
+  $('betBox').classList.toggle('hidden', tab === 'lotto' || tab === 'rank');
+  if (tab === 'rl') renderRL(); else if (tab === 'bj') renderBJ(); else if (tab === 'slot') renderSlot();
+  else if (tab === 'lotto') renderLotto(); else renderRank();
+}
+
+/* =====================================================================
+ *  시작 / 루프
+ * ===================================================================== */
+async function join(name){
+  const now = DB.now();
+  await DB.transaction('players/' + ME, cur => {
+    if (!cur) return { name, bal: START, peak: START, busts: 0, seen: now, st: { wag: 0, net: 0, theo: 0 } };
+    cur.name = name; cur.seen = now; return cur;
+  });
+  lsSet('hc_nick', name);
+  feed(`👋 ${name}님 입장`);
+}
+let loopBusy = false, lastBeat = 0;
+async function loop(){
+  if (loopBusy || !ME) return;
+  loopBusy = true;
+  try {
+    const now = DB.now();
+    if (now - lastBeat > 8000 && me()){ lastBeat = now; DB.update('players/' + ME, { seen: now }); }
+    await rlDrive(now); await bjDrive(now); await ltDrive(now);
+    await rlSettle(); await bjCollect(); await ltSettle();
+  } catch(e){ console.error(e); }
+  loopBusy = false;
+  render();
+}
+let rlBetsUnsub = null, rlBetsRound = 0;
+function subscribe(){
+  DB.onValue('players', v => { st.players = v || {}; render(); });
+  DB.onValue('rl', v => {
+    st.rl = v;
+    if (v && v.round !== rlBetsRound){   // 판이 바뀌면 그 판 베팅 목록만 구독
+      rlBetsRound = v.round; if (rlBetsUnsub) rlBetsUnsub();
+      rlBetsUnsub = DB.onValue('rlBets/' + v.round, b => { st.rlBets = b || {}; render(); });
+    }
+    render();
+  });
+  DB.onValue('bj', v => { st.bj = v; render(); });
+  DB.onValue('lotto', v => { st.lotto = v; render(); });
+  DB.onValue('ltSold', v => { st.ltSold = v || {}; });
+  DB.onValue('feed', v => { st.feed = v; render(); });
+}
+function buildStatic(){
+  let h = '<button class="z" data-n="0">0</button>';
+  for (let row = 0; row < 3; row++) for (let col = 0; col < 12; col++){ const n = col * 3 + (3 - row); h += `<button data-n="${n}" class="${REDS.has(n) ? 'nR' : 'nB'}">${n}</button>`; }
+  $('numGrid').innerHTML = h;
+  $('payTable').innerHTML = Object.entries(SLOT_PAY3).map(([k, v]) => `<div><span>${k}${k}${k}</span><b>×${v}</b></div>`).join('') + '<div><span>🍒🍒 (아무 자리)</span><b>×5</b></div><div><span>🍒 첫 릴</span><b>×1</b></div>';
+  let g = ''; for (let n = 1; n <= 45; n++) g += `<button data-l="${n}">${n}</button>`; $('ltGrid').innerHTML = g;
+  $('ltTable').innerHTML = '<tr><th>등수</th><th>조건</th><th>확률</th><th>당첨금</th></tr>' + [1,2,3,4,5].map(r => `<tr><td>${r}등</td><td>${['','6개','5개+보너스','5개','4개','3개'][r]}</td><td>1/${fmt(LT_ODDS[r])}</td><td>${shortWon(LT_PRICE * LT_PRIZE[r])}원</td></tr>`).join('');
+}
+function bind(){
+  document.addEventListener('gesturestart', e => e.preventDefault(), { passive: false });
+  document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+  $('tabs').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (!b) return; tab = b.dataset.tab;
+    for (const x of $('tabs').children) x.classList.toggle('on', x === b);
+    for (const s of document.querySelectorAll('.tab')) s.classList.toggle('on', s.id === 'tab-' + tab);
+    bjSig = ''; render(); });
+  $('betBox').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; let v = betAmt();
+    if (b.dataset.add) v += +b.dataset.add; else if (b.dataset.set === 'half') v = Math.floor(v / 2); else if (b.dataset.set === 'all') v = me() ? Math.floor(me().bal) : 0; else v = 0;
+    $('bet').value = String(v); render(); });
+  $('bet').addEventListener('input', render);
+  $('rlOpts').addEventListener('click', e => { const b = e.target.closest('[data-b]'); if (b){ rlSel = b.dataset.b; render(); } });
+  $('numGrid').addEventListener('click', e => { const b = e.target.closest('[data-n]'); if (b){ rlSel = +b.dataset.n; render(); } });
+  $('rlBetBtn').addEventListener('click', rlPlace);
+  $('bjSeats').addEventListener('click', e => { const b = e.target.closest('[data-sit]'); if (b) bjSit(+b.dataset.sit); });
+  $('bjBet').addEventListener('click', bjBet);
+  $('bjHit').addEventListener('click', () => bjDo('hit'));
+  $('bjStand').addEventListener('click', () => bjDo('stand'));
+  $('bjDouble').addEventListener('click', () => bjDo('double'));
+  $('bjSplit').addEventListener('click', () => bjDo('split'));
+  $('bjLeave').addEventListener('click', bjLeave);
+  $('slotBtn').addEventListener('click', slotSpin);
+  $('ltGrid').addEventListener('click', e => { const b = e.target.closest('[data-l]'); if (!b) return; const n = +b.dataset.l, i = ltPick.indexOf(n);
+    if (i >= 0) ltPick.splice(i, 1); else if (ltPick.length < 6) ltPick.push(n); render(); });
+  $('ltAuto').addEventListener('click', () => { ltPick = drawNums(6); render(); });
+  $('ltClear').addEventListener('click', () => { ltPick = []; render(); });
+  $('ltBtn').addEventListener('click', ltBuy);
+  $('bustBtn').addEventListener('click', async () => {
+    if (!me() || me().bal >= 1000 || !confirm('파산 신청하고 1,000,000원으로 다시 시작할까요?')) return;
+    await DB.transaction('players/' + ME, cur => { if (!cur || cur.bal >= 1000) return; cur.bal = START; cur.busts = (cur.busts || 0) + 1; return cur; });
+    feed(`💸 ${myName()}님 파산… 1,000,000원으로 재기 도전`);
+  });
+  $('nick').addEventListener('input', () => { $('loginBtn').disabled = !$('nick').value.trim() || !DB; });
+  $('loginBtn').addEventListener('click', async () => {
+    const n = $('nick').value.trim().slice(0, 10); if (!n || !DB) return;
+    $('loginBtn').disabled = true;
+    await join(n);
+    $('loginOv').classList.add('hidden');
+    ME_READY();
+  });
+  window.addEventListener('resize', () => { bjSig = ''; render(); });
+}
+let started = false;
+function ME_READY(){ if (started) return; started = true; setInterval(loop, 500); loop(); }
+
+(async function init(){
+  buildStatic(); bind();
+  const forceLocal = /[?&]local=1/.test(location.search);
+  try {
+    DB = FIREBASE_CONFIG && !forceLocal ? await makeFirebaseDB(FIREBASE_CONFIG) : makeLocalDB();
+  } catch(e){
+    console.error(e);
+    $('loginMode').innerHTML = '<b class="up">Firebase 연결 실패</b> — 설정값과 익명 로그인 사용 여부를 확인하세요. 지금은 로컬 테스트 모드로 실행합니다.';
+    DB = makeLocalDB();
+  }
+  ME = DB.uid;
+  const local = DB.mode === 'local';
+  $('hMode').textContent = local ? '로컬 테스트 모드' : '온라인';
+  $('hMode').className = 'mode' + (local ? '' : ' ok');
+  if (local && !$('loginMode').innerHTML) $('loginMode').innerHTML = '⚠️ <b>로컬 테스트 모드</b>: Firebase 설정 전이라 같은 브라우저의 탭끼리만 함께 플레이됩니다. (탭을 여러 개 열어 멀티플레이를 시험해 보세요)';
+  subscribe();
+  const saved = lsGet('hc_nick');
+  if (saved) $('nick').value = saved;
+  $('loginBtn').disabled = !$('nick').value.trim();
+})();
+</script>
+</body>
+</html>
