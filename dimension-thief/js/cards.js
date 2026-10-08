@@ -16,10 +16,7 @@ DT.cards = {
 
   // 효과 중 하나라도 상대를 향하면 적을 탭해서 사용
   needsTarget(def) {
-    return def.effects.some((e) => {
-      const h = DT.cards.handlerOf(e);
-      return (e.to || (h && h.defaultTo)) === 'opponent';
-    });
+    return def.effects.some((e) => DT.effects.toOf(e) === 'opponent');
   },
 
   // 추가 선택이 필요한 효과(예: 슬쩍 → 공개 카드 선택)
@@ -51,7 +48,11 @@ DT.cards = {
       (c.effects || []).forEach((e) => {
         if (!DT.effects.handlers[e.type]) console.warn('[카드]', id, '알 수 없는 효과:', e.type);
         if (e.type === 'status' && !D.statuses[e.status]) console.warn('[카드]', id, '알 수 없는 상태:', e.status);
+        if (e.to && !['self', 'opponent', 'allOpponents'].includes(e.to)) console.warn('[카드]', id, '알 수 없는 대상:', e.to);
       });
+    }
+    for (const [dim, list] of Object.entries(D.encounters)) {
+      list.forEach((enc) => enc.enemies.forEach((k) => { if (!D.enemies[k]) console.warn('[전투]', dim, enc.id, '없는 적:', k); }));
     }
     for (const [id, en] of Object.entries(D.enemies)) {
       en.deck.forEach((cid) => { if (!D.cards[cid]) console.warn('[적]', id, '덱에 없는 카드:', cid); });

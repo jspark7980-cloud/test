@@ -2,9 +2,9 @@
 // 새 효과 타입은 DT.effects.register(type, handler) 로 추가.
 //
 // handler = {
-//   defaultTo: 'self' | 'opponent'      // eff.to 생략 시 대상
+//   defaultTo: 'self' | 'opponent' | 'allOpponents'   // eff.to 생략 시 대상
 //   describe(eff, view) → 설명 문자열
-//   apply(ctx, eff)                     // ctx: { state, srcId, tgtId, card, choice, targetOf(eff) }
+//   apply(ctx, eff)                     // ctx: { state, srcId, tgtId, card, choice, targetsOf(eff) }
 //   canUse?(ctx, eff) → 사용 불가 사유 문자열 또는 null
 //   choice?: 'revealed'                 // UI에서 추가 선택이 필요한 효과
 // }
@@ -17,13 +17,23 @@ window.DT = window.DT || {};
 
   E.register = (type, handler) => { E.handlers[type] = handler; };
 
+  E.toOf = (eff) => {
+    const h = E.handlers[eff.type];
+    return eff.to || (h && h.defaultTo) || 'opponent';
+  };
+
+  // 효과 대상 id 목록
+  E.targetIds = function (state, srcId, tgtId, to) {
+    if (to === 'self') return [srcId];
+    if (to === 'allOpponents') {
+      return srcId === 'player' ? DT.combat.living(state).map((e) => e.id) : ['player'];
+    }
+    return tgtId ? [tgtId] : [];
+  };
+
   function makeCtx(state, srcId, tgtId, card, choice) {
     const ctx = { state, srcId, tgtId, card, choice };
-    ctx.targetOf = (eff) => {
-      const h = E.handlers[eff.type];
-      const to = eff.to || (h && h.defaultTo) || 'opponent';
-      return to === 'self' ? srcId : tgtId;
-    };
+    ctx.targetsOf = (eff) => E.targetIds(state, srcId, tgtId, E.toOf(eff));
     return ctx;
   }
 
@@ -52,6 +62,18 @@ window.DT = window.DT || {};
     return Math.max(0, Math.floor(dmg));
   };
 
+  // 카드가 특정 대상에게 줄 예상 피해(방어도 무시 전). 대상이 아니면 0.
+  E.previewDamage = function (state, card, srcId, tgtId) {
+    let total = 0;
+    for (const eff of DT.cards.def(card.id).effects) {
+      if (eff.type !== 'damage') continue;
+      const to = E.toOf(eff);
+      if (to === 'self') continue;
+      total += E.calcDamage(state, srcId, tgtId, eff.value || 0) * (eff.times || 1);
+    }
+    return total;
+  };
+
   // ── 기본 동작 (다른 모듈에서도 사용) ──
   E.applyDamage = function (state, tgtId, amount, opts) {
     opts = opts || {};
@@ -65,9 +87,11 @@ window.DT = window.DT || {};
     DT.state.emit(state, { type: 'damage', target: tgtId, amount: loss, blocked });
     if (tgt.hp <= 0) {
       tgt.dead = true;
-      // 강탈 판정용: 체력 25% 이하에서 처치했는지
-      DT.state.emit(state, { type: 'death', target: tgtId, executable: hpBefore <= tgt.maxHp * 0.25 });
-      DT.state.log(state, `${tgt.name} 쓰러짐!`);
+      // 강탈: 체력 25% 이하인 적을 처치
+      const executed = tgtId !== 'player' && hpBefore <= tgt.maxHp * DT.data.rewards.heistThreshold;
+      if (executed) tgt.executed = true;
+      DT.state.emit(state, { type: 'death', target: tgtId, executable: executed });
+      DT.state.log(state, `${tgt.name} 쓰러짐!${executed ? ' (강탈 가능)' : ''}`);
     }
     DT.combat.checkEnd(state);
     return loss;
@@ -110,11 +134,10 @@ window.DT = window.DT || {};
     return null;
   };
 
-  E.resolveCard = function (state, srcId, tgtId, card, choice) {
-    const ctx = makeCtx(state, srcId, tgtId, card, choice);
-    for (const eff of DT.cards.def(card.id).effects) {
-      if (state.result) break;
-      const src = actor(state, srcId);
+  E.resolveEffects = function (ctx, effects) {
+    for (const eff of effects) {
+      if (ctx.state.result) break;
+      const src = actor(ctx.state, ctx.srcId);
       if (!src || src.dead) break;
       const h = E.handlers[eff.type];
       if (!h) { console.warn('알 수 없는 효과', eff.type); continue; }
@@ -122,24 +145,30 @@ window.DT = window.DT || {};
     }
   };
 
+  E.resolveCard = function (state, srcId, tgtId, card, choice) {
+    E.resolveEffects(makeCtx(state, srcId, tgtId, card, choice), DT.cards.def(card.id).effects);
+  };
+
   // ── 효과 타입들 ──
   const val = (eff) => eff.value || 0;
+  const allTag = (eff) => (eff.to === 'allOpponents' ? '모든 적에게 ' : '');
+  const living = (state, id) => { const a = actor(state, id); return a && !a.dead; };
 
   E.register('damage', {
     defaultTo: 'opponent',
     describe(eff, view) {
       let v = val(eff);
-      if (view) v = E.calcDamage(view.state, view.srcId, view.tgtId, v);
+      if (view) v = E.calcDamage(view.state, view.srcId, eff.to === 'allOpponents' ? null : view.tgtId, v);
       const cls = v > val(eff) ? 'up' : v < val(eff) ? 'down' : '';
       const times = eff.times > 1 ? ` ×${eff.times}` : '';
-      return `피해 <b class="${cls}">${v}</b>${times}`;
+      return `${allTag(eff)}피해 <b class="${cls}">${v}</b>${times}`;
     },
     apply(ctx, eff) {
-      const tgt = ctx.targetOf(eff);
-      for (let i = 0; i < (eff.times || 1); i++) {
-        const t = actor(ctx.state, tgt);
-        if (!t || t.dead || ctx.state.result) break;
-        E.dealDamage(ctx.state, ctx.srcId, tgt, val(eff));
+      for (const id of ctx.targetsOf(eff)) {
+        for (let i = 0; i < (eff.times || 1); i++) {
+          if (!living(ctx.state, id) || ctx.state.result) break;
+          E.dealDamage(ctx.state, ctx.srcId, id, val(eff));
+        }
       }
     },
   });
@@ -147,44 +176,47 @@ window.DT = window.DT || {};
   E.register('block', {
     defaultTo: 'self',
     describe: (eff) => `방어도 <b>${val(eff)}</b>`,
-    apply(ctx, eff) { E.gainBlock(ctx.state, ctx.targetOf(eff), val(eff)); },
+    apply(ctx, eff) { ctx.targetsOf(eff).forEach((id) => E.gainBlock(ctx.state, id, val(eff))); },
   });
 
   E.register('heal', {
     defaultTo: 'self',
     describe: (eff) => `체력 <b>${val(eff)}</b> 회복`,
-    apply(ctx, eff) { E.heal(ctx.state, ctx.targetOf(eff), val(eff)); },
+    apply(ctx, eff) { ctx.targetsOf(eff).forEach((id) => E.heal(ctx.state, id, val(eff))); },
   });
 
   E.register('loseHp', {
     defaultTo: 'self',
     describe: (eff) => `체력 <b>${val(eff)}</b> 잃음`,
-    apply(ctx, eff) { E.applyDamage(ctx.state, ctx.targetOf(eff), val(eff), { ignoreBlock: true }); },
+    apply(ctx, eff) {
+      ctx.targetsOf(eff).forEach((id) => E.applyDamage(ctx.state, id, val(eff), { ignoreBlock: true }));
+    },
   });
 
   E.register('status', {
     defaultTo: 'opponent',
     describe(eff) {
       const d = S()[eff.status] || { name: eff.status };
-      const self = eff.to === 'self';
-      const sign = val(eff) > 0 && self ? '+' : '';
-      return self ? `${d.name} ${sign}${val(eff)}` : `${d.name} ${val(eff)} 부여`;
+      if (eff.to === 'self') return `${d.name} ${val(eff) > 0 ? '+' : ''}${val(eff)}`;
+      return `${allTag(eff)}${d.name} ${val(eff)} 부여`;
     },
-    apply(ctx, eff) { E.applyStatus(ctx.state, ctx.targetOf(eff), eff.status, val(eff)); },
+    apply(ctx, eff) { ctx.targetsOf(eff).forEach((id) => E.applyStatus(ctx.state, id, eff.status, val(eff))); },
   });
 
   E.register('draw', {
     defaultTo: 'self',
     describe: (eff) => `카드 ${val(eff)}장 뽑기`,
-    apply(ctx, eff) { DT.deck.draw(ctx.state, actor(ctx.state, ctx.targetOf(eff)), val(eff)); },
+    apply(ctx, eff) { ctx.targetsOf(eff).forEach((id) => DT.deck.draw(ctx.state, actor(ctx.state, id), val(eff))); },
   });
 
   E.register('energy', {
     defaultTo: 'self',
     describe: (eff) => `에너지 +${val(eff)}`,
     apply(ctx, eff) {
-      const a = actor(ctx.state, ctx.targetOf(eff));
-      if (typeof a.energy === 'number') a.energy += val(eff);
+      ctx.targetsOf(eff).forEach((id) => {
+        const a = actor(ctx.state, id);
+        if (typeof a.energy === 'number') a.energy += val(eff);
+      });
     },
   });
 
@@ -200,11 +232,11 @@ window.DT = window.DT || {};
     describe: () => '적의 공개 카드 1장을 빼앗아 손패로 <i>(이번 전투)</i>',
     canUse(ctx, eff) {
       if (!ctx.tgtId) return null;
-      return stealCandidates(ctx.state, ctx.targetOf(eff)).length ? null : '빼앗을 공개 카드가 없습니다';
+      return stealCandidates(ctx.state, ctx.targetsOf(eff)[0]).length ? null : '빼앗을 공개 카드가 없습니다';
     },
     apply(ctx, eff) {
       const state = ctx.state;
-      const victimId = ctx.targetOf(eff);
+      const victimId = ctx.targetsOf(eff)[0];
       const cands = stealCandidates(state, victimId);
       if (!cands.length) return;
       const picked = cands.find((c) => c.uid === ctx.choice) || DT.rng.pick(state, cands);
@@ -219,6 +251,34 @@ window.DT = window.DT || {};
       if (ctx.srcId === 'player') state.stats.steals++;
       DT.state.log(state, `${thief.name}이(가) ${victim.name}의 [${DT.cards.def(picked.id).name}]을(를) 슬쩍했다!`);
       DT.state.emit(state, { type: 'steal', by: ctx.srcId, from: victimId, cardId: picked.id });
+    },
+  });
+
+  // 복제: 대상이 직전에 쓴 카드를 한 번 따라 쓴다 (복제 카드 자체는 복제 불가)
+  const copyable = (id) => id && !DT.cards.def(id).effects.some((e) => e.type === 'copy');
+  E.register('copy', {
+    defaultTo: 'opponent',
+    describe(eff, view) {
+      let txt = '대상 적이 직전에 쓴 카드를 따라 씀';
+      const t = view && view.tgtId && actor(view.state, view.tgtId);
+      if (t && t.lastPlayed) txt += `<br><i>→ ${DT.cards.def(t.lastPlayed).name}</i>`;
+      return txt;
+    },
+    canUse(ctx, eff) {
+      if (!ctx.tgtId) return null;
+      const t = actor(ctx.state, ctx.targetsOf(eff)[0]);
+      if (!t || !t.lastPlayed) return '이 적은 아직 카드를 쓰지 않았습니다';
+      return copyable(t.lastPlayed) ? null : '복제할 수 없는 카드입니다';
+    },
+    apply(ctx, eff) {
+      const t = actor(ctx.state, ctx.targetsOf(eff)[0]);
+      if (!t || !copyable(t.lastPlayed)) return;
+      const def = DT.cards.def(t.lastPlayed);
+      const src = actor(ctx.state, ctx.srcId);
+      DT.state.log(ctx.state, `${src.name}이(가) ${t.name}의 [${def.name}]을(를) 복제했다!`);
+      if (ctx.srcId === 'player') ctx.state.stats.copies++;
+      DT.state.emit(ctx.state, { type: 'copy', by: ctx.srcId, from: t.id, cardId: t.lastPlayed });
+      E.resolveEffects(makeCtx(ctx.state, ctx.srcId, t.id, ctx.card, null), def.effects);
     },
   });
 })();

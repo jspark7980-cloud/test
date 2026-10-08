@@ -2,7 +2,7 @@
 window.DT = window.DT || {};
 
 DT.state = {
-  VERSION: 1,
+  VERSION: 2,
 
   createRun(seed) {
     const P = DT.data.player;
@@ -13,11 +13,17 @@ DT.state = {
       nextUid: 1,
       dimension: 'medieval',
       turn: 0,
-      phase: 'player',   // 'player' | 'enemy' | 'over'
-      result: null,      // null | 'win' | 'lose'
+      screen: 'combat',  // 'combat' | 'heist' | 'reward' | 'over'
+      floor: 0,          // 몇 번째 전투인지
+      wanted: 0,         // 수배도: 강탈 시 +1
+      heists: [],        // 강탈 대기 [{ enemyName, kind, options:[카드 id] }]
+      reward: null,      // 카드 보상 { options:[카드 id] }
+      lastEncounter: null,
+      phase: 'player',   // 전투 내: 'player' | 'enemy' | 'over'
+      result: null,      // 전투 결과: null | 'win' | 'lose'
       log: [],
       events: [],        // UI 연출용, 화면에 그린 뒤 비운다
-      stats: { steals: 0 },
+      stats: { steals: 0, heists: 0, copies: 0, kills: 0 },
       player: {
         id: 'player', name: P.name, icon: P.icon,
         hp: P.hp, maxHp: P.hp, block: 0, statuses: {},

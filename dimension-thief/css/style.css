@@ -42,13 +42,14 @@ button { font: inherit; color: inherit; }
 .tb-left, .tb-right { display: flex; align-items: center; gap: 14px; }
 .dimname { font-weight: 800; color: var(--accent); font-size: 18px; }
 .turn, .seed { color: var(--muted); font-size: 14px; }
+.wanted { font-size: 14px; padding: 4px 10px; border-radius: 10px; background: rgba(255, 90, 60, 0.18); }
 .tb-mid { font-weight: 700; letter-spacing: 0.1em; }
 
 /* ── 전장 ── */
-#field { display: grid; grid-template-columns: 1fr 1.5fr; align-items: center; min-height: 0; }
+#field { display: grid; grid-template-columns: minmax(220px, 0.8fr) 2fr; align-items: center; min-height: 0; }
 #left { display: flex; flex-direction: column; align-items: center; gap: 14px; }
 #enemies { display: flex; justify-content: center; gap: 4vw; }
-.enemy-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.enemy-wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; }
 .enemy-wrap.dead { opacity: 0.35; filter: grayscale(1); }
 .ehand { display: flex; gap: 8px; min-height: calc(var(--card-w) * 0.8 * 1.4); }
 .intent { font-size: 14px; color: var(--muted); }
@@ -81,6 +82,7 @@ button { font: inherit; color: inherit; }
 .hptext { position: absolute; inset: 0; display: grid; place-items: center; font-size: 14px; font-weight: 700; text-shadow: 0 1px 2px #000; }
 .sts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; min-height: 28px; }
 .st { padding: 3px 8px; border-radius: 10px; font-size: 15px; display: flex; gap: 3px; align-items: center; }
+.st small { font-size: 12px; }
 .st-buff { background: rgba(79, 216, 138, 0.2); }
 .st-debuff { background: rgba(224, 69, 90, 0.22); }
 .epiles { font-size: 12px; color: var(--muted); }
@@ -183,3 +185,45 @@ button { font: inherit; color: inherit; }
 
 #rotate { position: fixed; inset: 0; z-index: 99; display: none; place-items: center; background: var(--bg); text-align: center; font-size: 26px; line-height: 1.6; }
 @media (orientation: portrait) { #rotate { display: grid; } }
+
+/* ── 2단계: 여러 적 ── */
+#enemies.compact { gap: 1.6vw; }
+#enemies.compact .actor { width: clamp(170px, 17vw, 230px); }
+#enemies.compact .ehand { flex-direction: column; gap: 5px; min-height: 0; width: clamp(170px, 17vw, 230px); }
+#enemies.compact.n3 .portrait { font-size: clamp(44px, 5.5vw, 64px); }
+.chip {
+  display: flex; align-items: center; gap: 6px; min-height: 34px; padding: 4px 8px;
+  border-radius: 9px; border: 2px solid var(--line); background: rgba(0, 0, 0, 0.35); font-size: 13px;
+}
+.chip.type-attack { border-color: rgba(224, 69, 90, 0.6); }
+.chip.type-skill { border-color: rgba(90, 168, 255, 0.55); }
+.chip.back { color: var(--muted); justify-content: center; border-style: dashed; }
+.chip-icon { font-size: 17px; }
+.chip-name { font-weight: 800; white-space: nowrap; }
+.chip-desc { color: var(--muted); font-size: 12px; line-height: 1.2; }
+.chip-desc b { color: var(--text); }
+.chip.glow { border-color: #ffb347; box-shadow: 0 0 10px #ffb347; }
+
+.hpmark { position: absolute; top: 0; bottom: 0; width: 2px; background: #ffd166; opacity: 0.8; }
+.actor.heistable { border-color: #ffd166; }
+.heistbadge {
+  position: absolute; top: -14px; left: 50%; transform: translateX(-50%); white-space: nowrap;
+  background: #ffd166; color: #1a1205; font-weight: 800; font-size: 13px; padding: 2px 10px; border-radius: 10px;
+}
+.dmgpreview {
+  position: absolute; right: -44px; top: 50%; transform: translateY(-50%);
+  background: #e0455a; color: #fff; font-size: 17px; font-weight: 900; padding: 3px 9px; border-radius: 10px;
+}
+.float.heist { color: #ffd166; font-size: 26px; }
+
+/* ── 보상 화면 ── */
+#overlay.show .panel { animation: popin 0.35s 0.6s both; }
+@keyframes popin { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: none; } }
+.panel h1.heist { color: #ffd166; }
+.panel p { color: var(--muted); } .panel p b { color: var(--text); }
+.panel .stats { font-size: 15px; }
+.pickrow { display: flex; flex-wrap: wrap; gap: 18px; justify-content: center; padding: 20px 8px 4px; max-height: 58vh; overflow-y: auto; }
+.pickrow .card { --card-w: clamp(110px, 12vw, 150px); cursor: pointer; }
+.pickrow .card.selected { transform: translateY(-10px) scale(1.05); box-shadow: 0 0 0 4px #fff, 0 12px 26px rgba(0,0,0,0.6); }
+.card.r-uncommon .c-name { color: #8fd3ff; }
+.card.r-rare .c-name { color: #ffd166; }
