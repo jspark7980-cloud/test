@@ -36,9 +36,10 @@ DT.save = {
     try { localStorage.removeItem(DT.save.RUN_KEY); } catch (e) { /* 무시 */ }
   },
 
-  // 메타 진행: 도감(훔친 카드), 누적 기록
+  // 메타 진행: 도감(훔친 카드), 누적 기록. heists 는 도둑 레벨 계산용.
   loadMeta() {
-    return Object.assign({ wins: 0, losses: 0, steals: 0, codex: {} }, DT.save._get(DT.save.META_KEY) || {});
+    return Object.assign({ runs: 0, bestFloor: 0, combatsWon: 0, steals: 0, heists: 0, copies: 0, codex: {} },
+      DT.save._get(DT.save.META_KEY) || {});
   },
   saveMeta(meta) {
     return DT.save._set(DT.save.META_KEY, meta);
