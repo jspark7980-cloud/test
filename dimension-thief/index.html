@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="format-detection" content="telephone=no">
+<meta name="theme-color" content="#15131c">
+<title>차원 도둑</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <header id="topbar"></header>
+  <main id="field">
+    <section id="left">
+      <div id="player"></div>
+      <div id="log"></div>
+    </section>
+    <section id="enemies"></section>
+  </main>
+  <div id="hint"></div>
+  <footer id="bottom">
+    <div id="energy"></div>
+    <div id="hand"></div>
+    <div id="side">
+      <div id="piles"></div>
+      <div id="endturn"></div>
+    </div>
+  </footer>
+</div>
+<div id="banner"></div>
+<div id="fx"></div>
+<div id="overlay"></div>
+<div id="rotate"><div>📱↻<br>가로 화면으로 돌려 주세요</div></div>
+
+<!-- 데이터 -->
+<script src="data/dimensions.js"></script>
+<script src="data/statuses.js"></script>
+<script src="data/cards.js"></script>
+<script src="data/enemies.js"></script>
+<script src="data/player.js"></script>
+<!-- 로직 -->
+<script src="js/rng.js"></script>
+<script src="js/effects.js"></script>
+<script src="js/cards.js"></script>
+<script src="js/state.js"></script>
+<script src="js/deck.js"></script>
+<script src="js/enemy.js"></script>
+<script src="js/combat.js"></script>
+<script src="js/save.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
