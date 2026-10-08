@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DFT 1단계</title>
+<style>
+  body { font-family: sans-serif; padding: 16px; }
+  canvas { border: 1px solid #ccc; width: 100%; max-width: 600px; }
+  pre { background: #f4f4f4; padding: 8px; }
+</style>
+</head>
+<body>
+<h2>1단계: DFT (N=8)</h2>
+<canvas id="cv" width="600" height="300"></canvas>
+<pre id="out"></pre>
+
+<script>
+// 에러를 화면에 표시 (iPad에서 콘솔 대신)
+window.onerror = (msg, src, line) => {
+  document.getElementById('out').textContent += `에러: ${msg} (line ${line})\n`;
+};
+
+// ===== 연산 횟수 카운터 =====
+let mulCount = 0;
+let addCount = 0;
+
+// ===== 복소수 =====
+function complex(re, im) {
+  return { re: re, im: im };
+}
+
+function cAdd(a, b) {
+  addCount++;
+  return complex(/* ??? */, /* ??? */);
+}
+
+function cMul(a, b) {
+  mulCount++;
+  // 힌트: (a.re + a.im i)(b.re + b.im i) 를 전개해 보세요
+  return complex(/* ??? */, /* ??? */);
+}
+
+function cAbs(a) {
+  // 힌트: 복소평면에서 원점까지의 거리
+  return /* ??? */;
+}
+
+// ===== DFT =====
+function dft(x) {
+  const N = x.length;
+  const X = [];
+  for (let k = 0; k < N; k++) {
+    let sum = complex(0, 0);
+    for (let n = 0; n < N; n++) {
+      const angle = /* ??? */;          // 힌트: 부호에 주의! (-2π·k·n/N)
+      const w = complex(/* ??? */, /* ??? */);  // e^{i·angle}
+      sum = /* ??? */;                  // sum에 x[n]·w를 더하기
+    }
+    X.push(sum);
+  }
+  return X;
+}
+
+// ===== 막대그래프 =====
+function drawBars(canvas, values, label) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const maxV = Math.max(...values, 1e-9);   // 0으로 나누기 방지
+  const barW = W / values.length;
+
+  for (let i = 0; i < values.length; i++) {
+    const h = /* ??? */;   // 힌트: 가장 큰 값이 캔버스 높이의 약 80%가 되도록
+    ctx.fillStyle = '#4a7bd0';
+    ctx.fillRect(/* x */, /* y */, barW * 0.8, h);
+    // 힌트: Canvas의 y축은 위에서 아래로 증가해요.
+    //       막대가 바닥에서 위로 자라려면 y는 얼마여야 할까요?
+
+    ctx.fillStyle = '#000';
+    ctx.fillText(i, i * barW + barW * 0.35, H - 2);
+  }
+  ctx.fillText(label, 5, 12);
+}
+
+// ===== 실행 =====
+const N = 8;
+const x = [];
+for (let n = 0; n < N; n++) {
+  x.push(complex(/* 테스트 신호: cos(2π·1·n/N) */, 0));
+}
+
+const X = dft(x);
+const mags = X.map(cAbs);
+
+drawBars(document.getElementById('cv'), mags, '|X[k]|');
+
+let txt = '';
+X.forEach((v, k) => {
+  txt += `X[${k}] = ${v.re.toFixed(3)} + ${v.im.toFixed(3)}i   |X|=${mags[k].toFixed(3)}\n`;
+});
+txt += `\n복소 곱셈: ${mulCount}회, 복소 덧셈: ${addCount}회`;
+document.getElementById('out').textContent = txt;
+</script>
+</body>
+</html>

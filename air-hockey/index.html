@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="format-detection" content="telephone=no">
+<meta name="theme-color" content="#000000">
+<title>Touch Duel</title>
+<style>
+  html, body {
+    margin: 0; padding: 0;
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: #000;
+    /* 스크롤·확대·바운스 방지 */
+    position: fixed; inset: 0;
+    overscroll-behavior: none;
+    touch-action: none;
+    /* 길게 누르기 메뉴·텍스트 선택·탭 하이라이트 방지 */
+    -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: none;
+  }
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+'use strict';
+
+/* =========================================================
+   설정
+   ========================================================= */
+const ACCENT = '#22e07a';          // 유일한 강조색 (반응속도 모드의 "초록색"도 이 색)
+const FG = '#ffffff';
+const BG = '#000000';
+const FONT = '-apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Helvetica Neue", sans-serif';
+const HOCKEY_WIN = 7;
+
+/* =========================================================
+   캔버스 & 리사이즈
+   ========================================================= */
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d', { alpha: false });
+let W = 0, H = 0, DPR = 1;
+
+function resize() {
+  const nw = window.innerWidth, nh = window.innerHeight;
+  if (nw === 0 || nh === 0) return;
+  // 고해상도 화면은 2배까지만 (그 이상은 60fps 유지에 부담)
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = Math.round(nw * DPR);
+  canvas.height = Math.round(nh * DPR);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const oldW = W, oldH = H;
+  W = nw; H = nh;
+  if (oldW && oldH && app.scene && app.scene.resize) {
+    app.scene.resize(W / oldW, H / oldH);
+  }
+}
+window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', () => { resize(); setTimeout(resize, 250); });
+if (window.visualViewport) window.visualViewport.addEventListener('resize', resize);
+
+/* =========================================================
+   효과음 (Web Audio API로 즉석 생성)
+   ========================================================= */
+let ac = null;
+function ensureAudio() {
+  try {
+    if (!ac) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      ac = new AC();
+      // iOS 잠금 해제용 무음 버퍼 1회 재생
+      const b = ac.createBuffer(1, 1, 22050);
+      const s = ac.createBufferSource();
+      s.buffer = b; s.connect(ac.destination); s.start(0);
+    }
+    if (ac.state === 'suspended') ac.resume();
+  } catch (e) { /* 오디오 불가 환경은 무시 */ }
+}
+function tone(freq, dur, type = 'sine', vol = 0.2, freqEnd = null, delay = 0) {
+  if (!ac || ac.state !== 'running') return;
+  const t0 = ac.currentTime + delay;
+  const o = ac.createOscillator();
+  const g = ac.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(freq, t0);
+  if (freqEnd) o.frequency.exponentialRampToValueAtTime(freqEnd, t0 + dur);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(vol, t0 + 0.005);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.connect(g); g.connect(ac.destination);
+  o.start(t0); o.stop(t0 + dur + 0.02);
+}
+const sfx = {
+  tap()  { tone(660, 0.06, 'triangle', 0.15); },
+  hit(p) { tone(300 + 500 * p, 0.07, 'triangle', 0.12 + 0.2 * p, 150 + 200 * p); }, // p: 0~1 세기
+  wall() { tone(180, 0.05, 'square', 0.05); },
+  goal() { tone(523, 0.12, 'square', 0.12); tone(784, 0.22, 'square', 0.12, null, 0.11); },
+  win()  { [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.18, 'triangle', 0.18, null, i * 0.1)); },
+};
+
+/* =========================================================
+   공통 UI 헬퍼
+   - 화면을 가로로 반 나눠 아래쪽은 P2(정방향), 위쪽은 P1(180° 회전)로 그린다.
+   - "로컬 좌표": 각 플레이어 기준 반쪽 화면. y=0 이 중앙선, y=H/2 가 자기 앞쪽 가장자리.
+   ========================================================= */
+function halfH() { return H / 2; }
+
+// fn(who, w, h) 를 두 반쪽에 각각 그린다. who: 0=P1(위), 1=P2(아래)
+function mirrored(fn) {
+  ctx.save(); ctx.translate(0, H / 2); fn(1, W, H / 2); ctx.restore();
+  ctx.save(); ctx.translate(W, H / 2); ctx.rotate(Math.PI); fn(0, W, H / 2); ctx.restore();
+}
+// 화면 좌표 → 해당 플레이어의 로컬 좌표
+function toLocal(x, y) {
+  return y >= H / 2 ? { who: 1, x, y: y - H / 2 } : { who: 0, x: W - x, y: H / 2 - y };
+}
+
+function font(size, weight = 600) { return `${weight} ${Math.round(size)}px ${FONT}`; }
+function text(str, x, y, size, color = FG, weight = 600, align = 'center') {
+  ctx.font = font(size, weight);
+  ctx.fillStyle = color;
+  ctx.textAlign = align;
+  ctx.textBaseline = 'middle';
+  ctx.fillText(str, x, y);
+}
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+// 로컬 좌표 기준 버튼 한 줄 배치
+function buttonRow(defs, yCenter) {
+  const n = defs.length, gap = 14;
+  const bw = Math.min((W - 40 - gap * (n - 1)) / n, 190);
+  const bh = Math.min(halfH() * 0.17, 64);
+  const total = n * bw + (n - 1) * gap;
+  const x0 = (W - total) / 2;
+  return defs.map((d, i) => ({ ...d, x: x0 + i * (bw + gap), y: yCenter - bh / 2, w: bw, h: bh }));
+}
+function drawButtons(btns) {
+  for (const b of btns) {
+    roundRect(b.x, b.y, b.w, b.h, Math.min(14, b.h / 3));
+    if (b.primary) { ctx.fillStyle = ACCENT; ctx.fill(); }
+    else { ctx.lineWidth = 2; ctx.strokeStyle = FG; ctx.stroke(); }
+    text(b.label, b.x + b.w / 2, b.y + b.h / 2 + 1, Math.min(b.h * 0.38, 22), b.primary ? BG : FG);
+  }
+}
+function hitButton(btns, lx, ly) {
+  for (const b of btns) if (lx >= b.x && lx <= b.x + b.w && ly >= b.y && ly <= b.y + b.h) return b;
+  return null;
+}
+
+// 중앙선 위 왼쪽 끝의 일시정지 버튼 (180° 대칭 아이콘이라 양쪽 모두 읽힘)
+function pauseBtn() { const r = Math.max(22, Math.min(W, H) * 0.035); return { x: r + 10, y: H / 2, r }; }
+function drawPauseBtn(color = FG, bg = BG) {
+  const p = pauseBtn();
+  ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+  ctx.fillStyle = bg; ctx.fill();
+  ctx.lineWidth = 2; ctx.strokeStyle = color; ctx.stroke();
+  const bw = p.r * 0.2, bh = p.r * 0.8;
+  ctx.fillStyle = color;
+  ctx.fillRect(p.x - bw * 1.6, p.y - bh / 2, bw, bh);
+  ctx.fillRect(p.x + bw * 0.6, p.y - bh / 2, bw, bh);
+}
+function hitPauseBtn(x, y) {
+  const p = pauseBtn();
+  return Math.hypot(x - p.x, y - p.y) <= p.r + 12; // 손가락용 여유 12px
+}
+
+/* =========================================================
+   앱 상태 (장면 전환, 일시정지, 게임 종료 오버레이)
+   ========================================================= */
+const app = {
+  scene: null,
+  paused: false,
+  over: null,      // 게임 종료 시 { winner, t, lines:[[P1줄],[P2줄]] }
+};
+function setScene(s) {
+  app.scene = s; app.paused = false; app.over = null;
+  s.enter();
+}
+function endGame(winner, lines) {
+  app.over = { winner, t: performance.now(), lines: lines || [[], []] };
+  sfx.win();
+}
+
+const pauseButtons = () => buttonRow([
+  { id: 'resume', label: '계속', primary: true },
+  { id: 'restart', label: '재시작' },
+  { id: 'menu', label: '메뉴' },
+], halfH() * 0.62);
+
+const overButtons = () => buttonRow([
+  { id: 'restart', label: '다시 하기', primary: true },
+  { id: 'menu', label: '메뉴' },
+], halfH() * 0.72);
+
+function drawPauseOverlay() {
+  ctx.fillStyle = 'rgba(0,0,0,0.82)';
+  ctx.fillRect(0, 0, W, H);
+  const btns = pauseButtons();
+  mirrored((who, w, h) => {
+    text('일시정지', w / 2, h * 0.3, Math.min(h * 0.14, 44), FG, 700);
+    drawButtons(btns);
+  });
+}
+function drawOverOverlay() {
+  ctx.fillStyle = 'rgba(0,0,0,0.85)';
+  ctx.fillRect(0, 0, W, H);
+  const btns = overButtons();
+  const o = app.over;
+  mirrored((who, w, h) => {
+    const won = o.winner === who;
+    text(won ? '승리' : '패배', w / 2, h * 0.22, Math.min(h * 0.2, 72), won ? ACCENT : FG, 800);
+    const lines = o.lines[who] || [];
+    lines.forEach((l, i) => text(l, w / 2, h * 0.4 + i * Math.min(h * 0.08, 30), Math.min(h * 0.065, 22), 'rgba(255,255,255,0.75)', 500));
+    drawButtons(btns);
+  });
+}
+
+/* =========================================================
+   메뉴 화면 (양쪽 모두에서 읽고 누를 수 있게 대칭으로 그림)
+   ========================================================= */
+const Menu = {
+  enter() {},
+  buttons() {
+    return buttonRow([
+      { id: 'hockey', label: '에어하키', primary: true },
+      { id: 'reaction', label: '반응속도 대결' },
+    ], halfH() * 0.62);
+  },
+  update() {},
+  draw(now) {
+    ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.fillRect(0, H / 2 - 1, W, 2);
+    const btns = this.buttons();
+    mirrored((who, w, h) => {
+      text('TOUCH DUEL', w / 2, h * 0.22, Math.min(h * 0.13, w * 0.1, 56), FG, 800);
+      text(who === 0 ? 'P1' : 'P2', w / 2, h * 0.36, Math.min(h * 0.06, 20), ACCENT, 700);
+      drawButtons(btns);
+      text('마주 앉아 모드를 선택하세요', w / 2, h * 0.86, Math.min(h * 0.05, 16), 'rgba(255,255,255,0.45)', 500);
+    });
+  },
+  down(id, x, y) {
+    const l = toLocal(x, y);
+    const b = hitButton(this.buttons(), l.x, l.y);
+    if (!b) return;
+    sfx.tap();
+    if (b.id === 'hockey') setScene(Hockey);
+    else if (b.id === 'reaction') setScene(Reaction);
+  },
+  move() {}, up() {},
+};
+
+/* =========================================================
+   모드 1: 에어하키
+   ---------------------------------------------------------
+   좌표계: 화면 픽셀. P1(index 0)은 위쪽 절반, P2(index 1)는 아래쪽 절반.
+   P1은 위쪽 골대를 지키고, 퍽이 위쪽 골대로 들어가면 P2 득점.
+
+   [충돌 처리 요약]
+   1) 서브스텝: 한 프레임 동안 퍽/말렛의 이동 거리를 퍽 반지름의 절반 이하로
+      잘게 나눠 여러 번 적분한다. 빠른 퍽이 말렛·벽을 뚫고 지나가는
+      "터널링"을 막기 위함. 말렛 위치도 서브스텝마다 이전→현재 위치를 보간.
+   2) 퍽↔말렛 (원-원): 중심 거리 < r+R 이면 충돌.
+      - 위치 보정: 퍽을 충돌 법선 n 방향으로 딱 맞닿는 위치까지 밀어낸다.
+        말렛은 손가락이 붙잡고 있으므로 "무한 질량"으로 보고 퍽만 움직인다.
+      - 속도 반사: 상대속도 v_rel = v_puck − v_mallet 의 법선 성분 vn 이
+        서로 가까워지는 방향(vn < 0)일 때만 v_puck −= (1+e)·vn·n.
+        → 말렛이 빠르게 휘두를수록 vn 이 커져 퍽이 더 세게 튕겨 나간다.
+   3) 퍽↔벽: 좌우 벽, 위아래 벽(골 입구 제외)을 넘으면 벽 안으로 되돌리고
+      해당 축 속도를 반전 후 반발계수 e_wall 을 곱한다.
+   4) 퍽↔골대 기둥: 골 입구 양 끝을 "점"으로 보고 원-점 충돌을 처리
+      (모서리에 걸친 퍽이 자연스럽게 튕기도록).
+   5) 끼임 방지: 벽 보정 후에도 퍽과 말렛이 겹쳐 있으면(벽과 말렛 사이에
+      낀 경우) 이번엔 말렛을 뒤로 밀어낸다.
+   이후 매 프레임 마찰로 지수 감속하고, 최대 속도를 넘지 않게 자른다.
+   ========================================================= */
+const PUCK_E = 0.9;       // 말렛 반발계수
+const WALL_E = 0.88;      // 벽 반발계수
+const FRICTION = 0.45;    // 초당 감속 계수 (v *= e^(-k·dt))
+
+const Hockey = {
+  enter() {
+    this.score = [0, 0];
+    this.layout();
+    this.mallets = [0, 1].map(i => {
+      const x = W / 2, y = i === 0 ? H * 0.12 : H * 0.88;
+      return { x, y, px: x, py: y, tx: x, ty: y, vx: 0, vy: 0, tid: null };
+    });
+    this.puck = { x: W / 2, y: H / 2, vx: 0, vy: 0 };
+    this.resetPuck(-1);
+    this.goalT = 0;         // 득점 연출 남은 시간
+    this.lastScorer = -1;
+    this.flash = [0, 0];    // 득점 하이라이트
+    this.sndHit = 0; this.sndWall = 0;
+  },
+  layout() {
+    const u = Math.min(W, H);
+    this.u = u;
+    this.R = u * 0.072;                              // 말렛 반지름
+    this.r = u * 0.036;                              // 퍽 반지름
+    this.goalW = Math.min(W * 0.42, u * 0.42);       // 골 입구 너비
+    this.maxV = u * 4.2;                             // 퍽 최대 속도 (px/s)
+    this.malletMaxV = u * 10;                        // 말렛 최대 이동 속도 (px/s)
+  },
+  goalX0() { return (W - this.goalW) / 2; },
+  goalX1() { return (W + this.goalW) / 2; },
+  resize(sx, sy) {
+    const p = this.puck;
+    p.x *= sx; p.y *= sy;
+    for (const m of this.mallets) {
+      m.x *= sx; m.y *= sy; m.px *= sx; m.py *= sy; m.tx *= sx; m.ty *= sy;
+    }
+    this.layout();
+    this.mallets.forEach((m, i) => {
+      const c = this.clampMallet(i, m.x, m.y); m.x = m.px = c.x; m.y = m.py = c.y;
+      const t = this.clampMallet(i, m.tx, m.ty); m.tx = t.x; m.ty = t.y;
+    });
+    p.x = Math.min(Math.max(p.x, this.r), W - this.r);
+  },
+  resetPuck(conceder) {
+    const p = this.puck;
+    p.x = W / 2;
+    p.y = conceder === 0 ? H * 0.25 : conceder === 1 ? H * 0.75 : H / 2;
+    p.vx = 0; p.vy = 0;
+  },
+  // 말렛은 자기 영역(반쪽) 안에서만
+  clampMallet(i, x, y) {
+    const R = this.R;
+    const y0 = i === 0 ? R : H / 2 + R;
+    const y1 = i === 0 ? H / 2 - R : H - R;
+    return { x: Math.min(Math.max(x, R), W - R), y: Math.min(Math.max(y, y0), y1) };
+  },
+
+  /* ---------- 입력 ---------- */
+  down(id, x, y) {
+    const i = y < H / 2 ? 0 : 1;        // 터치한 쪽 영역의 말렛
+    const m = this.mallets[i];
+    if (m.tid !== null) return;          // 이미 다른 손가락이 잡고 있음
+    m.tid = id;
+    const c = this.clampMallet(i, x, y);
+    // 잡는 순간 말렛을 손가락 위치로 순간이동 (속도 0 처리 → 순간이동 강타 방지)
+    m.x = m.px = m.tx = c.x; m.y = m.py = m.ty = c.y;
+    sfx.tap();
+  },
+  move(id, x, y) {
+    this.mallets.forEach((m, i) => {
+      if (m.tid !== id) return;
+      const c = this.clampMallet(i, x, y);
+      m.tx = c.x; m.ty = c.y;
+    });
+  },
+  up(id) {
+    for (const m of this.mallets) if (m.tid === id) m.tid = null;
+  },
+
+  /* ---------- 물리 ---------- */
+  update(dt, now) {
+    const p = this.puck, r = this.r, R = this.R;
+    this.flash[0] = Math.max(0, this.flash[0] - dt);
+    this.flash[1] = Math.max(0, this.flash[1] - dt);
+
+    // 말렛: 손가락 목표 위치로 이동 (한 프레임 최대 이동량 제한)
+    let maxMove = 0;
+    for (const m of this.mallets) {
+      m.px = m.x; m.py = m.y;
+      let dx = m.tx - m.x, dy = m.ty - m.y;
+      const d = Math.hypot(dx, dy), lim = this.malletMaxV * dt;
+      if (d > lim) { dx *= lim / d; dy *= lim / d; }
+      m.x += dx; m.y += dy;
+      m.vx = dx / dt; m.vy = dy / dt;
+      maxMove = Math.max(maxMove, Math.hypot(dx, dy));
+    }
+
+    // 득점 연출 중: 퍽은 골 안쪽으로 미끄러지기만 하고 충돌 없음
+    if (this.goalT > 0) {
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      this.goalT -= dt;
+      if (this.goalT <= 0) {
+        const s = this.score;
+        if (s[0] >= HOCKEY_WIN || s[1] >= HOCKEY_WIN) {
+          const w = s[0] > s[1] ? 0 : 1;
+          endGame(w, [[`${s[0]} : ${s[1]}`], [`${s[1]} : ${s[0]}`]]);
+        } else {
+          this.resetPuck(1 - this.lastScorer); // 실점한 쪽에서 서브
+        }
+      }
+      return;
+    }
+
+    // [1] 서브스텝 수 결정: 퍽/말렛이 한 스텝에 r/2 이상 움직이지 않도록
+    const travel = Math.max(Math.hypot(p.vx, p.vy) * dt, maxMove);
+    const n = Math.min(24, Math.max(1, Math.ceil(travel / (r * 0.5))));
+    const h = dt / n;
+
+    for (let s = 1; s <= n; s++) {
+      const t = s / n;
+      p.x += p.vx * h;
+      p.y += p.vy * h;
+
+      // [2] 퍽 ↔ 말렛
+      for (let i = 0; i < 2; i++) {
+        const m = this.mallets[i];
+        const mx = m.px + (m.x - m.px) * t;   // 이 서브스텝 시점의 말렛 위치
+        const my = m.py + (m.y - m.py) * t;
+        let dx = p.x - mx, dy = p.y - my;
+        let d = Math.hypot(dx, dy);
+        const minD = r + R;
+        if (d < minD) {
+          if (d < 1e-6) { dx = 0; dy = i === 0 ? 1 : -1; d = 1; }
+          const nx = dx / d, ny = dy / d;
+          // 위치 보정: 퍽만 밀어냄
+          p.x = mx + nx * minD;
+          p.y = my + ny * minD;
+          // 속도 반사: 접근 중일 때만
+          const vn = (p.vx - m.vx) * nx + (p.vy - m.vy) * ny;
+          if (vn < 0) {
+            p.vx -= (1 + PUCK_E) * vn * nx;
+            p.vy -= (1 + PUCK_E) * vn * ny;
+            const power = Math.min(1, -vn / this.maxV);
+            if (now - this.sndHit > 60) { sfx.hit(power); this.sndHit = now; }
+          }
+        }
+      }
+
+      // [3][4] 벽·골대 기둥
+      const scored = this.collideWalls(now);
+
+      // [5] 벽과 말렛 사이에 낀 경우 말렛을 밀어냄
+      for (let i = 0; i < 2; i++) {
+        const m = this.mallets[i];
+        const dx = m.x - p.x, dy = m.y - p.y, d = Math.hypot(dx, dy);
+        if (d < r + R && d > 1e-6) {
+          const c = this.clampMallet(i, p.x + dx / d * (r + R), p.y + dy / d * (r + R));
+          m.x = c.x; m.y = c.y;
+        }
+      }
+
+      if (scored >= 0) { this.onGoal(scored); break; }
+    }
+
+    // 마찰(지수 감속) + 최대 속도 제한
+    const f = Math.exp(-FRICTION * dt);
+    p.vx *= f; p.vy *= f;
+    const sp = Math.hypot(p.vx, p.vy);
+    if (sp > this.maxV) { p.vx *= this.maxV / sp; p.vy *= this.maxV / sp; }
+    if (sp < 2) { p.vx = 0; p.vy = 0; }
+  },
+
+  // 반환값: 득점한 플레이어 index, 없으면 -1
+  collideWalls(now) {
+    const p = this.puck, r = this.r;
+    const gx0 = this.goalX0(), gx1 = this.goalX1();
+    const inMouth = p.x > gx0 && p.x < gx1;
+    let bounced = false;
+
+    // 좌우 벽
+    if (p.x < r) { p.x = r; p.vx = Math.abs(p.vx) * WALL_E; bounced = true; }
+    else if (p.x > W - r) { p.x = W - r; p.vx = -Math.abs(p.vx) * WALL_E; bounced = true; }
+
+    // 위아래 벽 (골 입구 구간은 통과)
+    if (!inMouth) {
+      if (p.y < r) { p.y = r; p.vy = Math.abs(p.vy) * WALL_E; bounced = true; }
+      else if (p.y > H - r) { p.y = H - r; p.vy = -Math.abs(p.vy) * WALL_E; bounced = true; }
+    }
+
+    // 골대 기둥 4개 (원-점 충돌)
+    const posts = [[gx0, 0], [gx1, 0], [gx0, H], [gx1, H]];
+    for (const [qx, qy] of posts) {
+      const dx = p.x - qx, dy = p.y - qy, d = Math.hypot(dx, dy);
+      if (d < r && d > 1e-6) {
+        const nx = dx / d, ny = dy / d;
+        p.x = qx + nx * r; p.y = qy + ny * r;
+        const vn = p.vx * nx + p.vy * ny;
+        if (vn < 0) { p.vx -= (1 + WALL_E) * vn * nx; p.vy -= (1 + WALL_E) * vn * ny; bounced = true; }
+      }
+    }
+
+    if (bounced && now - this.sndWall > 50) { sfx.wall(); this.sndWall = now; }
+
+    // 퍽 중심이 골라인을 넘으면 득점
+    if (p.y < 0) return 1;       // 위쪽 골대 → P2 득점
+    if (p.y > H) return 0;       // 아래쪽 골대 → P1 득점
+    return -1;
+  },
+
+  onGoal(scorer) {
+    this.score[scorer]++;
+    this.lastScorer = scorer;
+    this.flash[scorer] = 1.0;
+    this.goalT = 1.1;
+    sfx.goal();
+  },
+
+  /* ---------- 그리기 ---------- */
+  draw(now) {
+    const r = this.r, R = this.R, p = this.puck;
+    ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
+
+    // 득점한 쪽 반쪽을 강조색으로 살짝 물들임
+    for (let i = 0; i < 2; i++) {
+      if (this.flash[i] > 0) {
+        ctx.globalAlpha = this.flash[i] * 0.22;
+        ctx.fillStyle = ACCENT;
+        ctx.fillRect(0, i === 0 ? 0 : H / 2, W, H / 2);
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    // 링크 라인
+    ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(W / 2, H / 2, this.u * 0.12, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(W / 2, 0, this.goalW * 0.55, 0, Math.PI); ctx.stroke();
+    ctx.beginPath(); ctx.arc(W / 2, H, this.goalW * 0.55, Math.PI, Math.PI * 2); ctx.stroke();
+
+    // 벽 테두리
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(0, 0, W, H);
+    // 골 입구 (강조색)
+    const gx0 = this.goalX0();
+    ctx.fillStyle = BG;
+    ctx.fillRect(gx0, 0, this.goalW, 4);
+    ctx.fillRect(gx0, H - 4, this.goalW, 4);
+    ctx.fillStyle = ACCENT;
+    ctx.fillRect(gx0, 0, this.goalW, 6);
+    ctx.fillRect(gx0, H - 6, this.goalW, 6);
+
+    // 점수 (위쪽은 180° 회전 → 각자 자기 방향에서 읽힘)
+    const s = this.score;
+    mirrored((who, w, h) => {
+      const size = Math.min(h * 0.22, this.u * 0.13);
+      const hl = this.flash[who] > 0;
+      text(String(s[who]), w - size * 0.7, size * 0.75, size, hl ? ACCENT : 'rgba(255,255,255,0.55)', 800);
+      if (this.goalT > 0 && this.lastScorer === who) {
+        text('GOAL', w / 2, h * 0.5, Math.min(h * 0.25, 90), ACCENT, 900);
+      }
+    });
+
+    // 퍽
+    ctx.fillStyle = ACCENT;
+    ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
+
+    // 말렛
+    for (const m of this.mallets) {
+      ctx.fillStyle = FG;
+      ctx.beginPath(); ctx.arc(m.x, m.y, R, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = BG; ctx.lineWidth = Math.max(2, R * 0.08);
+      ctx.beginPath(); ctx.arc(m.x, m.y, R * 0.55, 0, Math.PI * 2); ctx.stroke();
+      if (m.tid !== null) {
+        ctx.fillStyle = BG;
+        ctx.beginPath(); ctx.arc(m.x, m.y, R * 0.18, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+
+    drawPauseBtn();
+  },
+};
+
+/* =========================================================
+   모드 2: 반응속도 대결 (5판 3선승)
+   ---------------------------------------------------------
+   상태 흐름: pre(라운드 표시, 터치 무시) → wait(1~4초 무작위, 터치하면 부정출발)
+             → go(화면이 강조색=초록, 먼저 자기 쪽 터치한 사람 승) → result → 다음 라운드
+   반응 시간 = 터치 이벤트 시각 − 초록 화면을 그리기 시작한 프레임 시각 (ms).
+   (화면 갱신 지연 때문에 실제보다 최대 1프레임 ≈ 16ms 크게 나올 수 있음 — 양쪽에 동일하게 적용)
+   ========================================================= */
+const REACTION_WIN = 3;
+
+const Reaction = {
+  enter() {
+    this.score = [0, 0];
+    this.best = [null, null];
+    this.round = 0;
+    this.nextRound();
+  },
+  nextRound() {
+    this.round++;
+    this.state = 'pre';
+    this.timer = 1.2;
+    this.result = null;
+  },
+  onPause() {},
+  onResume() {
+    // 대기/초록 도중에 멈췄다면 공정하게 이번 라운드를 다시 진행
+    if (this.state === 'wait' || this.state === 'go' || this.state === 'pre') { this.round--; this.nextRound(); }
+  },
+  resize() {},
+  update(dt, now) {
+    if (this.state === 'pre') {
+      this.timer -= dt;
+      if (this.timer <= 0) {
+        this.state = 'wait';
+        this.goAt = now + 1000 + Math.random() * 3000; // 1~4초 무작위
+      }
+    } else if (this.state === 'wait') {
+      if (now >= this.goAt) {
+        this.state = 'go';
+        this.goTime = now;
+        tone(1320, 0.08, 'sine', 0.2);
+      }
+    } else if (this.state === 'result') {
+      this.timer -= dt;
+      if (this.timer <= 0) {
+        const s = this.score;
+        if (s[0] >= REACTION_WIN || s[1] >= REACTION_WIN) {
+          const w = s[0] > s[1] ? 0 : 1;
+          const bestLine = i => `최고 반응  ${this.best[i] != null ? this.best[i] + ' ms' : '—'}`;
+          endGame(w, [
+            [`${s[0]} : ${s[1]}`, bestLine(0)],
+            [`${s[1]} : ${s[0]}`, bestLine(1)],
+          ]);
+        } else {
+          this.nextRound();
+        }
+      }
+    }
+  },
+  down(id, x, y) {
+    const who = y < H / 2 ? 0 : 1;
+    const now = eventNow; // 같은 터치 이벤트의 손가락들은 같은 시각으로 판정
+    if (this.state === 'wait') {
+      // 부정출발: 상대에게 점수
+      this.score[1 - who]++;
+      this.result = { type: 'foul', by: who, winner: 1 - who };
+      this.state = 'result';
+      this.timer = 2.0;
+      tone(120, 0.35, 'sawtooth', 0.15, 70);
+    } else if (this.state === 'go') {
+      const ms = Math.max(0, Math.round(now - this.goTime));
+      this.score[who]++;
+      const times = [null, null]; times[who] = ms;
+      this.result = { type: 'win', winner: who, times };
+      if (this.best[who] == null || ms < this.best[who]) this.best[who] = ms;
+      this.state = 'result';
+      this.timer = 2.2;
+      sfx.goal();
+    } else if (this.state === 'result' && this.result.type === 'win') {
+      // 진 쪽의 반응 시간도 참고용으로 표시
+      const r = this.result;
+      if (who !== r.winner && r.times[who] == null) {
+        r.times[who] = Math.round(now - this.goTime);
+        sfx.tap();
+      }
+    }
+  },
+  move() {}, up() {},
+
+  draw(now) {
+    const go = this.state === 'go';
+    ctx.fillStyle = go ? ACCENT : BG;
+    ctx.fillRect(0, 0, W, H);
+
+    // 결과: 승자 쪽 반쪽을 강조색으로 옅게
+    const r = this.result;
+    if (this.state === 'result' && r) {
+      ctx.globalAlpha = 0.18;
+      ctx.fillStyle = ACCENT;
+      ctx.fillRect(0, r.winner === 0 ? 0 : H / 2, W, H / 2);
+      ctx.globalAlpha = 1;
+    }
+
+    const ink = go ? BG : FG;
+    ctx.fillStyle = go ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.25)';
+    ctx.fillRect(0, H / 2 - 1, W, 2);
+
+    const u = Math.min(W, H);
+    mirrored((who, w, h) => {
+      // 점수 + 3선승 점
+      const ss = Math.min(h * 0.12, u * 0.07);
+      text(String(this.score[who]), w - ss * 0.9, ss * 0.9, ss, go ? BG : 'rgba(255,255,255,0.6)', 800);
+      for (let i = 0; i < REACTION_WIN; i++) {
+        ctx.beginPath();
+        ctx.arc(w - ss * 1.9 - i * ss * 0.45, ss * 0.9, ss * 0.13, 0, Math.PI * 2);
+        if (i < this.score[who]) { ctx.fillStyle = go ? BG : ACCENT; ctx.fill(); }
+        else { ctx.lineWidth = 1.5; ctx.strokeStyle = go ? BG : 'rgba(255,255,255,0.4)'; ctx.stroke(); }
+      }
+
+      const big = Math.min(h * 0.2, u * 0.12), mid = Math.min(h * 0.08, u * 0.045);
+      const cy = h * 0.5;
+      if (this.state === 'pre') {
+        text(`ROUND ${this.round}`, w / 2, cy - big * 0.3, big * 0.6, FG, 800);
+        text('준비…', w / 2, cy + big * 0.5, mid, 'rgba(255,255,255,0.6)', 500);
+      } else if (this.state === 'wait') {
+        text('기다리세요', w / 2, cy - big * 0.2, big * 0.6, FG, 800);
+        text('초록색이 되면 자기 쪽을 터치!', w / 2, cy + big * 0.5, mid, 'rgba(255,255,255,0.55)', 500);
+      } else if (go) {
+        text('터치!', w / 2, cy, big * 1.2, BG, 900);
+      } else if (this.state === 'result' && r) {
+        if (r.type === 'win') {
+          const won = r.winner === who;
+          text(won ? '승리' : '패배', w / 2, cy - big * 0.55, big * 0.7, won ? ACCENT : FG, 800);
+          const t = r.times[who];
+          const label = t == null ? '—' : won ? `${t} ms` : `${t} ms (+${t - r.times[r.winner]})`;
+          text(label, w / 2, cy + big * 0.35, won ? big * 0.75 : big * 0.45, won ? FG : 'rgba(255,255,255,0.6)', 700);
+        } else {
+          const fouled = r.by === who;
+          text(fouled ? '부정출발!' : '상대 부정출발', w / 2, cy - big * 0.2, big * 0.6, fouled ? FG : ACCENT, 800);
+          text(fouled ? '상대에게 1점' : '+1점', w / 2, cy + big * 0.5, mid, 'rgba(255,255,255,0.6)', 500);
+        }
+      }
+    });
+
+    drawPauseBtn(ink, go ? ACCENT : BG);
+  },
+};
+
+/* =========================================================
+   입력 (멀티터치: touch.identifier 로 손가락을 각각 추적)
+   ========================================================= */
+function onDown(id, x, y) {
+  ensureAudio();
+  const s = app.scene;
+  if (s === Menu) { s.down(id, x, y); return; }
+
+  if (app.over) {
+    if (performance.now() - app.over.t < 700) return; // 연타로 인한 오작동 방지
+    const l = toLocal(x, y);
+    const b = hitButton(overButtons(), l.x, l.y);
+    if (b) { sfx.tap(); b.id === 'restart' ? setScene(s) : setScene(Menu); }
+    return;
+  }
+  if (app.paused) {
+    const l = toLocal(x, y);
+    const b = hitButton(pauseButtons(), l.x, l.y);
+    if (!b) return;
+    sfx.tap();
+    if (b.id === 'resume') { app.paused = false; s.onResume && s.onResume(); }
+    else if (b.id === 'restart') setScene(s);
+    else setScene(Menu);
+    return;
+  }
+  if (hitPauseBtn(x, y)) {
+    sfx.tap();
+    app.paused = true;
+    s.onPause && s.onPause();
+    return;
+  }
+  s.down(id, x, y);
+}
+function onMove(id, x, y) { if (!app.paused && !app.over) app.scene.move(id, x, y); }
+function onUp(id) { app.scene.up(id); }
+
+let eventNow = 0;
+function eachTouch(e, fn) {
+  eventNow = performance.now();
+  const rect = canvas.getBoundingClientRect();
+  for (let i = 0; i < e.changedTouches.length; i++) {
+    const t = e.changedTouches[i];
+    fn(t.identifier, t.clientX - rect.left, t.clientY - rect.top);
+  }
+}
+const opt = { passive: false };
+// preventDefault 로 스크롤·핀치줌·더블탭 줌·길게 누르기를 모두 차단
+canvas.addEventListener('touchstart',  e => { e.preventDefault(); eachTouch(e, onDown); }, opt);
+canvas.addEventListener('touchmove',   e => { e.preventDefault(); eachTouch(e, onMove); }, opt);
+canvas.addEventListener('touchend',    e => { e.preventDefault(); ensureAudio(); eachTouch(e, id => onUp(id)); }, opt);
+canvas.addEventListener('touchcancel', e => { e.preventDefault(); eachTouch(e, id => onUp(id)); }, opt);
+// 캔버스 밖(노치 영역 등)까지 전역 차단
+['touchstart', 'touchmove', 'touchend'].forEach(t => document.addEventListener(t, e => e.preventDefault(), opt));
+['gesturestart', 'gesturechange', 'gestureend', 'contextmenu', 'dblclick', 'selectstart']
+  .forEach(t => document.addEventListener(t, e => e.preventDefault(), opt));
+
+// 데스크톱 테스트용 마우스 (터치 기기에서는 위 preventDefault 로 호환 마우스 이벤트가 안 생김)
+let mouseDown = false;
+canvas.addEventListener('mousedown', e => { mouseDown = true; eventNow = performance.now(); onDown('mouse', e.clientX, e.clientY); });
+window.addEventListener('mousemove', e => { if (mouseDown) onMove('mouse', e.clientX, e.clientY); });
+window.addEventListener('mouseup', () => { if (mouseDown) { mouseDown = false; onUp('mouse'); } });
+
+// 앱이 백그라운드로 가면 자동 일시정지
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && app.scene !== Menu && !app.over && !app.paused) {
+    app.paused = true;
+    app.scene.onPause && app.scene.onPause();
+  }
+});
+
+/* =========================================================
+   메인 루프 (requestAnimationFrame, 60fps)
+   ========================================================= */
+let last = 0;
+function frame(ts) {
+  // 프레임 간격이 길어져도(탭 전환 등) 물리가 폭주하지 않게 dt 상한
+  const dt = last ? Math.min((ts - last) / 1000, 1 / 30) : 1 / 60;
+  last = ts;
+  const s = app.scene;
+  if (!app.paused && !app.over && dt > 0) s.update(dt, ts);
+  s.draw(ts);
+  if (app.over) drawOverOverlay();
+  else if (app.paused) drawPauseOverlay();
+  requestAnimationFrame(frame);
+}
+
+resize();
+setScene(Menu);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
