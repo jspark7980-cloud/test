@@ -87,8 +87,8 @@ window.DT = window.DT || {};
     DT.state.emit(state, { type: 'damage', target: tgtId, amount: loss, blocked });
     if (tgt.hp <= 0) {
       tgt.dead = true;
-      // 강탈: 체력 25% 이하인 적을 처치
-      const executed = tgtId !== 'player' && hpBefore <= tgt.maxHp * DT.data.rewards.heistThreshold;
+      // 강탈: 내 턴 시작 시 체력이 기준 이하였던 적을 처치 (combat.startPlayerTurn 에서 표시)
+      const executed = tgtId !== 'player' && !!tgt.heistReady;
       if (executed) tgt.executed = true;
       DT.state.emit(state, { type: 'death', target: tgtId, executable: executed });
       DT.state.log(state, `${tgt.name} 쓰러짐!${executed ? ' (강탈 가능)' : ''}`);

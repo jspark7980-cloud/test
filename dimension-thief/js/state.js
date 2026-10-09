@@ -2,10 +2,11 @@
 window.DT = window.DT || {};
 
 DT.state = {
-  VERSION: 2,
+  VERSION: 3,
 
   createRun(seed) {
     const P = DT.data.player;
+    const C = DT.config.player;
     const s = {
       version: DT.state.VERSION,
       seed,
@@ -16,7 +17,7 @@ DT.state = {
       screen: 'combat',  // 'combat' | 'heist' | 'reward' | 'over'
       floor: 0,          // 몇 번째 전투인지
       wanted: 0,         // 수배도: 강탈 시 +1
-      heists: [],        // 강탈 대기 [{ enemyName, kind, options:[카드 id] }]
+      heist: null,       // 강탈 대기 { picksLeft, groups:[{ enemyName, kind, options:[카드 id] }] }
       reward: null,      // 카드 보상 { options:[카드 id] }
       lastEncounter: null,
       phase: 'player',   // 전투 내: 'player' | 'enemy' | 'over'
@@ -26,8 +27,8 @@ DT.state = {
       stats: { steals: 0, heists: 0, copies: 0, kills: 0 },
       player: {
         id: 'player', name: P.name, icon: P.icon,
-        hp: P.hp, maxHp: P.hp, block: 0, statuses: {},
-        energy: 0, maxEnergy: P.energy, drawPerTurn: P.draw, maxHand: P.maxHand,
+        hp: C.hp, maxHp: C.hp, block: 0, statuses: {},
+        energy: 0, maxEnergy: C.energy, drawPerTurn: C.draw, maxHand: C.maxHand,
         masterDeck: [], drawPile: [], hand: [], discardPile: [], exhaustPile: [],
       },
       enemies: [],

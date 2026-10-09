@@ -227,3 +227,7 @@ button { font: inherit; color: inherit; }
 .pickrow .card.selected { transform: translateY(-10px) scale(1.05); box-shadow: 0 0 0 4px #fff, 0 12px 26px rgba(0,0,0,0.6); }
 .card.r-uncommon .c-name { color: #8fd3ff; }
 .card.r-rare .c-name { color: #ffd166; }
+.heistbadge.next { background: #4a4a5e; color: #e6e1f5; }
+.panel h3.grouphead { margin: 14px 0 0; color: #ffd166; font-size: 17px; }
+.panel .pickrow + h3.grouphead { border-top: 1px solid var(--line); padding-top: 12px; }
+.panel.wide { max-height: 94vh; overflow-y: auto; }

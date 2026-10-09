@@ -5,23 +5,23 @@ DT.data = DT.data || {};
 
 DT.data.enemies = {
   knight: {
-    name: '중세 기사', icon: '🛡️', origin: 'medieval', hp: 50,
+    name: '중세 기사', icon: '🛡️', origin: 'medieval', hp: 32,
     handSize: 3, reveal: 2, actions: [1, 2],
     deck: ['kn_slash', 'kn_slash', 'kn_shield', 'kn_shield', 'kn_charge',
            'kn_bash', 'kn_rally', 'kn_bandage', 'kn_smite'],
   },
   archer: {
-    name: '석궁병', icon: '🏹', origin: 'medieval', hp: 26,
+    name: '석궁병', icon: '🏹', origin: 'medieval', hp: 18,
     handSize: 3, reveal: 2, actions: [1, 1],
     deck: ['ar_bolt', 'ar_bolt', 'ar_bolt', 'ar_poison', 'ar_poison', 'ar_aim', 'ar_cover', 'ar_cover'],
   },
   monk: {
-    name: '수도사', icon: '📿', origin: 'medieval', hp: 32,
+    name: '수도사', icon: '📿', origin: 'medieval', hp: 17,
     handSize: 3, reveal: 2, actions: [1, 1],
     deck: ['mk_staff', 'mk_staff', 'mk_staff', 'mk_prayer', 'mk_prayer', 'mk_curse', 'mk_curse', 'mk_bless'],
   },
   squire: {
-    name: '종자', icon: '🪖', origin: 'medieval', hp: 20,
+    name: '종자', icon: '🪖', origin: 'medieval', hp: 14,
     handSize: 3, reveal: 2, actions: [1, 1],
     deck: ['sq_poke', 'sq_poke', 'sq_poke', 'sq_guard', 'sq_guard', 'sq_taunt'],
   },

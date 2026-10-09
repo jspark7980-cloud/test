@@ -4,7 +4,7 @@ window.DT = window.DT || {};
 DT.reward = {
   // 현재 차원 + 도둑 카드 중 rarity 가 있는 카드에서 가중치로 중복 없이 n장
   cardChoices(state) {
-    const R = DT.data.rewards;
+    const R = DT.config.reward;
     const pool = Object.entries(DT.data.cards)
       .filter(([, c]) => c.rarity && (c.origin === state.dimension || c.origin === 'thief'))
       .map(([id, c]) => ({ id, w: R.rarityWeights[c.rarity] || 0 }))

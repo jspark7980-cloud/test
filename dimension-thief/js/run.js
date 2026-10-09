@@ -11,7 +11,7 @@ DT.run = {
 
   pickEncounter(state) {
     const list = DT.data.encounters[state.dimension] || [];
-    const tier = state.floor <= 2 ? 1 : 2;
+    const tier = state.floor <= DT.config.encounters.tier1UntilFloor ? 1 : 2;
     let pool = list.filter((e) => e.tier === tier && e.id !== state.lastEncounter);
     if (!pool.length) pool = list.filter((e) => e.id !== state.lastEncounter);
     if (!pool.length) pool = list;
@@ -23,7 +23,7 @@ DT.run = {
     const enc = DT.run.pickEncounter(state);
     state.lastEncounter = enc.id;
     state.screen = 'combat';
-    state.heists = [];
+    state.heist = null;
     state.reward = null;
     DT.state.log(state, `── 전투 ${state.floor} ──`);
     DT.combat.start(state, enc.enemies);
@@ -37,32 +37,37 @@ DT.run = {
       return true;
     }
     state.stats.kills += state.enemies.length;
-    state.heists = state.enemies.filter((e) => e.executed).map((e) => ({
+    const groups = state.enemies.filter((e) => e.executed).map((e) => ({
       enemyName: e.name, kind: e.kind, options: DT.reward.heistOptions(e.kind),
     }));
+    state.heist = groups.length ? { picksLeft: Math.min(DT.config.heist.maxPerCombat, groups.length), groups } : null;
     state.reward = { options: DT.reward.cardChoices(state) };
-    state.screen = state.heists.length ? 'heist' : 'reward';
+    state.screen = state.heist ? 'heist' : 'reward';
     DT.state.emit(state, { type: 'victory', floor: state.floor });
     return true;
   },
 
+  // 강탈 가능한 적이 여럿이면 그중 한 적의 카드 1장을 고른다(전투당 maxPerCombat 회)
   takeHeist(state, cardId) {
-    const h = state.heists[0];
-    if (state.screen !== 'heist' || !h || !h.options.includes(cardId)) return false;
-    state.heists.shift();
+    const h = state.heist;
+    if (state.screen !== 'heist' || !h) return false;
+    const gi = h.groups.findIndex((g) => g.options.includes(cardId));
+    if (gi < 0) return false;
+    const g = h.groups.splice(gi, 1)[0];
     state.player.masterDeck.push(DT.state.makeCard(state, cardId));
     state.wanted++;
     state.stats.heists++;
     DT.state.log(state, `강탈! [${DT.cards.def(cardId).name}]이(가) 덱에 영구히 추가됐다. 수배도 +1`);
-    DT.state.emit(state, { type: 'heist', cardId, from: h.kind });
-    if (!state.heists.length) state.screen = 'reward';
+    DT.state.emit(state, { type: 'heist', cardId, from: g.kind });
+    h.picksLeft--;
+    if (h.picksLeft <= 0 || !h.groups.length) { state.heist = null; state.screen = 'reward'; }
     return true;
   },
 
   skipHeist(state) {
     if (state.screen !== 'heist') return false;
-    state.heists.shift();
-    if (!state.heists.length) state.screen = 'reward';
+    state.heist = null;
+    state.screen = 'reward';
     return true;
   },
 
