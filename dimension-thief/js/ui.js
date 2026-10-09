@@ -77,7 +77,7 @@ window.DT = window.DT || {};
       <div class="tb-left"><span class="dimname">${dim.name}</span>
         <span class="turn">${s.floor}층 · 턴 ${s.turn}</span>
         <span class="wanted" data-act="info" data-msg="수배도: 강탈·영입할 때마다 +1. 높을수록 전투 골드가 늘고, 일반 전투가 수배 추격대(정예)로 바뀔 확률이 오른다. 은신처 잠복으로 −2.">🚨 수배도 ${s.wanted}</span>
-        ${instBadge(s)}</div>
+        ${instBadge(s)}${relicBar(s)}</div>
       <div class="tb-mid">${phase}</div>
       <div class="tb-right">
         <span class="money" data-act="info" data-msg="골드: 이번 판에서만 쓰는 돈(암시장·이벤트). 코인: 판이 끝나면 비율대로 남는 영구 화폐.">💰 ${s.gold} · 🪙 ${s.runCoins}</span>
@@ -92,6 +92,21 @@ window.DT = window.DT || {};
     const label = { safe: '안전', unstable: '불안정', critical: '폭주' }[inf.level];
     const msg = `차원 불안정 ${inf.value}: 현재 차원과 출신이 다른 카드 수. ${inf.safeMax} 이하 안전, ${inf.unstableMax} 이하 전투마다 1장 변이, 그 이상 2장 변이 + 매 턴 피해 1.${inf.ignored ? ' (차원 장막으로 무시 중)' : ''} 은신처·암시장에서 귀화하면 줄어든다.`;
     return `<span class="instbadge lv-${inf.level}" data-act="info" data-msg="${msg}">🌀 ${inf.value} ${label}${inf.ignored ? ' 🛡' : ''}</span>`;
+  }
+
+  // 가진 유물 아이콘(탭하면 설명)
+  function relicBar(s) {
+    const list = s.relics || [];
+    if (!list.length) return '';
+    return `<span class="relicbar">${list.map((id) => {
+      const d = DT.relics.def(id);
+      return `<span class="relic g-${d.grade}" data-act="info" data-msg="${d.icon} ${d.name} (${DT.relics.gradeName[d.grade]} 유물): ${d.desc}">${d.icon}</span>`;
+    }).join('')}</span>`;
+  }
+  function relicTile(id, attrs, sel) {
+    const d = DT.relics.def(id);
+    return `<div class="rtile g-${d.grade} ${sel ? 'sel' : ''}" ${attrs || ''}><span class="ri">${d.icon}</span>
+      <b>${d.name}</b><small class="g-${d.grade}">${DT.relics.gradeName[d.grade]} 유물</small><span class="rd">${d.desc}</span></div>`;
   }
 
   function escapeBtn(s) {
@@ -307,6 +322,18 @@ window.DT = window.DT || {};
     if (s.screen === 'rift') return riftContent(app);
     if (s.screen === 'market') return marketContent(app);
     if (s.screen === 'event') return eventContent(app);
+    if (s.screen === 'eventResult') return eventResultContent(app);
+    if (s.screen === 'pickRelic') {
+      return {
+        key: 'pickRelic:' + s.seed + ':' + (app.pick || ''),
+        html: `<div class="panel wide">
+          <h1>🏺 시작 유물</h1>
+          <p>${s.relicChoices.length > 1 ? `후보 ${s.relicChoices.length}개 중 하나를 골라 출발한다.` : '유물 수집가: 이 유물을 들고 출발한다.'} 유물은 이번 판 동안 유지된다.</p>
+          <div class="pickrow">${s.relicChoices.map((id) => relicTile(id, `data-act="relic-sel" data-id="${id}"`, app.pick === id || s.relicChoices.length === 1)).join('')}</div>
+          <div class="row"><button class="btn big primary" data-act="pick-relic" ${app.pick || s.relicChoices.length === 1 ? '' : 'disabled'}>가지고 출발</button></div>
+        </div>`,
+      };
+    }
     if (s.screen === 'runEnd') return runEndContent(app);
     if (s.screen === 'pickCompanion') {
       const n = s.companionPicks || 1;
@@ -359,7 +386,8 @@ window.DT = window.DT || {};
           <h1 class="win">${s.reward.kind === 'event' ? '카드 획득' : s.reward.kind === 'boss' ? '👑 보스 격파!' : `${s.floor}층 승리!`}</h1>
           ${s.reward.kind !== 'event' && s.lastLoot ? `<p class="loot">💰 골드 +${s.lastLoot.gold} · 🪙 코인 +${s.lastLoot.coins}</p>
             ${(s.lastLoot.items || []).length ? `<div class="lootitems">🎒 획득 ${s.lastLoot.items.map((it) => itemTile(it, { compact: true })).join('')}</div>` : ''}
-            ${(s.lastLoot.lostItems || []).length ? `<p class="warnline">가방이 가득 차서 두고 온 아이템: ${s.lastLoot.lostItems.map((it) => DT.items.def(it.id).name).join(', ')}</p>` : ''}` : ''}
+            ${(s.lastLoot.lostItems || []).length ? `<p class="warnline">가방이 가득 차서 두고 온 아이템: ${s.lastLoot.lostItems.map((it) => DT.items.def(it.id).name).join(', ')}</p>` : ''}
+            ${s.lastLoot.relic ? `<div class="lootrelic">🏺 유물 획득 ${relicTile(s.lastLoot.relic)}</div>` : ''}` : ''}
           <p>카드 1장을 골라 덱에 추가하거나 건너뛴다.</p>
           ${pickRow(s.reward.options, app)}
           <div class="row">
@@ -479,12 +507,12 @@ window.DT = window.DT || {};
         aria-label="${n.floor}층 ${DT.map.label(n.type)}">${DT.map.icon(n.type)}</button>`;
     }).join('');
     const W = DT.config.wanted;
-    const ambush = Math.round(Math.min(W.ambushCap, s.wanted * W.ambushPerWanted) * 100);
+    const ambush = Math.round(Math.min(W.ambushCap, s.wanted * W.ambushPerWanted) * (1 - DT.relics.fx(s, 'ambushMult')) * 100);
     return {
-      key: 'map:' + s.pos + ':' + s.gold + ':' + s.wanted + ':' + s.player.masterDeck.length,
+      key: 'map:' + s.pos + ':' + s.gold + ':' + s.wanted + ':' + s.player.masterDeck.length + ':' + (s.relics || []).join(','),
       html: `<div class="panel full mapview">
         <div class="maphead">
-          <div><span class="dimname">${DT.data.dimensions[s.dimension].name}</span> <span class="turn">${s.floor ? s.floor + '층' : '출발 전'} / ${F}층</span></div>
+          <div><span class="dimname">${DT.data.dimensions[s.dimension].name}</span> <span class="turn">${s.floor ? s.floor + '층' : '출발 전'} / ${F}층</span>${relicBar(s)}</div>
           ${partyStrip(s)}
           <div class="mh-right">
             <span class="money">💰 ${s.gold} · 🪙 ${s.runCoins}</span>
@@ -549,13 +577,15 @@ window.DT = window.DT || {};
       <button class="btn price" data-act="buy" data-i="${i}" ${it.sold || s.gold < it.price ? 'disabled' : ''}>${it.sold ? '판매 완료' : `💰 ${it.price}`}</button>
     </div>`).join('');
     return {
-      key: 'market:' + s.pos + ':' + s.gold + ':' + m.cards.map((c) => (c.sold ? 1 : 0)).join('') + (m.items || []).map((c) => (c.sold ? 1 : 0)).join('') + (m.removed ? 'r' : '') + (m.naturalized ? 'n' : ''),
+      key: 'market:' + s.pos + ':' + s.gold + ':' + m.cards.map((c) => (c.sold ? 1 : 0)).join('') + (m.items || []).map((c) => (c.sold ? 1 : 0)).join('') + (m.relic && m.relic.sold ? 'R' : '') + (m.removed ? 'r' : '') + (m.naturalized ? 'n' : ''),
       html: `<div class="panel wide">
         <h1>🛒 암시장</h1>
         <p>💰 골드 <b>${s.gold}</b></p>
         <div class="pickrow">${offers}</div>
-        ${(m.items || []).length ? `<div class="itemoffers">${m.items.map((e, i) => `<div class="offer ${e.sold ? 'sold' : ''}">${itemTile(e.item)}
-          <button class="btn price" data-act="buy-item" data-i="${i}" ${e.sold || s.gold < e.price ? 'disabled' : ''}>${e.sold ? '판매 완료' : `💰 ${e.price}`}</button></div>`).join('')}</div>` : ''}
+        ${(m.items || []).length || m.relic ? `<div class="itemoffers">${m.items.map((e, i) => `<div class="offer ${e.sold ? 'sold' : ''}">${itemTile(e.item)}
+          <button class="btn price" data-act="buy-item" data-i="${i}" ${e.sold || s.gold < e.price ? 'disabled' : ''}>${e.sold ? '판매 완료' : `💰 ${e.price}`}</button></div>`).join('')}
+          ${m.relic ? `<div class="offer ${m.relic.sold ? 'sold' : ''}">${relicTile(m.relic.id)}
+            <button class="btn price" data-act="buy-relic" ${m.relic.sold || s.gold < m.relic.price ? 'disabled' : ''}>${m.relic.sold ? '판매 완료' : `💰 ${m.relic.price}`}</button></div>` : ''}</div>` : ''}
         <div class="choices">
           <button class="btn choice" data-act="deck-pick" data-purpose="remove" ${m.removed || s.gold < m.removePrice ? 'disabled' : ''}>🗑️ <b>카드 제거</b><small>${m.removed ? '이번 방문에서 사용함' : `💰 ${m.removePrice}`}</small></button>
           <button class="btn choice" data-act="deck-pick" data-purpose="naturalize-market" ${m.naturalized || s.gold < DT.run.naturalizePrice(s) || !DT.run.naturalizable(s).length ? 'disabled' : ''}>🌀 <b>귀화</b><small>${m.naturalized ? '이번 방문에서 사용함' : `💰 ${DT.run.naturalizePrice(s)} · 불안정 ${DT.run.instability(s)}`}</small></button>
@@ -577,6 +607,22 @@ window.DT = window.DT || {};
         <p class="ev-text">${ev.text}</p>
         <div class="choices col">${ev.options.map((o, i) => `<button class="btn choice" data-act="event-opt" data-i="${i}" ${DT.run.canChooseEvent(s, i) ? '' : 'disabled'}>
           <b>${o.label}</b><small>${o.desc || ''}</small></button>`).join('')}</div>
+      </div>`,
+    };
+  }
+
+  function eventResultContent(app) {
+    const s = app.state;
+    const o = s.eventOutcome;
+    const ev = DT.data.events[o.event];
+    return {
+      key: 'eventResult:' + o.event + ':' + s.pos,
+      html: `<div class="panel">
+        <div class="ev-icon">${ev.icon}</div>
+        <h1>${ev.title}</h1>
+        <p class="ev-text">▶ ${o.label}</p>
+        <ul class="ev-notes">${o.notes.map((n) => `<li>${n}</li>`).join('')}</ul>
+        <div class="row"><button class="btn big primary" data-act="event-close">${s.reward ? '카드 고르기' : '계속'}</button></div>
       </div>`,
     };
   }

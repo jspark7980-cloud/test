@@ -44,6 +44,19 @@ window.DT = window.DT || {};
     state.pos = null;
     state.screen = 'map';
     log(state, `── ${DT.data.dimensions[state.dimension].name} ──`);
+    // 유물 수집가: 후보 중 1개를 골라 출발
+    if (state.relicPicks > 0) {
+      state.relicChoices = DT.relics.startOptions(state, state.relicPicks);
+      state.screen = 'pickRelic';
+    }
+    return true;
+  };
+
+  R.pickRelic = function (state, id) {
+    if (state.screen !== 'pickRelic' || !state.relicChoices.includes(id)) return false;
+    DT.relics.gain(state, id);
+    state.relicChoices = null;
+    state.screen = 'map';
     return true;
   };
 
@@ -52,7 +65,7 @@ window.DT = window.DT || {};
   R.instability = function (state) {
     const dims = DT.data.dimensions;
     const n = state.player.masterDeck.filter((c) => c.origin !== state.dimension && !(dims[c.origin] && dims[c.origin].neutral)).length;
-    return Math.max(0, n + (state.instabilityMod || 0));
+    return Math.max(0, n + (state.instabilityMod || 0) + DT.relics.fx(state, 'instabilityAdd'));
   };
   // { value, level: 'safe' | 'unstable' | 'critical', safeMax, unstableMax, ignored }
   R.instabilityInfo = function (state) {
@@ -87,7 +100,8 @@ window.DT = window.DT || {};
     switch (n.type) {
       case 'combat': {
         const W = cfg().wanted;
-        const ambush = DT.rng.next(state) < Math.min(W.ambushCap, state.wanted * W.ambushPerWanted);
+        const chance = Math.min(W.ambushCap, state.wanted * W.ambushPerWanted) * (1 - DT.relics.fx(state, 'ambushMult'));   // 경보 교란기
+        const ambush = DT.rng.next(state) < chance;
         if (ambush) log(state, '🚨 수배 추격대가 나타났다! (정예 전투)');
         R.startCombat(state, ambush ? 'elite' : 'normal');
         break;
@@ -140,7 +154,7 @@ window.DT = window.DT || {};
     const kind = state.combatKind || 'normal';
     const G = cfg().gold;
     const range = G[kind === 'normal' ? 'combat' : kind];
-    const gold = DT.rng.int(state, range[0], range[1]) + state.wanted * G.perWanted;
+    const gold = Math.round((DT.rng.int(state, range[0], range[1]) + state.wanted * G.perWanted) * (1 + DT.relics.fx(state, 'goldMult')));
     const C = cfg().coins;
     const mult = kind === 'boss' ? C.bossMult : kind === 'elite' ? C.eliteMult : 1;
     const itemMult = (1 + DT.items.partyFx(state, 'coinMult')) * (DT.items.partyFx(state, 'greed') ? 2 : 1);
@@ -148,7 +162,12 @@ window.DT = window.DT || {};
     state.gold += gold;
     state.runCoins += coins;
     const drops = DT.items.dropsFor(state, kind);
-    state.lastLoot = { gold, coins, items: drops.got, lostItems: drops.lost };
+    // 유물: 정예(수배 추격대 포함) 승리마다 1개 / 피 묻은 주사위 회복
+    const relic = kind === 'elite' ? DT.relics.roll(state, 'elite') : null;
+    if (relic) DT.relics.gain(state, relic);
+    const wh = DT.relics.fx(state, 'winHeal');
+    if (wh && state.player.hp > 0) DT.effects.heal(state, 'player', wh);
+    state.lastLoot = { gold, coins, items: drops.got, lostItems: drops.lost, relic };
 
     const seen = new Set();
     const groups = state.enemies.filter((e) => e.executed && !seen.has(e.kind) && seen.add(e.kind)).map((e) => ({
@@ -275,7 +294,12 @@ window.DT = window.DT || {};
       removePrice: M.removeBase + state.removeCount * M.removeStep,
       removed: false,
       items: DT.items.marketStock(state),
+      relic: null,
     };
+    if (DT.rng.next(state) < cfg().relics.marketChance) {
+      const id = DT.relics.roll(state, 'market');
+      if (id) state.market.relic = { id, price: DT.relics.price(id), sold: false };
+    }
     state.screen = 'market';
   };
 
@@ -300,6 +324,15 @@ window.DT = window.DT || {};
     DT.items.addToBag(state, e.item);
     log(state, `암시장에서 ${DT.items.def(e.item.id).name} 구입 (−${e.price} 골드)`);
     return null;
+  };
+
+  R.buyRelic = function (state) {
+    const e = state.market && state.market.relic;
+    if (state.screen !== 'market' || !e || e.sold || state.gold < e.price) return false;
+    state.gold -= e.price;
+    e.sold = true;
+    DT.relics.gain(state, e.id);
+    return true;
   };
 
   R.removeCard = function (state, uid) {
@@ -379,22 +412,55 @@ window.DT = window.DT || {};
     const opt = ev && ev.options[i];
     if (!opt) return false;
     if (opt.requires && opt.requires.gold && state.gold < opt.requires.gold) return false;
+    if (opt.requires && opt.requires.wanted && state.wanted < opt.requires.wanted) return false;
     return true;
   };
 
+  // 각 효과는 결과 화면에 보여 줄 문장을 out 에 넣는다
   const EVENT_EFFECTS = {
-    gold(state, e) { state.gold = Math.max(0, state.gold + e.value); },
-    wanted(state, e) { if (e.value > 0) R.raiseWanted(state, e.value); else state.wanted = Math.max(0, state.wanted + e.value); },
-    heal(state, e) { DT.party.living(state).forEach((a) => { a.hp = Math.min(a.maxHp, a.hp + e.value); }); },
-    hurt(state, e) { state.player.hp = Math.max(1, state.player.hp - e.value); },
-    companionHurt(state, e) { DT.party.companions(state).forEach((a) => { a.hp = Math.max(1, a.hp - e.value); }); },
-    upgrade(state) {
+    gold(state, e, out) {
+      const before = state.gold;
+      state.gold = Math.max(0, state.gold + e.value);
+      out.push(`💰 골드 ${state.gold - before >= 0 ? '+' : ''}${state.gold - before}`);
+    },
+    goldPerWanted(state, e, out) {
+      const g = state.wanted * e.value;
+      state.gold += g;
+      out.push(`💰 골드 +${g} (수배도 ${state.wanted} × ${e.value})`);
+    },
+    wanted(state, e, out) {
+      const before = state.wanted;
+      if (e.value > 0) R.raiseWanted(state, e.value); else state.wanted = Math.max(0, state.wanted + e.value);
+      out.push(`🚨 수배도 ${before} → ${state.wanted}`);
+    },
+    heal(state, e, out) { DT.party.living(state).forEach((a) => { a.hp = Math.min(a.maxHp, a.hp + e.value); }); out.push(`💚 아군 전원 체력 +${e.value}`); },
+    hurt(state, e, out) { state.player.hp = Math.max(1, state.player.hp - e.value); out.push(`💔 도둑 체력 −${e.value}`); },
+    companionHurt(state, e, out) {
+      if (!DT.party.companions(state).length) return;
+      DT.party.companions(state).forEach((a) => { a.hp = Math.max(1, a.hp - e.value); });
+      out.push(`💔 동료 전원 체력 −${e.value}`);
+    },
+    maxHp(state, e, out) { state.player.maxHp += e.value; state.player.hp += e.value; out.push(`❤️ 도둑 최대 체력 +${e.value}`); },
+    upgrade(state, e, out) {
       const list = state.player.masterDeck.filter((c) => DT.cards.canUpgrade(c));
       const c = DT.rng.pick(state, list);
-      if (c) { c.up = 1; log(state, `[${DT.cards.nameOf(c)}] 강화!`); }
+      if (c) { c.up = 1; log(state, `[${DT.cards.nameOf(c)}] 강화!`); out.push(`⚒️ [${DT.cards.nameOf(c)}] 강화`); }
     },
-    card(state, e) {
+    card(state, e, out) {
       state.reward = { options: DT.reward.cardChoices(state, e.rarity === 'elite'), kind: 'event' };
+      out.push('🃏 카드 1장을 고른다');
+    },
+    // 유물 1개(grades 로 등급 제한 가능). 남은 유물이 없으면 대신 골드
+    relic(state, e, out) {
+      const id = DT.relics.roll(state, 'event', e.grades);
+      if (id) { DT.relics.gain(state, id); const d = DT.relics.def(id); out.push(`🏺 유물 ${d.icon} ${d.name} — ${d.desc}`); }
+      else EVENT_EFFECTS.gold(state, { value: 50 }, out);
+    },
+    // 확률: p 로 win, 아니면 lose 효과 목록
+    chance(state, e, out) {
+      const ok = DT.rng.next(state) < e.p;
+      out.push(ok ? `✨ ${e.winText || '성공!'}` : `💨 ${e.loseText || '실패…'}`);
+      (ok ? e.win : e.lose || []).forEach((x) => EVENT_EFFECTS[x.type](state, x, out));
     },
   };
 
@@ -404,8 +470,18 @@ window.DT = window.DT || {};
     const opt = ev.options[i];
     log(state, `${ev.title}: ${opt.label}`);
     state.reward = null;
-    (opt.effects || []).forEach((e) => EVENT_EFFECTS[e.type] && EVENT_EFFECTS[e.type](state, e));
+    const out = [];
+    (opt.effects || []).forEach((e) => EVENT_EFFECTS[e.type] && EVENT_EFFECTS[e.type](state, e, out));
+    // 결과 화면 → (카드 보상) → 맵
+    state.eventOutcome = { event: state.event, label: opt.label, notes: out.length ? out : ['아무 일도 없었다'] };
     state.event = null;
+    state.screen = 'eventResult';
+    return true;
+  };
+
+  R.closeEvent = function (state) {
+    if (state.screen !== 'eventResult') return false;
+    state.eventOutcome = null;
     state.screen = state.reward ? 'reward' : 'map';
     return true;
   };
@@ -413,7 +489,7 @@ window.DT = window.DT || {};
 
   // ── 도주·판 종료 ──
   R.canEscape = function (state) {
-    if (['pickCompanion', 'runEnd'].includes(state.screen)) return false;
+    if (['pickCompanion', 'pickRelic', 'runEnd'].includes(state.screen)) return false;
     return !(state.screen === 'combat' && state.combatKind === 'boss');
   };
 
