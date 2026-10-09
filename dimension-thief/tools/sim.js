@@ -201,7 +201,13 @@ for (let i = 0; i < N; i++) {
         DT.run.takeHeist(s, opts[0]);
       }
     } else if (s.screen === 'reward') DT.run.takeReward(s, s.reward.options[0]);
-    else if (s.screen === 'hideout') {
+    else if (s.screen === 'rift') {
+      // 불안정이 안전 범위면 가져오고, 아니면 건너뜀
+      const inf = DT.run.instabilityInfo(s);
+      if (inf.value < inf.safeMax) DT.run.takeRift(s, s.rift.options[0]); else DT.run.skipRift(s);
+    } else if (s.screen === 'hideout') {
+      const inf = DT.run.instabilityInfo(s);
+      if (inf.level !== 'safe' && DT.run.naturalizable(s).length) { DT.run.hideoutNaturalize(s, DT.run.naturalizable(s)[0].uid); s.events.length = 0; continue; }
       const low = DT.party.living(s).some((a) => a.hp / a.maxHp < 0.7);
       const up = s.player.masterDeck.find((c) => DT.cards.canUpgrade(c) && c.id !== 'dodge');
       if (low || !up) DT.run.hideoutRest(s); else DT.run.upgradeCard(s, up.uid);

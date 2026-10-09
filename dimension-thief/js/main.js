@@ -325,7 +325,10 @@ const app = (DT.app = { lobbyTab: 'main', lsel: null, prep: null, prepSeed: null
         const dp = app.deckPick;
         if (!dp || !dp.uid) return;
         app.deckPick = null;
-        const ok = dp.purpose === 'upgrade' ? DT.run.upgradeCard(s, dp.uid) : DT.run.removeCard(s, dp.uid);
+        const ok = dp.purpose === 'upgrade' ? DT.run.upgradeCard(s, dp.uid)
+          : dp.purpose === 'naturalize' ? DT.run.hideoutNaturalize(s, dp.uid)
+          : dp.purpose === 'naturalize-market' ? DT.run.marketNaturalize(s, dp.uid)
+          : DT.run.removeCard(s, dp.uid);
         if (!ok) return flash(dp.purpose === 'remove' ? '골드가 부족하거나 제거할 수 없습니다' : '강화할 수 없는 카드입니다');
         return afterChoice(true);
       }
@@ -350,6 +353,8 @@ const app = (DT.app = { lobbyTab: 'main', lsel: null, prep: null, prepSeed: null
         if (err) return flash(err);
         return commit();
       }
+      case 'rift-take': return app.pick && afterChoice(DT.run.takeRift(s, app.pick));
+      case 'rift-skip': return afterChoice(DT.run.skipRift(s));
       case 'event-opt': {
         if (!DT.run.canChooseEvent(s, +data.i)) return flash('조건이 맞지 않습니다');
         return afterChoice(DT.run.chooseEvent(s, +data.i));

@@ -23,9 +23,16 @@ DT.config = {
   map: {
     floors: 12, lanes: 4, paths: 4,
     // 2층 ~ (보스-2)층 노드 종류 가중치. 정예·은신처는 minFloor 이상에서만.
-    weights: { combat: 46, event: 20, elite: 10, market: 10, hideout: 14 },
-    minFloor: { elite: 4, hideout: 4, market: 3 },
+    weights: { combat: 44, event: 18, elite: 10, market: 10, hideout: 13, rift: 6 },
+    minFloor: { elite: 4, hideout: 4, market: 3, rift: 5 },
   },
+
+  // 차원 불안정 = 도둑 덱에서 현재 차원과 출신이 다른 카드 수(중립 출신 제외)
+  //  safeMax 이하 안전 / unstableMax 이하: 전투 시작마다 mutateUnstable 장 변이 / 그 이상: mutateCritical 장 변이 + 매 턴 critDamage
+  //  변이: 이번 전투 동안 그 카드가 noiseChance 확률로 '차원 잡음'(사용 불가), 아니면 다른 차원의 무작위 카드로 바뀜
+  instability: { safeMax: 4, unstableMax: 7, mutateUnstable: 1, mutateCritical: 2, critDamage: 1, noiseChance: 0.6 },
+  rift: { choices: 3 },                          // 차원 균열: 다음 차원 카드 중 고르는 수
+  naturalize: { marketBase: 40, marketStep: 20 }, // 암시장 귀화 가격(골드), 은신처 귀화는 무료(그 은신처의 행동 1회)
 
   // 수배도: 일반 전투가 수배 추격대(정예)로 바뀔 확률 = 수배도 × perWanted (최대 cap)
   wanted: { ambushPerWanted: 0.04, ambushCap: 0.4, hideoutReduce: 2 },
@@ -99,5 +106,5 @@ DT.config = {
   ui: { enemyTurnStartDelay: 500, enemyActDelay: 1000, allyActDelay: 850 },
 
   // 지금까지 만들어진 진행 단계(DESIGN.md 12장). 아직 없는 단계의 로비 강화는 잠긴다.
-  builtStages: 'ABCDEF',
+  builtStages: 'ABCDEFG',
 };

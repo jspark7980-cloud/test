@@ -76,13 +76,22 @@ window.DT = window.DT || {};
     $('#topbar').innerHTML = `
       <div class="tb-left"><span class="dimname">${dim.name}</span>
         <span class="turn">${s.floor}층 · 턴 ${s.turn}</span>
-        <span class="wanted" data-act="info" data-msg="수배도: 강탈·영입할 때마다 +1. 높을수록 보상과 정예 적이 늘어난다(이후 단계).">🚨 수배도 ${s.wanted}</span></div>
+        <span class="wanted" data-act="info" data-msg="수배도: 강탈·영입할 때마다 +1. 높을수록 전투 골드가 늘고, 일반 전투가 수배 추격대(정예)로 바뀔 확률이 오른다. 은신처 잠복으로 −2.">🚨 수배도 ${s.wanted}</span>
+        ${instBadge(s)}</div>
       <div class="tb-mid">${phase}</div>
       <div class="tb-right">
         <span class="money" data-act="info" data-msg="골드: 이번 판에서만 쓰는 돈(암시장·이벤트). 코인: 판이 끝나면 비율대로 남는 영구 화폐.">💰 ${s.gold} · 🪙 ${s.runCoins}</span>
         <button class="btn small" data-act="pile" data-pile="masterDeck">내 덱 ${s.player.masterDeck.length}</button>
         <button class="btn small" data-act="bag">🎒 ${s.bag.length}/${DT.config.items.bag}</button>
         ${escapeBtn(s)}</div>`;
+  }
+
+  function instBadge(s) {
+    if (!s.map) return '';
+    const inf = DT.run.instabilityInfo(s);
+    const label = { safe: '안전', unstable: '불안정', critical: '폭주' }[inf.level];
+    const msg = `차원 불안정 ${inf.value}: 현재 차원과 출신이 다른 카드 수. ${inf.safeMax} 이하 안전, ${inf.unstableMax} 이하 전투마다 1장 변이, 그 이상 2장 변이 + 매 턴 피해 1.${inf.ignored ? ' (차원 장막으로 무시 중)' : ''} 은신처·암시장에서 귀화하면 줄어든다.`;
+    return `<span class="instbadge lv-${inf.level}" data-act="info" data-msg="${msg}">🌀 ${inf.value} ${label}${inf.ignored ? ' 🛡' : ''}</span>`;
   }
 
   function escapeBtn(s) {
@@ -295,6 +304,7 @@ window.DT = window.DT || {};
     if (app.deckPick) return deckPickContent(app);
     if (s.screen === 'map') return mapContent(app);
     if (s.screen === 'hideout') return hideoutContent(app);
+    if (s.screen === 'rift') return riftContent(app);
     if (s.screen === 'market') return marketContent(app);
     if (s.screen === 'event') return eventContent(app);
     if (s.screen === 'runEnd') return runEndContent(app);
@@ -478,16 +488,35 @@ window.DT = window.DT || {};
           ${partyStrip(s)}
           <div class="mh-right">
             <span class="money">💰 ${s.gold} · 🪙 ${s.runCoins}</span>
-            <span class="wanted" data-act="info" data-msg="수배도가 높을수록 일반 전투가 수배 추격대(정예)로 바뀔 확률이 오른다. 은신처에서 잠복하면 감소.">🚨 수배도 ${s.wanted}${ambush ? ` · 추격대 ${ambush}%` : ''}</span>
+            <span class="wanted" data-act="info" data-msg="수배도가 높을수록 전투 골드가 늘고, 일반 전투가 수배 추격대(정예)로 바뀔 확률이 오른다. 은신처에서 잠복하면 감소.">🚨 수배도 ${s.wanted}${ambush ? ` · 추격대 ${ambush}%` : ''}</span>
+            ${instBadge(s)}
             <button class="btn small" data-act="pile" data-pile="masterDeck">내 덱 ${s.player.masterDeck.length}</button>
             <button class="btn small" data-act="bag">🎒 가방 ${s.bag.length}/${DT.config.items.bag}</button>
             ${escapeBtn(s)}
           </div>
         </div>
         <div class="maparea"><svg viewBox="0 0 100 100" preserveAspectRatio="none">${lines}</svg>${nodes}</div>
-        <div class="maplegend">${['combat', 'elite', 'event', 'market', 'hideout', 'boss'].map((t) => `<span>${DT.map.icon(t)} ${DT.map.label(t)}</span>`).join('')}
+        <div class="maplegend">${['combat', 'elite', 'event', 'market', 'hideout', 'rift', 'boss'].map((t) => `<span>${DT.map.icon(t)} ${DT.map.label(t)}</span>`).join('')}
           <span class="lg-hint">빛나는 칸을 탭해 이동</span></div>
       </div>`,
+    };
+  }
+
+  // ── 차원 균열 ──
+  function riftContent(app) {
+    const s = app.state;
+    const dim = DT.data.dimensions[s.rift.dimension];
+    const inf = DT.run.instabilityInfo(s);
+    return {
+      key: 'rift:' + s.pos,
+      html: `<div class="panel wide rift">
+        <h1>🌀 차원 균열</h1>
+        <p>균열 너머로 <b style="color:${dim.color}">${dim.name}</b>의 카드가 보인다. 하나를 가져오면 <b>차원 불안정 +1</b> (지금 ${inf.value}, 안전 ${inf.safeMax}까지)</p>
+        ${pickRow(s.rift.options, app)}
+        <div class="row">
+          <button class="btn big" data-act="rift-skip">그냥 떠난다</button>
+          <button class="btn big primary" data-act="rift-take" ${app.pick ? '' : 'disabled'}>가져가기</button>
+        </div></div>`,
     };
   }
 
@@ -506,6 +535,7 @@ window.DT = window.DT || {};
           <button class="btn choice" data-act="rest">🔥 <b>휴식</b><small>아군 전원 최대 체력의 ${Math.round(H.healRatio * 100)}% 회복</small></button>
           <button class="btn choice" data-act="deck-pick" data-purpose="upgrade" ${canUp ? '' : 'disabled'}>⚒️ <b>강화</b><small>카드 1장 강화</small></button>
           <button class="btn choice" data-act="laylow" ${s.wanted ? '' : 'disabled'}>🤫 <b>잠복</b><small>수배도 −${DT.config.wanted.hideoutReduce} (지금 ${s.wanted})</small></button>
+          <button class="btn choice" data-act="deck-pick" data-purpose="naturalize" ${DT.run.naturalizable(s).length ? '' : 'disabled'}>🌀 <b>귀화</b><small>카드 1장 출신을 ${DT.data.dimensions[s.dimension].name}로 (불안정 ${DT.run.instability(s)})</small></button>
         </div></div>`,
     };
   }
@@ -519,7 +549,7 @@ window.DT = window.DT || {};
       <button class="btn price" data-act="buy" data-i="${i}" ${it.sold || s.gold < it.price ? 'disabled' : ''}>${it.sold ? '판매 완료' : `💰 ${it.price}`}</button>
     </div>`).join('');
     return {
-      key: 'market:' + s.pos + ':' + s.gold + ':' + m.cards.map((c) => (c.sold ? 1 : 0)).join('') + (m.items || []).map((c) => (c.sold ? 1 : 0)).join('') + (m.removed ? 'r' : ''),
+      key: 'market:' + s.pos + ':' + s.gold + ':' + m.cards.map((c) => (c.sold ? 1 : 0)).join('') + (m.items || []).map((c) => (c.sold ? 1 : 0)).join('') + (m.removed ? 'r' : '') + (m.naturalized ? 'n' : ''),
       html: `<div class="panel wide">
         <h1>🛒 암시장</h1>
         <p>💰 골드 <b>${s.gold}</b></p>
@@ -528,7 +558,7 @@ window.DT = window.DT || {};
           <button class="btn price" data-act="buy-item" data-i="${i}" ${e.sold || s.gold < e.price ? 'disabled' : ''}>${e.sold ? '판매 완료' : `💰 ${e.price}`}</button></div>`).join('')}</div>` : ''}
         <div class="choices">
           <button class="btn choice" data-act="deck-pick" data-purpose="remove" ${m.removed || s.gold < m.removePrice ? 'disabled' : ''}>🗑️ <b>카드 제거</b><small>${m.removed ? '이번 방문에서 사용함' : `💰 ${m.removePrice}`}</small></button>
-          <button class="btn choice" disabled>🌀 <b>귀화</b><small>G단계에서 열림</small></button>
+          <button class="btn choice" data-act="deck-pick" data-purpose="naturalize-market" ${m.naturalized || s.gold < DT.run.naturalizePrice(s) || !DT.run.naturalizable(s).length ? 'disabled' : ''}>🌀 <b>귀화</b><small>${m.naturalized ? '이번 방문에서 사용함' : `💰 ${DT.run.naturalizePrice(s)} · 불안정 ${DT.run.instability(s)}`}</small></button>
         </div>
         <div class="row"><button class="btn big" data-act="leave">떠나기</button></div>
       </div>`,
@@ -556,17 +586,19 @@ window.DT = window.DT || {};
     const s = app.state;
     const dp = app.deckPick;
     const up = dp.purpose === 'upgrade';
-    const list = s.player.masterDeck.filter((c) => !up || DT.cards.canUpgrade(c)).slice().sort((a, b) => a.id.localeCompare(b.id));
+    const nat = dp.purpose === 'naturalize' || dp.purpose === 'naturalize-market';
+    const allowed = nat ? DT.run.naturalizable(s) : null;
+    const list = s.player.masterDeck.filter((c) => (up ? DT.cards.canUpgrade(c) : nat ? allowed.includes(c) : true)).slice().sort((a, b) => a.id.localeCompare(b.id));
     const sel = dp.uid && s.player.masterDeck.find((c) => c.uid === dp.uid);
     const preview = sel && up ? `<div class="uppreview">${cardHTML(sel)}<span>→</span>${cardHTML(Object.assign({}, sel, { up: 1 }))}</div>` : '';
     return {
       key: 'deckpick:' + dp.purpose + ':' + (dp.uid || ''),
       html: `<div class="panel wide">
-        <h2>${up ? '⚒️ 강화할 카드' : `🗑️ 제거할 카드 (💰 ${s.market ? s.market.removePrice : ''})`}</h2>
+        <h2>${up ? '⚒️ 강화할 카드' : nat ? `🌀 귀화할 카드 — 출신을 ${DT.data.dimensions[s.dimension].name}로${dp.purpose === 'naturalize-market' ? ` (💰 ${DT.run.naturalizePrice(s)})` : ''}` : `🗑️ 제거할 카드 (💰 ${s.market ? s.market.removePrice : ''})`}</h2>
         ${preview}
         <div class="pilelist">${list.map((c) => cardHTML(c, { small: true, selected: dp.uid === c.uid, attrs: `data-act="deck-card" data-uid="${c.uid}"` })).join('')}</div>
         <div class="row"><button class="btn big" data-act="deck-cancel">취소</button>
-          <button class="btn big primary" data-act="deck-confirm" ${dp.uid ? '' : 'disabled'}>${up ? '강화' : '제거'}</button></div>
+          <button class="btn big primary" data-act="deck-confirm" ${dp.uid ? '' : 'disabled'}>${up ? '강화' : nat ? '귀화' : '제거'}</button></div>
       </div>`,
     };
   }
@@ -806,7 +838,7 @@ window.DT = window.DT || {};
     if (ov.dataset.key === c.key) {
       // 같은 화면이면 선택 표시만 갱신 (등장 애니메이션 재생 방지)
       ov.querySelectorAll('[data-act="pick"]').forEach((el) => el.classList.toggle('selected', el.dataset.id === app.pick));
-      ov.querySelectorAll('[data-act="heist-take"],[data-act="reward-take"]').forEach((b) => { b.disabled = !app.pick; });
+      ov.querySelectorAll('[data-act="heist-take"],[data-act="reward-take"],[data-act="rift-take"]').forEach((b) => { b.disabled = !app.pick; });
       ov.querySelectorAll('[data-act="pick-comp"]').forEach((el) => el.classList.toggle('selected', app.picks.includes(el.dataset.id)));
       const go = ov.querySelector('[data-act="start-run"]');
       if (go) {

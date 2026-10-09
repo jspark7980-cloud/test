@@ -27,6 +27,8 @@ DT.state = {
       bag: [], pocket: [], pocketCap: 1, nextItemId: 1,   // 아이템 (js/items.js)
       fallen: [],        // 쓰러져 이탈한 동료(부활 깃털로 되살릴 수 있음)
       turnFlags: {},     // 이번 턴 한정 표시(쌍단검·손재주 비약 등)
+      instabilityMod: 0, // 차원 안정제 보정(이번 차원 동안)
+      rift: null, naturalizeCount: 0,
       wanted: 0,         // 수배도: 강탈 시 +1
       heist: null,       // 강탈 대기 { picksLeft, groups:[{ enemyName, kind, options:[카드 id] }] }
       reward: null,      // 카드 보상 { options:[카드 id] }

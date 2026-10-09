@@ -213,6 +213,7 @@ window.DT = window.DT || {};
     energy(state, v) { state.player.energy += v; },
     freePilfer(state) { state.turnFlags.freePilfer = true; },
     wanted(state, v) { state.wanted = Math.max(0, state.wanted + v); },
+    instability(state, v) { state.instabilityMod = (state.instabilityMod || 0) + v; },
     revive(state, v, t) {
       if (state.screen === 'combat') { t.dead = false; t.hp = Math.max(1, Math.round(t.maxHp * v)); t.statuses = {}; return; }
       state.fallen = state.fallen.filter((a) => a.id !== t.id);
