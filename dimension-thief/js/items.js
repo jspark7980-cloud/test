@@ -32,15 +32,39 @@ window.DT = window.DT || {};
   I.make = (state, id) => ({ uid: 'i' + state.nextItemId++, id });
 
   // ── 장비 효과 ──
+  // 대장간 강화(+1~+3)는 수치형 효과만 키운다: 값 × (1 + 0.5 × 강화)
+  const SCALABLE = ['maxHp', 'dmgAdd', 'onStealDamage', 'poisonOnAttack', 'foreignDmgMult', 'combatBlock',
+    'blockCardBonus', 'reflect', 'turnEndHeal', 'coinMult', 'wantedGold', 'companionDmg'];
+  I.forgeable = (id) => {
+    const fx = I.def(id).fx || {};
+    return I.def(id).kind === 'equip' && Object.keys(fx).some((k) => SCALABLE.includes(k));
+  };
+  I.itemFx = function (it, key) {
+    const v = I.def(it.id).fx && I.def(it.id).fx[key];
+    if (typeof v !== 'number') return 0;
+    if (!it.plus || !SCALABLE.includes(key)) return v;
+    const scaled = v * (1 + DT.config.forge.perPlus * it.plus);
+    return Number.isInteger(v) ? Math.round(scaled) : Math.round(scaled * 100) / 100;
+  };
+  const FX_NAME = { maxHp: '최대 체력', dmgAdd: '공격 피해', onStealDamage: '슬쩍 피해', poisonOnAttack: '독',
+    foreignDmgMult: '차원 피해', combatBlock: '시작 방어도', blockCardBonus: '카드 방어도', reflect: '반사',
+    turnEndHeal: '턴 회복', coinMult: '코인', wantedGold: '수배 골드', companionDmg: '동료 피해' };
+  const fmt = (v) => (Number.isInteger(v) ? '+' + v : '+' + Math.round(v * 100) + '%');
+  // 강화(+n) 적용 수치 설명(예: "공격 피해 +1 → +2"). plus 를 주면 그 단계 기준
+  I.forgeNote = function (it, plus) {
+    const p = plus === undefined ? it.plus : plus;
+    if (!p) return '';
+    const fx = I.def(it.id).fx || {};
+    const at = { id: it.id, plus: p };
+    return Object.keys(fx).filter((k) => SCALABLE.includes(k))
+      .map((k) => `${FX_NAME[k]} ${fmt(fx[k])}→${fmt(I.itemFx(at, k))}`).join(', ');
+  };
+
   I.equipOf = (actor) => actor.equip || (actor.equip = { weapon: null, armor: null, accessory: null });
   I.fx = function (actor, key) {
     if (!actor || !actor.equip) return 0;
     let sum = 0;
-    for (const it of Object.values(actor.equip)) {
-      if (!it) continue;
-      const v = I.def(it.id).fx && I.def(it.id).fx[key];
-      if (typeof v === 'number') sum += v;
-    }
+    for (const it of Object.values(actor.equip)) if (it) sum += I.itemFx(it, key);
     return sum;
   };
   // 파티 단위 효과: 여러 명이 장착해도 가장 큰 값 하나만
@@ -61,7 +85,7 @@ window.DT = window.DT || {};
   const findIn = (list, uid) => list.findIndex((x) => x.uid === uid);
 
   function applyMaxHp(actor, item, sign) {
-    const v = (I.def(item.id).fx || {}).maxHp || 0;
+    const v = I.itemFx(item, 'maxHp');
     if (!v) return;
     actor.maxHp += sign * v;
     actor.hp = sign > 0 ? actor.hp + v : Math.max(1, Math.min(actor.hp, actor.maxHp));
@@ -83,6 +107,17 @@ window.DT = window.DT || {};
     applyMaxHp(a, item, 1);
     log(state, `${a.name}: ${d.name} 장착`);
     return null;
+  };
+
+  // 출발 준비: 가방을 거치지 않고 바로 장착
+  I.equipDirect = function (actor, item) {
+    const d = I.def(item.id);
+    if (d.kind !== 'equip') return false;
+    const eq = I.equipOf(actor);
+    if (eq[d.slot]) return false;
+    eq[d.slot] = item;
+    applyMaxHp(actor, item, 1);
+    return true;
   };
 
   I.unequip = function (state, actorId, slot) {
@@ -225,6 +260,12 @@ window.DT = window.DT || {};
       return !d.dims || d.dims.includes(state.dimension);
     }).map(([id]) => id);
   }
+
+  // 상점용: 종류·등급에 맞는 아이템 id 목록(전리품 제외, 아직 못 쓰는 소모품 제외)
+  I.shopPool = function (kind, grade) {
+    return Object.entries(DT.data.items).filter(([, d]) => d.kind === kind && d.grade === grade
+      && !(d.use && d.use.lockedUntil && !DT.config.builtStages.includes(d.use.lockedUntil))).map(([id]) => id);
+  };
 
   // 등급을 굴리고, 그 등급에 없으면 한 단계씩 낮춰 찾는다
   I.roll = function (state, kind, source) {

@@ -11,6 +11,7 @@
 - v3 설계 C단계: 1차원 12층 갈림길 맵(전투·정예·이벤트·암시장·은신처·보스), 골드·코인, 도주, 카드 강화, 정예 근위대장, 보스 폭군 왕(왕관)
 - v3 설계 D단계: 메인 로비, 영구 강화(최대 체력·시작 골드·손재주·동료 둘과 출발), 동료 해금(밀렵꾼·음유시인)
 - v3 설계 E단계: 아이템 42종(장비 24·소모품 10·전리품 8), 장착, 가방 8칸, 안전 주머니(로비 강화), 드롭, 분실 규칙, 창고 보관
+- v3 설계 F단계: 로비 상점(새로고침·칸 고정·상점 레벨), 창고, 출발 준비(동료·장비·가방), 상인(판매), 대장간(장비 +1~+3)
 - 설계 전체는 `DESIGN.md`, 아이템은 `ITEMS.md`
 
 ## 밸런스 시뮬레이션
@@ -29,7 +30,7 @@ node dimension-thief/tools/sim.js 100 solo   # 동료 없이
 - `data/companions.js` 시작 동료, `data/enemies.js` 의 `role`·`companionDeck` 은 영입용
 - `js/reward.js` 보상 후보 · `map.js` 맵 생성 · `run.js` 판 진행(맵·노드·골드·코인·도주·판 종료)
 - `data/events.js` 이벤트, `data/encounters.js` 일반·정예·보스 구성
-- `js/lobby.js` 로비 영구 강화·동료 해금, `data/upgrades.js` 강화 목록
+- `js/lobby.js` 로비 영구 강화·동료 해금·상점·창고·상인·대장간·출발 준비, `data/upgrades.js` 강화 목록
 - `js/items.js` 장착·가방·소모품·드롭·분실, `data/items.js` 아이템 목록(효과는 `fx`·`use` 데이터)
 - `js/save.js` localStorage(판 데이터 + 영구 데이터: 코인·강화·해금) · `ui.js` 화면 · `main.js` 입력/자동 진행
 

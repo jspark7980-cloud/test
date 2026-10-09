@@ -10,10 +10,24 @@ window.DT = window.DT || {};
   const cfg = () => DT.config;
 
   // meta: 로비 영구 데이터(강화·해금). 없으면 강화 없이 시작
-  R.start = function (seed, meta) {
+  // loadout: 출발 준비 결과(DT.lobby.takeLoadout). 있으면 동료·장비·가방을 채우고 바로 맵으로
+  R.start = function (seed, meta, loadout) {
     const s = DT.state.createRun(seed);
     s.screen = 'pickCompanion';
     DT.lobby.applyToRun(s, meta || { coins: 0, upgrades: {}, unlocked: [] });
+    if (loadout && loadout.picks.length) {
+      R.pickCompanion(s, loadout.picks);
+      const byKind = {};
+      s.allies.forEach((a) => { byKind[a.kind] = a; });
+      for (const [who, slots] of Object.entries(loadout.equip)) {
+        const a = who === 'player' ? s.player : byKind[who];
+        for (const it of Object.values(slots)) {
+          const item = Object.assign(DT.items.make(s, it.id), { plus: it.plus || 0 });
+          if (!a || !DT.items.equipDirect(a, item)) DT.items.addToBag(s, item);
+        }
+      }
+      loadout.bag.forEach((it) => DT.items.addToBag(s, Object.assign(DT.items.make(s, it.id), { plus: it.plus || 0 })));
+    }
     return s;
   };
 

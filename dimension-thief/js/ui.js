@@ -366,7 +366,7 @@ window.DT = window.DT || {};
     o = o || {};
     const d = DT.items.def(it.id);
     const sub = d.kind === 'equip' ? DT.items.slotName[d.slot] : d.kind === 'consumable' ? '소모품' : '전리품';
-    if (o.compact) return `<span class="ichip g-${d.grade} ${o.lost ? 'lost' : ''}" title="${d.name}: ${d.desc}">${d.icon} ${d.name}</span>`;
+    if (o.compact) return `<span class="ichip g-${d.grade} ${o.lost ? 'lost' : ''}" title="${d.name}: ${d.desc}">${d.icon} ${d.name}${it.plus ? ' +' + it.plus : ''}</span>`;
     return `<div class="itile g-${d.grade} ${o.sel ? 'sel' : ''}" ${o.attrs || ''}>
       <span class="ii">${d.icon}</span><span class="in">${d.name}${it.plus ? ' +' + it.plus : ''}</span>
       <span class="ig">${DT.items.gradeName[d.grade]} · ${sub}</span></div>`;
@@ -600,8 +600,28 @@ window.DT = window.DT || {};
   }
 
   // ── 로비 ──
+  const TABS = [['main', '🏠 로비'], ['shop', '🏪 상점'], ['stash', '📦 창고'], ['merchant', '🧔 상인'], ['forge', '⚒️ 대장간']];
+
   function lobbyContent(app) {
     const meta = DT.save.loadMeta();
+    const tab = app.lobbyTab || 'main';
+    const body = { main: lobbyMain, shop: lobbyShop, stash: lobbyStash, merchant: lobbyMerchant, forge: lobbyForge, prep: lobbyPrep }[tab](app, meta);
+    const key = 'lobby:' + tab + ':' + JSON.stringify([meta.coins, meta.upgrades, meta.unlocked, meta.stash, meta.shop && meta.shop.slots, app.lsel, app.prep]) + ':' + (app.state ? app.state.floor : '-');
+    return {
+      key,
+      html: `<div class="panel full lobby">
+        <div class="lobbyhead">
+          <h1>🦹 차원 도둑 <small>은신처 로비</small></h1>
+          <div class="coins">🪙 <b>${meta.coins}</b> 코인</div>
+        </div>
+        <div class="ltabs">${TABS.map(([k, n]) => `<button class="btn small ${tab === k ? 'primary' : ''}" data-act="ltab" data-tab="${k}">${n}</button>`).join('')}
+          ${tab === 'prep' ? '<button class="btn small primary">🎒 출발 준비</button>' : ''}</div>
+        ${body}
+      </div>`,
+    };
+  }
+
+  function lobbyMain(app, meta) {
     const s = app.state;
     const active = s && s.screen !== 'runEnd';
     const pips = (lv, max) => '●'.repeat(lv) + '○'.repeat(max - lv);
@@ -628,43 +648,151 @@ window.DT = window.DT || {};
         ${open ? '<small class="ok">사용 가능</small>' : `<button class="btn small ${meta.coins >= d.unlockCost ? 'primary' : ''}" data-act="unlock" data-id="${k}" ${meta.coins >= d.unlockCost ? '' : 'disabled'}>🪙 ${d.unlockCost} 해금</button>`}
       </div>`;
     }).join('');
-    const stash = meta.stash || [];
-    const facilities = [['🏪', '상점'], ['📦', `창고 ${stash.length}`], ['🎒', '출발 준비'], ['🧔', '상인'], ['⚒️', '대장간']]
-      .map(([i, n]) => `<div class="factile locked"><span>${i}</span><b>${n}</b><small>🔒 F단계</small></div>`).join('')
-      + (stash.length ? `<div class="stashpeek">${stash.slice(0, 24).map((it) => itemTile(it, { compact: true })).join('')}${stash.length > 24 ? ` …+${stash.length - 24}` : ''}</div>` : '');
-    return {
-      key: 'lobby:' + meta.coins + ':' + JSON.stringify(meta.upgrades) + ':' + (meta.unlocked || []).join(',') + ':' + (active ? s.floor : '-'),
-      html: `<div class="panel full lobby">
-        <div class="lobbyhead">
-          <h1>🦹 차원 도둑 <small>은신처 로비</small></h1>
-          <div class="coins">🪙 <b>${meta.coins}</b> 코인</div>
+    return `<div class="lobbygrid">
+      <section class="lb-left">
+        ${active
+          ? `<button class="btn big primary go" data-act="go">▶ 이어하기<small>${DT.data.dimensions[s.dimension].name} ${s.floor ? s.floor + '층' : '출발 전'} · 🪙 ${s.runCoins}</small></button>
+             <button class="btn small" data-act="abandon">이 판 포기하기</button>`
+          : `<button class="btn big primary go" data-act="go">▶ 출발 준비<small>${app.urlSeed ? `시드 ${app.urlSeed}` : '동료·장비·가방을 챙겨 중세 왕국으로'}</small></button>`}
+        <div class="records">
+          <h3>기록</h3>
+          <div>판 ${meta.runs} · 클리어 ${meta.clears} · 최고 ${meta.bestFloor}층</div>
+          <div>승리한 전투 ${meta.combatsWon}</div>
+          <div>슬쩍 ${meta.steals} · 강탈 ${meta.heists} · 복제 ${meta.copies}</div>
+          <div>📦 창고 ${meta.stash.length}/${DT.lobby.stashCap()}</div>
         </div>
-        <div class="lobbygrid">
-          <section class="lb-left">
-            ${active
-              ? `<button class="btn big primary go" data-act="go">▶ 이어하기<small>${DT.data.dimensions[s.dimension].name} ${s.floor ? s.floor + '층' : '출발 전'} · 🪙 ${s.runCoins}</small></button>
-                 <button class="btn small" data-act="abandon">이 판 포기하기</button>`
-              : `<button class="btn big primary go" data-act="go">▶ 출발<small>${app.urlSeed ? `시드 ${app.urlSeed}` : '중세 왕국으로'}</small></button>`}
-            <div class="records">
-              <h3>기록</h3>
-              <div>판 ${meta.runs} · 클리어 ${meta.clears} · 최고 ${meta.bestFloor}층</div>
-              <div>승리한 전투 ${meta.combatsWon}</div>
-              <div>슬쩍 ${meta.steals} · 강탈 ${meta.heists} · 복제 ${meta.copies}</div>
-              <div>도감 ${Object.keys(meta.codex || {}).length}장</div>
-            </div>
-          </section>
-          <section class="lb-right">
-            <h3>영구 강화</h3>
-            <div class="upgrid">${ups}</div>
-            <h3>동료</h3>
-            <div class="comprow">${comps}</div>
-            <h3>시설</h3>
-            <div class="facrow">${facilities}</div>
-          </section>
-        </div>
-      </div>`,
-    };
+      </section>
+      <section class="lb-right">
+        <h3>영구 강화</h3>
+        <div class="upgrid">${ups}</div>
+        <h3>동료</h3>
+        <div class="comprow">${comps}</div>
+      </section>
+    </div>`;
   }
+
+  function lobbyShop(app, meta) {
+    const shop = meta.shop || { slots: [] };
+    const lv = DT.lobby.shopLevel(meta);
+    const cost = DT.lobby.refreshCost(meta);
+    const full = DT.lobby.stashFull(meta);
+    const tiles = shop.slots.map((sl, i) => `<div class="shopslot ${sl.sold ? 'sold' : ''} ${sl.pinned ? 'pinned' : ''}">
+      ${itemTile({ id: sl.id })}
+      <div class="sl-desc">${DT.items.def(sl.id).desc}</div>
+      <button class="btn small ${!sl.sold && meta.coins >= sl.price && !full ? 'primary' : ''}" data-act="shop-buy" data-i="${i}" ${sl.sold || meta.coins < sl.price || full ? 'disabled' : ''}>${sl.sold ? '판매 완료' : `🪙 ${sl.price}`}</button>
+      ${sl.sold ? '' : `<button class="btn small pin" data-act="shop-pin" data-i="${i}">${sl.pinned ? '📌 고정됨' : '📍 고정'}</button>`}
+    </div>`).join('');
+    return `<div class="facility">
+      <p>상점 레벨 <b>${lv}</b> · 진열 ${shop.slots.length}칸 · 산 아이템은 창고로 (${meta.stash.length}/${DT.lobby.stashCap()})
+        ${full ? '<span class="warnline"> · 창고가 가득 찼습니다</span>' : ''}</p>
+      <div class="shopgrid">${tiles}</div>
+      <div class="row"><button class="btn big" data-act="shop-refresh" ${meta.coins < cost ? 'disabled' : ''}>🔄 새로고침 🪙 ${cost}</button></div>
+      <p class="muted">고정한 칸은 새로고침해도 남습니다. 판을 마치고 돌아오면 무료로 새 진열, 새로고침 비용도 처음으로.</p>
+    </div>`;
+  }
+
+  // 창고 아이템 목록(선택 가능). filter: 표시할 아이템 조건
+  function stashGrid(app, meta, filter) {
+    const list = meta.stash.filter(filter || (() => true)).slice().sort((a, b) =>
+      DT.items.GRADES.indexOf(DT.items.def(b.id).grade) - DT.items.GRADES.indexOf(DT.items.def(a.id).grade) || a.id.localeCompare(b.id));
+    if (!list.length) return '<p class="muted">비어 있음</p>';
+    return `<div class="itemgrid">${list.map((it) => itemTile(it, { sel: app.lsel === it.uid, attrs: `data-act="lsel" data-uid="${it.uid}"` })).join('')}</div>`;
+  }
+
+  function selectedStash(app, meta) {
+    return app.lsel && meta.stash.find((x) => x.uid === app.lsel);
+  }
+
+  function itemDetail(it) {
+    const d = DT.items.def(it.id);
+    const note = DT.items.forgeNote(it);
+    return `<div class="seldesc"><b>${d.icon} ${d.name}${it.plus ? ' +' + it.plus : ''}</b> <span class="g-${d.grade}">${DT.items.gradeName[d.grade]}</span> — ${d.desc}${note ? `<br><small>강화: ${note}</small>` : ''}</div>`;
+  }
+
+  function lobbyStash(app, meta) {
+    const sel = selectedStash(app, meta);
+    return `<div class="facility">
+      <p>📦 창고 ${meta.stash.length}/${DT.lobby.stashCap()} · 출발 준비에서 장착하거나 가방에 넣어 가져갈 수 있습니다.</p>
+      ${stashGrid(app, meta)}
+      <div class="bagactions">${sel ? itemDetail(sel) + `<div class="selbtns">
+        <button class="btn small" data-act="ltab" data-tab="merchant">🧔 상인에게 팔기</button>
+        ${DT.items.forgeable(sel.id) ? '<button class="btn small" data-act="ltab" data-tab="forge">⚒️ 대장간에서 강화</button>' : ''}</div>` : '<p class="muted">아이템을 탭하면 설명이 나옵니다</p>'}</div>
+    </div>`;
+  }
+
+  function lobbyMerchant(app, meta) {
+    const sel = selectedStash(app, meta);
+    return `<div class="facility">
+      <p>🧔 "전리품은 제값에, 나머지는 상점가의 30%에 사 주지." <span class="muted">(전리품 일반 15 · 희귀 50 · 영웅 120 · 전설 300)</span></p>
+      ${stashGrid(app, meta)}
+      <div class="bagactions">${sel ? itemDetail(sel) + `<div class="selbtns">
+        <button class="btn small primary" data-act="sell" data-uid="${sel.uid}">🪙 ${DT.lobby.sellPrice(sel)}에 팔기</button></div>` : '<p class="muted">팔 아이템을 탭하세요</p>'}</div>
+    </div>`;
+  }
+
+  function lobbyForge(app, meta) {
+    const sel = selectedStash(app, meta);
+    let act = '<p class="muted">강화할 장비를 탭하세요</p>';
+    if (sel) {
+      const cost = DT.lobby.forgeCost(sel);
+      const next = cost !== null ? DT.items.forgeNote(sel, (sel.plus || 0) + 1) : '';
+      act = itemDetail(sel) + `<div class="selbtns">${cost === null ? '<button class="btn small" disabled>최대 강화</button>'
+        : `<button class="btn small ${meta.coins >= cost ? 'primary' : ''}" data-act="forge" data-uid="${sel.uid}" ${meta.coins >= cost ? '' : 'disabled'}>⚒️ +${(sel.plus || 0) + 1} 강화 🪙 ${cost}</button>
+           <small class="muted">${next}</small>`}</div>`;
+    }
+    return `<div class="facility">
+      <p>⚒️ 수치가 있는 장비만 강화할 수 있습니다. +1마다 수치형 효과 +50%, 최대 +3.</p>
+      ${stashGrid(app, meta, (it) => DT.items.forgeable(it.id))}
+      <div class="bagactions">${act}</div>
+    </div>`;
+  }
+
+  function lobbyPrep(app, meta) {
+    const p = app.prep;
+    const max = DT.lobby.companionPicks(meta);
+    const comps = DT.lobby.starterOptions(meta).map((k) => {
+      const d = DT.data.companions[k];
+      return `<div class="comptile ${p.picks.includes(k) ? 'picked' : ''}" data-act="prep-comp" data-id="${k}">
+        <span class="ct-icon">${d.icon}</span><b>${d.name}</b><small>${DT.party.roleIcon(d.role)} ${DT.party.roleName(d.role)} · 체력 ${d.hp}</small></div>`;
+    }).join('');
+    const used = new Set([...Object.values(p.equip).flatMap((sl) => Object.values(sl)), ...p.bag]);
+    const byUid = (uid) => meta.stash.find((x) => x.uid === uid);
+    const who = [['player', '🦹 차원 도둑'], ...p.picks.map((k) => [k, `${DT.data.companions[k].icon} ${DT.data.companions[k].name}`])];
+    const eqRows = who.map(([w, name]) => `<div class="eqrow">
+      <div class="eqwho"><b>${name}</b></div>
+      ${DT.items.SLOTS.map((slot) => {
+        const uid = p.equip[w] && p.equip[w][slot];
+        const it = uid && byUid(uid);
+        const on = p.slot && p.slot.who === w && p.slot.slot === slot;
+        return `<div class="eqslot ${it ? 'filled' : ''} ${on ? 'on' : ''}" data-act="prep-slot" data-who="${w}" data-slot="${slot}">${it ? itemTile(it, { compact: true }) : DT.items.slotName[slot]}</div>`;
+      }).join('')}
+    </div>`).join('');
+    let chooser = '';
+    if (p.slot) {
+      const cands = meta.stash.filter((it) => DT.items.def(it.id).kind === 'equip' && DT.items.def(it.id).slot === p.slot.slot
+        && (!used.has(it.uid) || (p.equip[p.slot.who] || {})[p.slot.slot] === it.uid));
+      chooser = `<div class="bagactions"><b>${DT.items.slotName[p.slot.slot]} 고르기</b>
+        <div class="itemgrid">${cands.map((it) => itemTile(it, { attrs: `data-act="prep-put" data-uid="${it.uid}"` })).join('') || '<p class="muted">창고에 맞는 장비가 없습니다</p>'}</div>
+        <div class="selbtns"><button class="btn small" data-act="prep-clear" data-who="${p.slot.who}" data-slot="${p.slot.slot}">비우기</button>
+        <button class="btn small" data-act="prep-slot-close">닫기</button></div></div>`;
+    }
+    const bagCands = meta.stash.filter((it) => !Object.values(p.equip).some((sl) => Object.values(sl).includes(it.uid)));
+    return `<div class="prepgrid">
+      <section>
+        <h3>동료 ${p.picks.length}/${max} <small>탭해서 고르기</small></h3>
+        <div class="comprow">${comps}</div>
+        <h3>장비 <small>칸을 탭해 창고에서 장착</small></h3>
+        ${eqRows}
+        ${chooser}
+      </section>
+      <section>
+        <h3>가방에 챙기기 ${p.bag.length}/${DT.config.items.bag} <small>소모품 등. 사망하면 가방·장비는 잃습니다</small></h3>
+        <div class="itemgrid">${bagCands.map((it) => itemTile(it, { sel: p.bag.includes(it.uid), attrs: `data-act="prep-bag" data-uid="${it.uid}"` })).join('') || '<p class="muted">창고가 비어 있습니다</p>'}</div>
+        <div class="row"><button class="btn big primary go" data-act="prep-go" ${p.picks.length ? '' : 'disabled'}>▶ 출발${app.prepSeed ? ` <small>시드 ${app.prepSeed}</small>` : ''}</button></div>
+      </section>
+    </div>`;
+  }
+
 
   function renderOverlay(app) {
     const ov = $('#overlay');

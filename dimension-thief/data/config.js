@@ -80,8 +80,24 @@ DT.config = {
     marketPrice: { common: 30, rare: 55, hero: 90, legend: 150 },
   },
 
+  // 로비 시설 (코인)
+  shop: {
+    slots: [5, 6, 7],                         // 상점 레벨 1~3 진열 칸
+    weights: [                                // 레벨별 등급 확률(일반/희귀/영웅/전설)
+      { common: 60, rare: 28, hero: 10, legend: 2 },
+      { common: 55, rare: 30, hero: 12, legend: 3 },
+      { common: 48, rare: 32, hero: 16, legend: 4 },
+    ],
+    kinds: { equip: 65, consumable: 35 },
+    price: { common: 30, rare: 80, hero: 200, legend: 500 },
+    refreshBase: 20, refreshStep: 10,         // 새로고침: 첫 회 20, 할 때마다 +10 (로비 귀환 시 무료 갱신·초기화)
+  },
+  stash: { cap: 40 },                         // 창고 칸(넘치면 구매 불가, 판 결과로 들어오는 아이템은 받아 둠)
+  merchant: { otherRatio: 0.3 },              // 전리품이 아닌 아이템은 상점가의 30%에 판매
+  forge: { max: 3, costMult: [0.5, 1, 1.5], perPlus: 0.5 },   // +1당 수치형 효과 +50%
+
   ui: { enemyTurnStartDelay: 500, enemyActDelay: 1000, allyActDelay: 850 },
 
   // 지금까지 만들어진 진행 단계(DESIGN.md 12장). 아직 없는 단계의 로비 강화는 잠긴다.
-  builtStages: 'ABCDE',
+  builtStages: 'ABCDEF',
 };
