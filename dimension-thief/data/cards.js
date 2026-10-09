@@ -11,6 +11,9 @@
 //   rarity:  'common' | 'uncommon' | 'rare' — 있으면 전투 보상 후보.
 //            없으면 적 전용 카드(슬쩍·강탈로만 얻음)
 //   exhaust: true 면 사용 후 소멸(이번 전투에서 제외)
+//   unplayable: true 면 낼 수 없음(가지고 있는 것만으로 효과가 있는 카드 등)
+//   passive: { on: 'turnStart', effects: [...] }  — 덱·손패·버린 더미 어디에든 있으면 매 턴 시작 시 발동
+//   upgrade: { cost?, effects? } — 은신처 강화 결과. 없으면 config.upgrade 규칙으로 자동 강화
 //   icon:    카드 그림(이모지, 선택)
 //   text:    설명 직접 지정(선택, 생략 시 effects로 자동 생성)
 // }
@@ -129,4 +132,30 @@ DT.data.cards = {
                effects: [{ type: 'damage', value: 10 }] },
   cp_parry:  { name: '받아넘기기', type: 'skill',  cost: 1, origin: 'thief', icon: '⚔️',
                effects: [{ type: 'block', value: 5, to: 'self' }, { type: 'damage', value: 3 }] },
+
+  // ── 적 전용: 근위대장 (정예) ──
+  gd_sweep:   { name: '휩쓸기',    type: 'attack', cost: 2, origin: 'medieval', icon: '🌀',
+                effects: [{ type: 'damage', value: 7, to: 'allOpponents' }] },
+  gd_lunge:   { name: '처형 찌르기', type: 'attack', cost: 2, origin: 'medieval', icon: '🗡️',
+                effects: [{ type: 'damage', value: 16 }] },
+  gd_bulwark: { name: '철벽',      type: 'skill',  cost: 2, origin: 'medieval', icon: '🧱',
+                effects: [{ type: 'block', value: 14 }] },
+  gd_command: { name: '돌격 명령', type: 'skill',  cost: 1, origin: 'medieval', icon: '📣',
+                effects: [{ type: 'status', status: 'strength', value: 2, to: 'ally' }, { type: 'block', value: 5 }] },
+
+  // ── 적 전용: 폭군 왕 (보스) ──
+  tk_crown:  { name: '왕관',     type: 'power', cost: 0, origin: 'medieval', icon: '👑', unplayable: true,
+               text: '소유 시 매 턴 힘 +1<br><i>슬쩍 가능</i>',
+               passive: { on: 'turnStart', effects: [{ type: 'status', status: 'strength', value: 1, to: 'self' }] },
+               effects: [] },
+  tk_decree: { name: '폭정',     type: 'attack', cost: 2, origin: 'medieval', icon: '⚖️',
+               effects: [{ type: 'damage', value: 7, to: 'allOpponents' }] },
+  tk_strike: { name: '왕의 일격', type: 'attack', cost: 2, origin: 'medieval', icon: '🔱',
+               effects: [{ type: 'damage', value: 13 }] },
+  tk_throne: { name: '옥좌의 수호', type: 'skill', cost: 1, origin: 'medieval', icon: '🪑',
+               effects: [{ type: 'block', value: 16 }] },
+  tk_feast:  { name: '만찬',     type: 'skill',  cost: 1, origin: 'medieval', icon: '🍗',
+               effects: [{ type: 'heal', value: 12 }] },
+  tk_tax:    { name: '세금 징수', type: 'attack', cost: 1, origin: 'medieval', icon: '💰',
+               effects: [{ type: 'damage', value: 6 }, { type: 'status', status: 'weak', value: 2 }] },
 };

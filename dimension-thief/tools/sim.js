@@ -76,9 +76,11 @@ function scorePlay(s, c, def, t, need, alive) {
     if (!t) return null;
     const rv = t.hand.filter((x) => x.revealed);
     if (!rv.length) return null;
-    rv.sort((a, b) => cardDmg(s, t.id, b.id) - cardDmg(s, t.id, a.id));
+    // 지속 효과 카드(왕관 등)는 최우선, 그다음 피해 큰 카드
+    const val = (c) => (DT.cards.def(c.id).passive ? 100 : cardDmg(s, t.id, c.id));
+    rv.sort((a, b) => val(b) - val(a));
     choice = rv[0].uid;
-    score += 7 + cardDmg(s, t.id, rv[0].id) * 0.6 * (t.intent / t.hand.length);
+    score += 7 + (DT.cards.def(rv[0].id).passive ? 20 : cardDmg(s, t.id, rv[0].id) * 0.6 * (t.intent / t.hand.length));
   }
   if (def.effects.some((x) => x.type === 'copy') && t && t.lastPlayed) {
     score += E.previewDamage(s, { id: t.lastPlayed }, 'player', t.id) + Math.min(blockOf(DT.cards.def(t.lastPlayed)), need) + 2;
@@ -125,8 +127,8 @@ function fight(s) {
 // ── 1) 동료별 × 전투 구성별: 시작 덱·최대 체력으로 N번씩 ──
 const comps = SOLO ? [null] : Object.keys(DT.data.companions);
 const rows = [];
-for (const comp of comps) for (const [dim, list] of Object.entries(DT.data.encounters)) {
-  for (const enc of list) {
+for (const comp of comps) for (const [dim, kinds] of Object.entries(DT.data.encounters)) {
+  for (const enc of Object.entries(kinds).flatMap(([k, l]) => l.map((e) => Object.assign({ kind: k }, e)))) {
     let wins = 0, turns = 0, hpLeft = 0, heists = 0, steals = 0, compDeaths = 0;
     for (let i = 0; i < N; i++) {
       const s = DT.state.createRun(`SIM-${enc.id}-${i}`);
@@ -139,18 +141,38 @@ for (const comp of comps) for (const [dim, list] of Object.entries(DT.data.encou
       wins++; turns += t; hpLeft += s.player.hp;
       heists += s.enemies.some((e) => e.executed) ? 1 : 0;
     }
-    rows.push({ comp: comp ? DT.data.companions[comp].name : '없음', dim, enc: enc.id, tier: enc.tier, wins, turns, hpLeft, heists, steals, compDeaths });
+    rows.push({ comp: comp ? DT.data.companions[comp].name : '없음', dim, enc: enc.id, tier: enc.tier || enc.kind, wins, turns, hpLeft, heists, steals, compDeaths });
   }
 }
 
-// ── 2) 연전: 체력 유지, 강탈은 피해 큰 카드, 보상은 첫 카드 ──
-const fightsWon = [];
+// ── 2) 1차원 한 판: 맵을 따라 보스까지 ──
+// 길 고르기: 체력이 낮으면 은신처, 체력이 넉넉하면 정예도 감수. 은신처는 체력 70% 미만이면 휴식, 아니면 강화.
+function thiefRatio(s) { return s.player.hp / s.player.maxHp; }
+function choosePath(s, R) {
+  const opts = DT.map.reachable(s).map((id) => s.map.nodes[id]);
+  const score = (n) => {
+    const hp = thiefRatio(s);
+    if (n.type === 'hideout') return hp < 0.6 ? 10 : 2;
+    if (n.type === 'elite') return hp > 0.75 ? 4 : -5;
+    if (n.type === 'market') return s.gold >= 70 ? 3 : 0;
+    if (n.type === 'event') return 2;
+    return 1;
+  };
+  return opts.map((n) => ({ n, v: score(n) + R() })).sort((a, b) => b.v - a.v)[0].n.id;
+}
+const runs = { clear: 0, death: 0, deathFloors: [], turns: 0, fights: 0, coins: 0, wanted: 0, compsAtEnd: 0 };
 for (let i = 0; i < N; i++) {
+  let rs = (i * 2654435761) >>> 0;
+  const R = () => { rs = (rs + 0x6D2B79F5) >>> 0; let t = rs; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
   const s = DT.run.start('SIMRUN-' + i);
-  if (SOLO) { s.starterOptions = null; DT.run.nextCombat(s); }
-  while (s.screen !== 'over' && s.floor <= 12) {
-    if (s.screen === 'pickCompanion') DT.run.pickCompanion(s, s.starterOptions[i % s.starterOptions.length]);
-    else if (s.screen === 'combat') { fight(s); DT.run.resolve(s); }
+  if (SOLO) { s.starterOptions = ['shieldbearer']; }
+  let guard = 0;
+  while (s.screen !== 'runEnd' && guard++ < 400) {
+    if (s.screen === 'pickCompanion') {
+      DT.run.pickCompanion(s, s.starterOptions[i % s.starterOptions.length]);
+      if (SOLO) s.allies = [];
+    } else if (s.screen === 'map') DT.run.enterNode(s, choosePath(s, R));
+    else if (s.screen === 'combat') { runs.turns += fight(s); runs.fights++; DT.run.resolve(s); }
     else if (s.screen === 'heist') {
       const g = s.heist.groups.find((x) => x.role);
       if (!SOLO && g && DT.party.slotsFree(s) > 0) DT.run.recruit(s, g.kind);
@@ -160,9 +182,24 @@ for (let i = 0; i < N; i++) {
         DT.run.takeHeist(s, opts[0]);
       }
     } else if (s.screen === 'reward') DT.run.takeReward(s, s.reward.options[0]);
+    else if (s.screen === 'hideout') {
+      const low = DT.party.living(s).some((a) => a.hp / a.maxHp < 0.7);
+      const up = s.player.masterDeck.find((c) => DT.cards.canUpgrade(c) && c.id !== 'dodge');
+      if (low || !up) DT.run.hideoutRest(s); else DT.run.upgradeCard(s, up.uid);
+    } else if (s.screen === 'market') {
+      s.market.cards.forEach((c, k) => { if (DT.cards.def(c.id).rarity !== 'common') DT.run.buyCard(s, k); });
+      DT.run.leave(s);
+    } else if (s.screen === 'event') {
+      const k = DT.data.events[s.event].options.findIndex((o, idx) => DT.run.canChooseEvent(s, idx));
+      DT.run.chooseEvent(s, k);
+    }
     s.events.length = 0;
   }
-  fightsWon.push(s.screen === 'over' ? s.floor - 1 : 12);
+  if (s.runEnd.how === 'clear') runs.clear++;
+  else { runs.death++; runs.deathFloors.push(s.runEnd.floor); }
+  runs.coins += s.runEnd.banked;
+  runs.wanted += s.wanted;
+  runs.compsAtEnd += s.allies.length;
 }
 
 // ── 출력 ──
@@ -178,5 +215,8 @@ for (const r of rows) {
   }
   console.log(`${r.enc.padEnd(16)}  ${r.tier}    ${pct(r.wins, N).padStart(4)}   ${avg(r.turns, r.wins).padStart(5)}   ${avg(r.hpLeft, r.wins).padStart(6)}   ${pct(r.heists, r.wins).padStart(5)}   ${avg(r.steals, N).padStart(6)}    ${pct(r.compDeaths, N)}`);
 }
-fightsWon.sort((a, b) => a - b);
-console.log(`\n연전(체력 회복 없음) ${N}판: 평균 승리 ${avg(fightsWon.reduce((a, b) => a + b, 0), N)}회, 중앙값 ${fightsWon[N >> 1]}회`);
+const df = {};
+runs.deathFloors.forEach((f) => { df[f] = (df[f] || 0) + 1; });
+console.log(`\n1차원 한 판 ${N}회 (맵·은신처·암시장·이벤트 포함, 시작 동료 순환${SOLO ? ', 동료 없음' : ''})`);
+console.log(`  클리어 ${pct(runs.clear, N)} · 전투당 평균 ${avg(runs.turns, runs.fights)}턴 · 보존 코인 평균 ${avg(runs.coins, N)} · 끝날 때 수배도 평균 ${avg(runs.wanted, N)} · 남은 동료 평균 ${avg(runs.compsAtEnd, N)}`);
+console.log('  사망한 층:', Object.entries(df).map(([f, n]) => `${f}층×${n}`).join(' ') || '없음');
