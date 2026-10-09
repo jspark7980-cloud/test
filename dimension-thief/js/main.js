@@ -31,18 +31,39 @@ const app = (DT.app = { lobbyTab: 'main', lsel: null, prep: null, prepSeed: null
 
   function recordMeta(s, events) {
     const relevant = events.filter((e) =>
-      (e.type === 'steal' || e.type === 'copy') ? e.by === 'player' : ['heist', 'victory', 'recruit', 'runEnd'].includes(e.type));
+      (e.type === 'steal' || e.type === 'copy') ? e.by === 'player' : ['heist', 'victory', 'recruit', 'runEnd', 'xp', 'secret'].includes(e.type));
     if (!relevant.length) return;
     const meta = DT.save.loadMeta();
+    const levelUps = [];
     relevant.forEach((e) => {
       if (e.type === 'steal') { meta.steals++; meta.codex[e.cardId] = true; }   // 도감
       if (e.type === 'heist') { meta.heists++; meta.codex[e.cardId] = true; }
       if (e.type === 'copy') meta.copies++;
       if (e.type === 'recruit') { meta.heists++; meta.recruits = (meta.recruits || 0) + 1; }
       if (e.type === 'victory') meta.combatsWon++;
+      // 숨겨진 콘텐츠 발견
+      if (e.type === 'secret') {
+        meta.secrets = meta.secrets || {};
+        if (!meta.secrets[e.id]) {
+          meta.secrets[e.id] = true;
+          const sd = DT.data.secrets[e.id];
+          if (sd) levelUps.push(`🔓 비밀 발견: ${sd.icon} ${sd.name}`);
+        }
+        if (e.id === 'timeThief') DT.gacha.unlockSecret(meta, 'time_thief');
+      }
+      if (e.type === 'xp') {
+        e.gains.forEach((g) => {
+          const ups = DT.gacha.addXp(meta, g.kind, g.xp);
+          if (ups.length) levelUps.push(`⬆️ ${DT.data.companions[g.kind].icon} ${DT.data.companions[g.kind].name} Lv.${ups[ups.length - 1]}!${ups.map((l) => DT.gacha.milestoneText(l)).filter(Boolean).map((t) => ' · ' + t).join('')}`);
+        });
+      }
       if (e.type === 'runEnd') {
         meta.coins += e.banked;           // 판 종료: 보존된 코인을 영구 저장
-        (e.keptItems || []).forEach((it) => DT.lobby.stashAdd(meta, it));   // 남은 아이템은 창고로
+        // 남은 아이템은 창고로. 장착했던 장비는 그 캐릭터의 장비 편성에 다시 끼운다
+        (e.keptItems || []).forEach((it) => {
+          const st = DT.lobby.stashAdd(meta, it);
+          if (it.wearer) DT.lobby.setGear(meta, it.wearer.who, it.wearer.slot, st.uid);
+        });
         DT.lobby.markShopStale(meta);                                       // 로비 귀환: 상점 무료 갱신
         meta.runs++;
         if (e.how === 'clear') {
@@ -57,6 +78,7 @@ const app = (DT.app = { lobbyTab: 'main', lsel: null, prep: null, prepSeed: null
       }
     });
     DT.save.saveMeta(meta);
+    if (levelUps.length) setTimeout(() => flash(levelUps.join(' / ')), 400);   // 효과는 다음 판부터
   }
 
   function newRun(seed) {
@@ -73,11 +95,19 @@ const app = (DT.app = { lobbyTab: 'main', lsel: null, prep: null, prepSeed: null
     render();
   }
 
+  // 출발 준비의 장비 편성·파티를 영구 데이터에 저장(다음에 열어도 그대로)
+  function persistPrep() {
+    const meta = DT.save.loadMeta();
+    DT.lobby.saveGear(meta, app.prep.equip, app.prep.picks);
+    DT.save.saveMeta(meta);
+  }
+
   // 로비에서 영구 데이터 변경
   function metaChange(fn, failMsg) {
     const meta = DT.save.loadMeta();
     if (!fn(meta)) return flash(failMsg || '코인이 부족합니다');
     DT.save.saveMeta(meta);
+    DT.sound.play('coin');
     render();
   }
 
@@ -89,7 +119,9 @@ const app = (DT.app = { lobbyTab: 'main', lsel: null, prep: null, prepSeed: null
     if (tab === 'shop') { const m = DT.save.loadMeta(); DT.lobby.ensureShop(m); DT.save.saveMeta(m); }
     if (tab === 'prep' && !app.prep) {
       const meta = DT.save.loadMeta();
-      app.prep = { picks: [], equip: {}, bag: [], slot: null, codexCard: null, codexOpen: false, ascension: DT.lobby.ascensionMax(meta) };
+      // 지난번 파티와 장비 편성을 불러온다
+      const picks = (meta.lastParty || []).filter((k) => DT.lobby.starterOptions(meta).includes(k)).slice(0, DT.lobby.companionPicks(meta));
+      app.prep = { picks, equip: DT.lobby.savedGear(meta), bag: [], slot: null, codexCard: null, codexOpen: false, ascension: DT.lobby.ascensionMax(meta) };
     }
     render();
   }
@@ -253,11 +285,13 @@ const app = (DT.app = { lobbyTab: 'main', lsel: null, prep: null, prepSeed: null
       case 'prep-comp': {
         const p = app.prep;
         const max = DT.lobby.companionPicks(DT.save.loadMeta());
-        if (p.picks.includes(data.id)) { p.picks = p.picks.filter((k) => k !== data.id); delete p.equip[data.id]; }
+        // 빠진 동료의 장비 편성은 기억해 둔다(다시 고르면 그대로)
+        if (p.picks.includes(data.id)) p.picks = p.picks.filter((k) => k !== data.id);
         else {
-          if (p.picks.length >= max) { const out = p.picks.shift(); delete p.equip[out]; }
+          if (p.picks.length >= max) p.picks.shift();
           p.picks.push(data.id);
         }
+        persistPrep();
         return render();
       }
       case 'prep-slot': app.prep.slot = { who: data.who, slot: data.slot }; return render();
@@ -269,9 +303,10 @@ const app = (DT.app = { lobbyTab: 'main', lsel: null, prep: null, prepSeed: null
         p.bag = p.bag.filter((u) => u !== data.uid);
         (p.equip[who] = p.equip[who] || {})[slot] = data.uid;
         p.slot = null;
+        persistPrep();
         return render();
       }
-      case 'prep-clear': delete (app.prep.equip[data.who] || {})[data.slot]; app.prep.slot = null; return render();
+      case 'prep-clear': delete (app.prep.equip[data.who] || {})[data.slot]; app.prep.slot = null; persistPrep(); return render();
       case 'prep-bag': {
         const p = app.prep;
         if (p.bag.includes(data.uid)) p.bag = p.bag.filter((u) => u !== data.uid);
@@ -289,9 +324,35 @@ const app = (DT.app = { lobbyTab: 'main', lsel: null, prep: null, prepSeed: null
         app.prepSeed = seed || null;
         return seed ? (render(), flash(`시드 ${seed}로 출발합니다`)) : flash('시드를 입력하세요 (영문·숫자)');
       }
+      // 뽑기·동료 목록
+      case 'gacha-pull': {
+        const meta = DT.save.loadMeta();
+        const res = DT.gacha.pull(meta, +data.n);
+        if (!res) return flash('코인이 부족합니다');
+        DT.save.saveMeta(meta);
+        app.gachaResult = res;
+        app.gachaRev = (app.gachaRev || 0) + 1;
+        const best = res.reduce((m, r) => Math.max(m, DT.gacha.GRADES.indexOf(r.grade)), 0);
+        DT.sound.play('gacha', DT.gacha.GRADES[best]);
+        render();
+        if (best >= 2) setTimeout(() => DT.fx.burstAt(innerWidth / 2, innerHeight / 2, best >= 3 ? 'rainbow' : '#c77dff', best >= 3 ? 40 : 20), best >= 3 ? 450 : 100);
+        return;
+      }
+      case 'roster-party': {
+        const meta = DT.save.loadMeta();
+        const max = DT.lobby.companionPicks(meta);
+        let party = (meta.lastParty || []).filter((k) => DT.lobby.starterOptions(meta).includes(k));
+        if (party.includes(data.id)) party = party.filter((k) => k !== data.id);
+        else { party.push(data.id); if (party.length > max) party.shift(); }
+        meta.lastParty = party;
+        DT.save.saveMeta(meta);
+        if (app.prep) app.prep.picks = party.slice();
+        return render();
+      }
       case 'seed-clear': app.prepSeed = null; app.urlSeed = null; return render();
       case 'prep-go': {
         if (!app.prep.picks.length) return flash('동료를 1명 이상 고르세요');
+        persistPrep();
         const meta = DT.save.loadMeta();
         const loadout = DT.lobby.takeLoadout(meta, app.prep);
         DT.save.saveMeta(meta);
@@ -380,6 +441,7 @@ const app = (DT.app = { lobbyTab: 'main', lsel: null, prep: null, prepSeed: null
       case 'pick-relic': return afterChoice(DT.run.pickRelic(s, app.pick || (s.relicChoices.length === 1 ? s.relicChoices[0] : null)));
       case 'buy-relic': return DT.run.buyRelic(s) ? commit() : flash('골드가 부족합니다');
       case 'next-dim': return afterChoice(DT.run.nextDimension(s));
+      case 'void-skip': return afterChoice(DT.run.skipVoid(s));
       case 'event-close': return afterChoice(DT.run.closeEvent(s));
       case 'rift-take': return app.pick && afterChoice(DT.run.takeRift(s, app.pick));
       case 'rift-skip': return afterChoice(DT.run.skipRift(s));
@@ -399,6 +461,17 @@ const app = (DT.app = { lobbyTab: 'main', lsel: null, prep: null, prepSeed: null
       case 'new-seed': return newRun();
       case 'to-lobby': return toLobby();
       case 'info': return flash(data.msg);
+      // 설정(효과음·화면 흔들림) — 영구 데이터에 저장
+      case 'settings-open': app.settingsOpen = true; return render();
+      case 'settings-close': app.settingsOpen = false; return render();
+      case 'setting': {
+        const meta = DT.save.loadMeta();
+        meta.settings = Object.assign({}, DT.settings, { [data.key]: DT.settings[data.key] === false });
+        DT.settings = meta.settings;
+        DT.save.saveMeta(meta);
+        if (data.key === 'sound' && DT.settings.sound) DT.sound.play('coin');
+        return render();
+      }
       case 'status': {
         const d = DT.data.statuses[data.key];
         return d && flash(`${d.icon} ${d.name} ${data.val}: ${d.desc}`);
@@ -418,6 +491,10 @@ const app = (DT.app = { lobbyTab: 'main', lsel: null, prep: null, prepSeed: null
 
   function boot() {
     blockZoom();
+    DT.settings = Object.assign({ sound: true, shake: true }, DT.save.loadMeta().settings || {});
+    // 아이패드 사파리: 첫 탭에 오디오를 깨운다
+    const wake = () => DT.sound.unlock();
+    ['touchend', 'click'].forEach((t) => document.addEventListener(t, wake, { once: true }));
     DT.cards.validate();
     document.addEventListener('click', (e) => {
       if (e.target.closest('input')) return;          // 시드 입력칸

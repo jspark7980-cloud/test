@@ -9,7 +9,8 @@ DT.reward = {
     const weights = elite ? R.eliteWeights : R.rarityWeights;
     const count = n || R.cardChoices;
     const pool = Object.entries(DT.data.cards)
-      .filter(([, c]) => c.rarity && (c.origin === state.dimension || c.origin === 'thief'))
+      // 차원의 틈(chaos)에서는 모든 차원 카드가 나온다
+      .filter(([, c]) => c.rarity && (c.origin === state.dimension || c.origin === 'thief' || DT.data.dimensions[state.dimension].chaos))
       .map(([id, c]) => ({ id, w: weights[c.rarity] || 0 }))
       .filter((x) => x.w > 0);
     const picks = [];

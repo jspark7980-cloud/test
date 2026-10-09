@@ -12,6 +12,8 @@
 //   firstAttackTwice 매 턴 첫 공격 2회(combat)  stealthFirstTurn 첫 턴 대상 제외(ai)
 //   coinMult / greed / wantedGold 코인·전리품·골드(run)
 //   ignoreInstability / instabilityLimit 차원 불안정(G단계)
+//   저주(v4): turnHpLoss 턴 시작 체력 손실 · energyAdd 에너지 · turnDiscard 턴 시작 무작위 버림(combat)
+//            bagAdd 가방 칸(I.bagCap) · voidPocket 사망 시 주머니도 분실(settle) · copyTimes / copyInstability 복제(copy 효과)
 window.DT = window.DT || {};
 
 (function () {
@@ -21,7 +23,7 @@ window.DT = window.DT || {};
   const SLOTS = ['weapon', 'armor', 'accessory'];
   I.SLOTS = SLOTS;
   I.slotName = { weapon: '무기', armor: '방어구', accessory: '장신구' };
-  I.gradeName = { common: '일반', rare: '희귀', hero: '영웅', legend: '전설' };
+  I.gradeName = { common: '일반', rare: '희귀', hero: '영웅', legend: '전설', cursed: '저주' };
   I.GRADES = ['common', 'rare', 'hero', 'legend'];
 
   I.def = (id) => {
@@ -74,7 +76,8 @@ window.DT = window.DT || {};
 
   // ── 가방·주머니 ──
   I.pocketCap = (state) => state.pocketCap || cfg().pocketBase;
-  I.bagFree = (state) => cfg().bag - state.bag.length;
+  I.bagCap = (state) => cfg().bag + I.partyFx(state, 'bagAdd');   // 탐욕의 가방
+  I.bagFree = (state) => I.bagCap(state) - state.bag.length;
 
   I.addToBag = function (state, item) {
     if (I.bagFree(state) <= 0) return false;
@@ -282,6 +285,11 @@ window.DT = window.DT || {};
     return null;
   };
 
+  I.rollCursed = function (state) {
+    const p = Object.entries(DT.data.items).filter(([, d]) => d.grade === 'cursed').map(([id]) => id);
+    return p.length ? I.make(state, DT.rng.pick(state, p)) : null;
+  };
+
   I.rollBossLoot = function (state) {
     const p = Object.entries(DT.data.items).filter(([, d]) => d.boss && d.boss.includes(state.dimension)).map(([id]) => id);
     return p.length ? I.make(state, DT.rng.pick(state, p)) : I.roll(state, 'loot', 'boss');
@@ -293,19 +301,28 @@ window.DT = window.DT || {};
     const items = [];
     if (combatKind === 'boss') {
       items.push(I.roll(state, 'equip', 'boss'), I.rollBossLoot(state));
+    } else if (combatKind === 'vault') {
+      for (let k = 0; k < DT.config.vault.equips; k++) items.push(I.roll(state, 'equip', 'boss'));
+      items.push(I.roll(state, 'loot', 'elite'));
     } else if (combatKind === 'elite') {
       items.push(I.roll(state, 'equip', 'elite'));
       if (DT.rng.next(state) < D.elite.extraChance) items.push(I.roll(state, DT.map.weighted(state, Object.entries(D.elite.kinds)), 'elite'));
     } else if (DT.rng.next(state) < D.normal.chance) {
       items.push(I.roll(state, DT.map.weighted(state, Object.entries(D.normal.kinds)), 'normal'));
     }
+    // 저주 장비: 정예에서 드물게, 황금 금고에서 자주
+    const curseP = combatKind === 'elite' ? DT.config.cursed.eliteChance : combatKind === 'vault' ? DT.config.vault.cursedChance : 0;
+    if (curseP && DT.rng.next(state) < curseP) items.push(I.rollCursed(state));
     // 탐욕의 목걸이: 전리품 2배
     if (I.partyFx(state, 'greed')) {
       items.filter((it) => it && I.def(it.id).kind === 'loot').forEach((it) => items.push(I.make(state, it.id)));
     }
     const got = [], lost = [];
     for (const it of items.filter(Boolean)) (I.addToBag(state, it) ? got : lost).push(it);
-    got.forEach((it) => log(state, `🎒 ${I.def(it.id).name} 획득`));
+    got.forEach((it) => {
+      log(state, `🎒 ${I.def(it.id).name} 획득`);
+      if (I.def(it.id).grade === 'cursed') DT.state.emit(state, { type: 'secret', id: 'item:' + it.id });   // 숨겨진 콘텐츠 발견
+    });
     lost.forEach((it) => log(state, `가방이 가득 차 ${I.def(it.id).name}을(를) 두고 왔다.`));
     return { got, lost };
   };
@@ -323,14 +340,21 @@ window.DT = window.DT || {};
   // ── 판 종료: 분실 규칙 ──
   // how: mapEscape·scroll·clear → 전부 보존 / combatEscape → 가방에서 무작위 1개 분실 / death → 가방·장착 장비 분실(주머니만 보존)
   I.settle = function (state, how) {
+    // 장착한 장비는 누가 어느 칸에 꼈는지 기억해 둔다(로비 장비 편성에 다시 끼워 줌)
     const equipped = [];
     for (const a of [state.player, ...state.allies, ...(state.fallen || [])]) {
-      for (const slot of SLOTS) if (a.equip && a.equip[slot]) equipped.push(a.equip[slot]);
+      const who = a.id === 'player' ? 'player' : !a.fromEnemy ? a.kind : null;
+      for (const slot of SLOTS) {
+        const it = a.equip && a.equip[slot];
+        if (it) equipped.push(Object.assign({}, it, { wearer: who ? { who, slot } : null }));
+      }
     }
     let kept = [], lost = [];
     if (how === 'death') {
-      kept = state.pocket.slice();
-      lost = state.bag.concat(equipped);
+      // 탐욕의 가방을 낀 채 죽으면 안전 주머니도 잃는다
+      const cursedBag = equipped.some((it) => I.def(it.id).fx && I.def(it.id).fx.voidPocket);
+      kept = cursedBag ? [] : state.pocket.slice();
+      lost = state.bag.concat(equipped, cursedBag ? state.pocket : []);
     } else if (how === 'combatEscape') {
       const bag = state.bag.slice();
       if (bag.length) lost.push(bag.splice(DT.rng.int(state, 0, bag.length - 1), 1)[0]);
@@ -338,6 +362,6 @@ window.DT = window.DT || {};
     } else {
       kept = state.bag.concat(equipped, state.pocket);
     }
-    return { kept: kept.map((it) => ({ uid: it.uid, id: it.id, plus: it.plus || 0 })), lost: lost.map((it) => ({ uid: it.uid, id: it.id })) };
+    return { kept: kept.map((it) => ({ uid: it.uid, id: it.id, plus: it.plus || 0, wearer: it.wearer || null })), lost: lost.map((it) => ({ uid: it.uid, id: it.id })) };
   };
 })();

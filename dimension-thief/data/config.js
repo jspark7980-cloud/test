@@ -87,7 +87,7 @@ DT.config = {
     },
     deepFloor: 7, deepShift: { common: -15, rare: 7, hero: 6, legend: 2 },
     // 판매가(코인, F단계 상인) / 암시장 소모품 가격(골드)
-    sellPrice: { common: 15, rare: 50, hero: 120, legend: 300 },
+    sellPrice: { common: 15, rare: 50, hero: 120, legend: 300, cursed: 100 },
     marketConsumables: 2,
     marketPrice: { common: 30, rare: 55, hero: 90, legend: 150 },
   },
@@ -113,12 +113,15 @@ DT.config = {
       { common: 48, rare: 32, hero: 16, legend: 4 },
     ],
     kinds: { equip: 65, consumable: 35 },
-    price: { common: 30, rare: 80, hero: 200, legend: 500 },
+    price: { common: 30, rare: 80, hero: 200, legend: 500, cursed: 250 },
     refreshBase: 20, refreshStep: 10,         // 새로고침: 첫 회 20, 할 때마다 +10 (로비 귀환 시 무료 갱신·초기화)
   },
   stash: { cap: 40 },                         // 창고 칸(넘치면 구매 불가, 판 결과로 들어오는 아이템은 받아 둠)
   merchant: { otherRatio: 0.3 },              // 전리품이 아닌 아이템은 상점가의 30%에 판매
   forge: { max: 3, costMult: [0.5, 1, 1.5], perPlus: 0.5 },   // +1당 수치형 효과 +50%
+
+  // 연출(v4 1단계): 피해 숫자 크기 = min(max, min + 피해 × per), bigHit 이상이면 튀어나옴
+  fx: { dmgSizeMin: 24, dmgSizeMax: 76, dmgSizePer: 1.6, bigHit: 20, shakeMax: 14, cardFlyMs: 650, particles: 14, slowmoMs: 450 },
 
   ui: { enemyTurnStartDelay: 500, enemyActDelay: 1000, allyActDelay: 850, crowdSpeed: 0.55 },
 
@@ -143,6 +146,42 @@ DT.config = {
       { desc: '적이 힘 1을 갖고 전투 시작', enemyStrength: 1 },
     ],
   },
+
+  // ── v4 2단계: 동료 뽑기 (코인) ──
+  gacha: {
+    cost1: 100, cost10: 900,
+    rates: { common: 60, rare: 30, hero: 8.5, legend: 1.5 },
+    pity: 50,                          // 마지막 전설 이후 이 횟수째는 전설 확정
+    tenGuarantee: 'rare',              // 10회 뽑기에서 이 등급 이상 1명 보장
+    maxBreak: 5,                       // 돌파 최대 단계(중복 1명 = 1단계)
+    breakStat: 0.1,                    // 돌파 단계마다 체력·피해 +10%
+    refund: { common: 10, rare: 30, hero: 80, legend: 200 },   // 돌파가 다 찬 뒤 중복은 코인으로
+  },
+
+  // ── v4 3단계: 동료 성장·시너지 ──
+  growth: {
+    maxLevel: 20,
+    xp: { normal: 10, elite: 25, boss: 60, vault: 25 },   // 전투 승리 시(쓰러진 동료는 절반)
+    xpPerLevel: 20,                    // 다음 레벨까지 필요 경험치 = 레벨 × xpPerLevel
+    hpPerLevel: 0.03,                  // 레벨마다 체력 +3%
+    // 레벨 보상: add = 대표 카드(sig) 1장 추가, upgrade = 덱 카드 n장 강화(all 이면 전부)
+    milestones: { 5: { add: 1 }, 10: { upgrade: 2 }, 15: { add: 1 }, 20: { upgrade: 'all' } },
+  },
+  synergy: {
+    ironwall: { takenMult: 0.9 },      // 철벽: 탱커 + 힐러 → 아군 받는 피해 −10%
+    focus: { dealtMult: 1.2 },         // 집중포화: 딜러 2명 → 이번 라운드 다른 아군이 때린 적에게 피해 +20%
+    perfect: { draw: 1 },              // 완벽한 파티: 탱커 + 딜러 + (힐러 또는 지원) → 드로우 +1
+    homeland: { mult: 0.15 },          // 고향: 같은 차원 출신 동료 2명 이상, 그 차원에서 피해 +15% · 받는 피해 −15%
+    thiefRole: 'dealer',               // 시너지 판정에서 도둑의 역할
+  },
+
+  // ── v4 4단계: 숨겨진 콘텐츠 ──
+  vault: {
+    minFloor: 4, chance: 0.012,         // 전투·이벤트 노드가 황금 금고로 바뀔 확률
+    goldMult: 3, coinMult: 3, equips: 2, relic: 1, cursedChance: 0.35,
+  },
+  void: { floors: 6, protoHp: 600 },   // 비밀 차원 '차원의 틈'(층 수), 원조 도둑 체력
+  cursed: { eliteChance: 0.04 },       // 정예 승리 시 저주 아이템이 추가로 나올 확률
 
   // 지금까지 만들어진 진행 단계(DESIGN.md 12장). 아직 없는 단계의 로비 강화는 잠긴다.
   builtStages: 'ABCDEFGHIJ',

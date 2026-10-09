@@ -20,6 +20,12 @@ DT.enemy = {
     };
     // 시작 손패(예: 왕관): 항상 공개, 적은 사용하지 않음
     (d.startHand || []).forEach((id) => e.hand.push(DT.state.makeCard(state, id, { revealed: true })));
+    // 원조 도둑: 도둑의 덱 복사(지휘·복제처럼 적이 못 쓰는 카드는 찌르기로)
+    if (d.mirrorDeck) {
+      const ok = (c) => { const df = DT.cards.def(c.id); return !df.unplayable && !df.effects.some((x) => ['order', 'copy'].includes(x.type)); };
+      e.drawPile = state.player.masterDeck.map((c) => DT.state.makeCard(state, ok(c) ? c.id : 'stab', c.up ? { up: 1 } : null));
+      e.hp = e.maxHp = Math.round(DT.config.void.protoHp * (1 + DT.run.asc(state, 'enemyHp') + DT.run.asc(state, 'bossHp')));
+    }
     e.maxHand = Math.max(10, d.handSize);
     DT.rng.shuffle(state, e.drawPile);
     return e;

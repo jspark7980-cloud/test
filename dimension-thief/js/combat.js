@@ -46,6 +46,7 @@ window.DT = window.DT || {};
     // 동료의 깃발(유물)
     const ab = DT.relics.fx(state, 'allyCombatBlock');
     if (ab) DT.party.companions(state).forEach((a) => DT.effects.gainBlock(state, a.id, ab));
+    DT.abilities.combatStart(state);
   };
 
   // 차원 불안정 변이: 이번 전투 동안 덱의 카드 몇 장이 '차원 잡음' 또는 다른 차원 카드로 바뀐다
@@ -113,9 +114,11 @@ window.DT = window.DT || {};
     state.turn++;
     state.phase = 'player';
     state.orders = {};
+    state.prevPlayed = (state.turnFlags && state.turnFlags.played) || [];   // 시간의 도둑(되감기)
     state.turnFlags = {};
+    state.roundHits = {};              // 집중포화 판정용
     for (const a of DT.party.living(state)) {
-      a.block = 0;                     // 방어도는 내 턴 시작 시 사라짐
+      if (!DT.abilities.keepsBlock(a)) a.block = 0;   // 방어도는 내 턴 시작 시 사라짐(기계 거인 제외)
       C.tickStatuses(state, a.id, 'turnStart');
       C.runPassives(state, a.id, 'turnStart');
       if (state.result) return;
@@ -127,16 +130,30 @@ window.DT = window.DT || {};
       DT.effects.applyDamage(state, 'player', DT.config.instability.critDamage, { ignoreBlock: true });
       if (state.result) return;
     }
-    p.energy = p.maxEnergy;
+    // 저주: 피의 단검(턴 시작 체력 손실)
+    for (const a of DT.party.living(state)) {
+      const loss = DT.items.fx(a, 'turnHpLoss');
+      if (loss) { log(state, `🩸 ${a.name}: 피의 단검 −${loss}`); DT.effects.applyDamage(state, a.id, loss, { ignoreBlock: true }); }
+      if (state.result) return;
+    }
+    p.energy = p.maxEnergy + DT.items.fx(p, 'energyAdd');   // 광기의 왕관
     // 유물: 자물쇠따개(첫 턴) · 차원의 심장(매 턴) · 회중시계(3턴마다 에너지 +1, 드로우 +1)
     const watch = state.turn % 3 === 0 && DT.relics.fx(state, 'everyThirdTurn') ? 1 : 0;
     const bonus = (state.turn === 1 ? DT.relics.fx(state, 'firstTurnEnergy') : 0) + DT.relics.fx(state, 'energyPerTurn') + watch;
     if (bonus) { p.energy += bonus; DT.state.emit(state, { type: 'passive', target: 'player', text: `⚡+${bonus}` }); }
     if (watch) log(state, '⌚ 회중시계: 에너지 +1, 카드 1장');
     for (const e of C.living(state)) e.heistReady = C.belowHeistLine(e, state);
-    DT.deck.draw(state, p, p.drawPerTurn + watch + (state.turn === 1 ? DT.items.fx(p, 'firstTurnDraw') : 0));
+    DT.deck.draw(state, p, p.drawPerTurn + watch + DT.synergy.drawBonus(state) + (state.turn === 1 ? DT.items.fx(p, 'firstTurnDraw') : 0));
     // 해킹됨: 드로우한 손패 일부 잠금
     if (p.statuses.jam) { C.lockHand(state, p, p.statuses.jam); delete p.statuses.jam; }
+    // 광기의 왕관: 손패 무작위 버림
+    for (let k = 0; k < DT.items.fx(p, 'turnDiscard') && p.hand.length; k++) {
+      const c = p.hand.splice(DT.rng.int(state, 0, p.hand.length - 1), 1)[0];
+      p.discardPile.push(c);
+      log(state, `🤪 광기의 왕관: [${DT.cards.nameOf(c)}] 버림`);
+    }
+    DT.abilities.roundStart(state);   // 동료 고유 능력
+    if (state.result) return;
     for (const c of DT.party.companions(state)) DT.ai.planCompanion(state, c);
   };
 
@@ -194,6 +211,7 @@ window.DT = window.DT || {};
 
     p.energy -= C.costFor(state, card);
     if (card.id === 'pilfer') state.turnFlags.pilferPlayed = true;
+    (state.turnFlags.played = state.turnFlags.played || []).push(uid);
     DT.deck.removeFromHand(p, uid);
     DT.state.emit(state, { type: 'play', actor: 'player', card: Object.assign({}, card) });
     const toAlly = allyId && allyId !== 'player' ? ` → ${DT.state.actor(state, allyId).name}` : '';
@@ -257,6 +275,7 @@ window.DT = window.DT || {};
       DT.effects.resolveCard(state, c.id, act.targetId, act.card, null, act.allyId);
       C.maybeTwice(state, c.id, act.card, act.targetId, act.allyId);
       DT.deck.afterPlay(state, c, act.card);
+      if (DT.cards.isAttack(def)) DT.abilities.afterAttack(state, c);   // 계약 악마
     }
     C.checkEnd(state);
     return true;

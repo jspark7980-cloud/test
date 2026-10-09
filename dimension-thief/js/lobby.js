@@ -46,8 +46,12 @@ DT.lobby = {
     return true;
   },
 
+  // 출발할 때 고를 수 있는 동료: 기본 동료(해금된 것) + 뽑기·비밀로 보유한 동료
   starterOptions(meta) {
-    return Object.keys(DT.data.companions).filter((k) => DT.lobby.companionUnlocked(meta, k));
+    return Object.keys(DT.data.companions).filter((k) => {
+      const d = DT.data.companions[k];
+      return d.grade === 'basic' || !d.grade ? DT.lobby.companionUnlocked(meta, k) : DT.gacha.owned(meta, k);
+    });
   },
 
   companionPicks(meta) {
@@ -67,6 +71,7 @@ DT.lobby = {
     state.pocketCap = DT.config.items.pocketBase + L('safePocket');
     state.starterOptions = DT.lobby.starterOptions(meta);
     state.companionPicks = DT.lobby.companionPicks(meta);
+    state.roster = JSON.parse(JSON.stringify(meta.roster || {}));   // 동료 돌파·레벨(이번 판 고정)
     state.relicPicks = DT.lobby.locked('startRelic') ? 0 : L('startRelic');
   },
 
@@ -223,6 +228,30 @@ DT.lobby = {
     meta.coins -= cost;
     it.plus = (it.plus || 0) + 1;
     return true;
+  },
+
+  // ── 장비 편성 기억: meta.gear = { 'player' | 동료 종류: { 칸: 창고 uid } }, meta.lastParty = [동료 종류] ──
+  setGear(meta, who, slot, uid) {
+    meta.gear = meta.gear || {};
+    // 같은 아이템이 다른 칸에 걸려 있으면 뺀다
+    for (const sl of Object.values(meta.gear)) for (const k of Object.keys(sl)) if (sl[k] === uid) delete sl[k];
+    if (uid) (meta.gear[who] = meta.gear[who] || {})[slot] = uid;
+    else if (meta.gear[who]) delete meta.gear[who][slot];
+  },
+  // 창고에 아직 있고 칸이 맞는 것만 남긴 장비 편성
+  savedGear(meta) {
+    const out = {};
+    for (const [who, slots] of Object.entries(meta.gear || {})) {
+      for (const [slot, uid] of Object.entries(slots)) {
+        const it = (meta.stash || []).find((x) => x.uid === uid);
+        if (it && DT.items.def(it.id).kind === 'equip' && DT.items.def(it.id).slot === slot) (out[who] = out[who] || {})[slot] = uid;
+      }
+    }
+    return out;
+  },
+  saveGear(meta, equip, picks) {
+    meta.gear = JSON.parse(JSON.stringify(equip || {}));
+    if (picks) meta.lastParty = picks.slice();
   },
 
   // ── 출발 준비 ──
