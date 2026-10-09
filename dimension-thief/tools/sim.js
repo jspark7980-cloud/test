@@ -212,12 +212,14 @@ for (let i = 0; i < N; i++) {
       const up = s.player.masterDeck.find((c) => DT.cards.canUpgrade(c) && c.id !== 'dodge');
       if (low || !up) DT.run.hideoutRest(s); else DT.run.upgradeCard(s, up.uid);
     } else if (s.screen === 'market') {
+      DT.run.buyRelic(s);
       s.market.cards.forEach((c, k) => { if (DT.cards.def(c.id).rarity !== 'common') DT.run.buyCard(s, k); });
       DT.run.leave(s);
     } else if (s.screen === 'event') {
       const k = DT.data.events[s.event].options.findIndex((o, idx) => DT.run.canChooseEvent(s, idx));
       DT.run.chooseEvent(s, k);
-    }
+    } else if (s.screen === 'eventResult') DT.run.closeEvent(s);
+    else if (s.screen === 'pickRelic') DT.run.pickRelic(s, s.relicChoices[0]);
     s.events.length = 0;
   }
   if (s.runEnd.how === 'clear') runs.clear++;
@@ -227,6 +229,7 @@ for (let i = 0; i < N; i++) {
   runs.compsAtEnd += s.allies.length;
   runs.kept += s.runEnd.items.kept.length;
   runs.lost += s.runEnd.items.lost.length;
+  runs.relics = (runs.relics || 0) + (s.relics || []).length;
 }
 
 // ── 출력 ──
@@ -247,4 +250,5 @@ runs.deathFloors.forEach((f) => { df[f] = (df[f] || 0) + 1; });
 console.log(`\n1차원 한 판 ${N}회 (맵·은신처·암시장·이벤트 포함, 시작 동료 순환${SOLO ? ', 동료 없음' : ''})`);
 console.log(`  클리어 ${pct(runs.clear, N)} · 전투당 평균 ${avg(runs.turns, runs.fights)}턴 · 보존 코인 평균 ${avg(runs.coins, N)} · 끝날 때 수배도 평균 ${avg(runs.wanted, N)} · 남은 동료 평균 ${avg(runs.compsAtEnd, N)}`);
 console.log(`  판당 아이템: 창고로 ${avg(runs.kept, N)}개, 분실 ${avg(runs.lost, N)}개`);
+console.log(`  판당 유물: ${avg(runs.relics || 0, N)}개`);
 console.log('  사망한 층:', Object.entries(df).map(([f, n]) => `${f}층×${n}`).join(' ') || '없음');

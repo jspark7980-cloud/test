@@ -7,13 +7,16 @@ window.DT = window.DT || {};
 
   C.living = (state) => state.enemies.filter((e) => !e.dead);
   // 강탈 기준선(시간 도둑의 낫: 도둑의 기준이 올라감)
-  C.heistThreshold = (state) => Math.max(DT.config.heist.threshold, state ? DT.items.fx(state.player, 'heistThreshold') : 0);
+  // 왕실 인장(유물): 기준에 더한다
+  C.heistThreshold = (state) => Math.max(DT.config.heist.threshold, state ? DT.items.fx(state.player, 'heistThreshold') : 0)
+    + (state ? DT.relics.fx(state, 'heistThresholdAdd') : 0);
   C.belowHeistLine = (e, state) => e.hp <= e.maxHp * C.heistThreshold(state);
 
-  // 이번 턴 실제 비용: 만능 열쇠검으로 얻은 카드 0, 손재주 비약이면 슬쩍하기 0
+  // 이번 턴 실제 비용: 만능 열쇠검으로 얻은 카드 0, 손재주 비약이면 슬쩍하기 0, 대도의 가면이면 매 턴 첫 슬쩍하기 0
   C.costFor = function (state, card) {
     if (card.free) return 0;
-    if (card.id === 'pilfer' && state.turnFlags && state.turnFlags.freePilfer) return 0;
+    const f = state.turnFlags || {};
+    if (card.id === 'pilfer' && (f.freePilfer || (!f.pilferPlayed && DT.relics.fx(state, 'firstPilferFree')))) return 0;
     return DT.cards.costOf(card);
   };
 
@@ -40,6 +43,9 @@ window.DT = window.DT || {};
       const b = DT.items.fx(a, 'combatBlock');
       if (b) DT.effects.gainBlock(state, a.id, b);
     }
+    // 동료의 깃발(유물)
+    const ab = DT.relics.fx(state, 'allyCombatBlock');
+    if (ab) DT.party.companions(state).forEach((a) => DT.effects.gainBlock(state, a.id, ab));
   };
 
   // 차원 불안정 변이: 이번 전투 동안 덱의 카드 몇 장이 '차원 잡음' 또는 다른 차원 카드로 바뀐다
@@ -53,7 +59,8 @@ window.DT = window.DT || {};
     for (let k = 0; k < n && pile.length; k++) {
       const i = DT.rng.int(state, 0, pile.length - 1);
       const old = pile[i];
-      const id = DT.rng.next(state) < I.noiseChance || !foreign.length ? 'rift_noise' : DT.rng.pick(state, foreign);
+      const noise = DT.relics.fx(state, 'noNoise') ? 0 : I.noiseChance;   // 차원 조율기(유물)
+      const id = DT.rng.next(state) < noise || !foreign.length ? 'rift_noise' : DT.rng.pick(state, foreign);
       pile[i] = DT.state.makeCard(state, id, { temp: true, mutated: true });
       log(state, `🌀 차원 불안정! [${DT.cards.nameOf(old)}] → [${DT.cards.def(id).name}] (이번 전투)`);
     }
@@ -120,8 +127,13 @@ window.DT = window.DT || {};
       if (state.result) return;
     }
     p.energy = p.maxEnergy;
+    // 유물: 자물쇠따개(첫 턴) · 차원의 심장(매 턴) · 회중시계(3턴마다 에너지 +1, 드로우 +1)
+    const watch = state.turn % 3 === 0 && DT.relics.fx(state, 'everyThirdTurn') ? 1 : 0;
+    const bonus = (state.turn === 1 ? DT.relics.fx(state, 'firstTurnEnergy') : 0) + DT.relics.fx(state, 'energyPerTurn') + watch;
+    if (bonus) { p.energy += bonus; DT.state.emit(state, { type: 'passive', target: 'player', text: `⚡+${bonus}` }); }
+    if (watch) log(state, '⌚ 회중시계: 에너지 +1, 카드 1장');
     for (const e of C.living(state)) e.heistReady = C.belowHeistLine(e, state);
-    DT.deck.draw(state, p, p.drawPerTurn + (state.turn === 1 ? DT.items.fx(p, 'firstTurnDraw') : 0));
+    DT.deck.draw(state, p, p.drawPerTurn + watch + (state.turn === 1 ? DT.items.fx(p, 'firstTurnDraw') : 0));
     for (const c of DT.party.companions(state)) DT.ai.planCompanion(state, c);
   };
 
@@ -163,6 +175,7 @@ window.DT = window.DT || {};
     if (why) return { ok: false, reason: why };
 
     p.energy -= C.costFor(state, card);
+    if (card.id === 'pilfer') state.turnFlags.pilferPlayed = true;
     DT.deck.removeFromHand(p, uid);
     DT.state.emit(state, { type: 'play', actor: 'player', card: Object.assign({}, card) });
     const toAlly = allyId && allyId !== 'player' ? ` → ${DT.state.actor(state, allyId).name}` : '';

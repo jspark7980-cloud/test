@@ -87,6 +87,18 @@ DT.config = {
     marketPrice: { common: 30, rare: 55, hero: 90, legend: 150 },
   },
 
+  // 유물(H단계): 정예 승리마다 1개, 이벤트·암시장에서도. 출처별 등급 가중치
+  relics: {
+    grades: {
+      elite:  { common: 55, rare: 38, legend: 7 },
+      event:  { common: 45, rare: 42, legend: 13 },
+      market: { common: 60, rare: 35, legend: 5 },
+    },
+    marketChance: 0.6,                                  // 암시장에 유물 1개가 진열될 확률
+    marketPrice: { common: 90, rare: 140, legend: 220 }, // 골드
+    startGrades: ['common', 'rare'],                    // '유물 수집가' 출발 후보 등급
+  },
+
   // 로비 시설 (코인)
   shop: {
     slots: [5, 6, 7],                         // 상점 레벨 1~3 진열 칸
@@ -106,5 +118,5 @@ DT.config = {
   ui: { enemyTurnStartDelay: 500, enemyActDelay: 1000, allyActDelay: 850 },
 
   // 지금까지 만들어진 진행 단계(DESIGN.md 12장). 아직 없는 단계의 로비 강화는 잠긴다.
-  builtStages: 'ABCDEFG',
+  builtStages: 'ABCDEFGH',
 };

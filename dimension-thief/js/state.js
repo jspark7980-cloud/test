@@ -14,7 +14,7 @@ DT.state = {
       nextUid: 1,
       dimension: 'medieval',
       turn: 0,
-      screen: 'pickCompanion', // 'pickCompanion' | 'map' | 'combat' | 'heist' | 'reward' | 'hideout' | 'market' | 'event' | 'runEnd'
+      screen: 'pickCompanion', // 'pickCompanion' | 'map' | 'combat' | 'heist' | 'reward' | 'hideout' | 'market' | 'event' | 'eventResult' | 'rift' | 'pickRelic' | 'runEnd'
       floor: 0,          // 맵의 현재 층
       map: null,         // { nodes: {id: node}, floors: [[id]] } — js/map.js
       pos: null,         // 현재 노드 id (출발 전 null)
@@ -29,6 +29,8 @@ DT.state = {
       turnFlags: {},     // 이번 턴 한정 표시(쌍단검·손재주 비약 등)
       instabilityMod: 0, // 차원 안정제 보정(이번 차원 동안)
       rift: null, naturalizeCount: 0,
+      relics: [],        // 유물 id (js/relics.js). 판이 끝나면 사라짐
+      relicPicks: 0, relicChoices: null, eventOutcome: null,
       wanted: 0,         // 수배도: 강탈 시 +1
       heist: null,       // 강탈 대기 { picksLeft, groups:[{ enemyName, kind, options:[카드 id] }] }
       reward: null,      // 카드 보상 { options:[카드 id] }

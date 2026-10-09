@@ -353,6 +353,10 @@ const app = (DT.app = { lobbyTab: 'main', lsel: null, prep: null, prepSeed: null
         if (err) return flash(err);
         return commit();
       }
+      case 'relic-sel': app.pick = data.id; return render();
+      case 'pick-relic': return afterChoice(DT.run.pickRelic(s, app.pick || (s.relicChoices.length === 1 ? s.relicChoices[0] : null)));
+      case 'buy-relic': return DT.run.buyRelic(s) ? commit() : flash('골드가 부족합니다');
+      case 'event-close': return afterChoice(DT.run.closeEvent(s));
       case 'rift-take': return app.pick && afterChoice(DT.run.takeRift(s, app.pick));
       case 'rift-skip': return afterChoice(DT.run.skipRift(s));
       case 'event-opt': {

@@ -67,6 +67,7 @@ DT.lobby = {
     state.pocketCap = DT.config.items.pocketBase + L('safePocket');
     state.starterOptions = DT.lobby.starterOptions(meta);
     state.companionPicks = DT.lobby.companionPicks(meta);
+    state.relicPicks = DT.lobby.locked('startRelic') ? 0 : L('startRelic');
   },
 
   // ── 창고 ──
