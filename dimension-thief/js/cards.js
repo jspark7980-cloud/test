@@ -12,12 +12,18 @@ DT.cards = {
 
   // ── 강화 ──
   // 카드 인스턴스(card.up = 강화됨)에 맞는 효과·비용·이름
+  // card.extra: 로비 강화 등으로 이 카드에만 붙은 추가 효과(뒤에 이어서 실행)
   effectsOf(card) {
     const def = DT.cards.def(card.id);
-    if (!card.up) return def.effects;
-    if (def.upgrade && def.upgrade.effects) return def.upgrade.effects;
-    const U = DT.config.upgrade;
-    return def.effects.map((e) => (typeof e.value === 'number' && U[e.type] ? Object.assign({}, e, { value: e.value + U[e.type] }) : e));
+    let list = def.effects;
+    if (card.up) {
+      if (def.upgrade && def.upgrade.effects) list = def.upgrade.effects;
+      else {
+        const U = DT.config.upgrade;
+        list = def.effects.map((e) => (typeof e.value === 'number' && U[e.type] ? Object.assign({}, e, { value: e.value + U[e.type] }) : e));
+      }
+    }
+    return card.extra ? list.concat(card.extra) : list;
   },
   costOf(card) {
     const def = DT.cards.def(card.id);

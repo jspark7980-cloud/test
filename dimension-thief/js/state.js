@@ -2,7 +2,7 @@
 window.DT = window.DT || {};
 
 DT.state = {
-  VERSION: 5,
+  VERSION: 6,
 
   createRun(seed) {
     const P = DT.data.player;

@@ -58,4 +58,7 @@ DT.config = {
   upgrade: { damage: 3, block: 3, heal: 3, status: 1, draw: 1, energy: 0, loseHp: 0 },
 
   ui: { enemyTurnStartDelay: 500, enemyActDelay: 1000, allyActDelay: 850 },
+
+  // 지금까지 만들어진 진행 단계(DESIGN.md 12장). 아직 없는 단계의 로비 강화는 잠긴다.
+  builtStages: 'ABCD',
 };

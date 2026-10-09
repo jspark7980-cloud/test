@@ -2,11 +2,14 @@
 window.DT = window.DT || {};
 
 (function () {
-  const app = (DT.app = { state: null, sel: null, mode: null, busy: false, flash: '', pileView: null, pick: null, replaceFor: null, deckPick: null });
+  // view: 'lobby' | 'run'
+const app = (DT.app = { view: 'lobby', state: null, sel: null, mode: null, busy: false, flash: '', pileView: null, pick: null, picks: [], replaceFor: null, deckPick: null, urlSeed: null });
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   let flashTimer = null;
 
   function render() { DT.ui.render(app); }
+
+  const runActive = () => !!(app.state && app.state.screen !== 'runEnd');
 
   function flash(msg) {
     app.flash = msg;
@@ -48,9 +51,24 @@ window.DT = window.DT || {};
   }
 
   function newRun(seed) {
-    app.state = DT.run.start(seed || DT.rng.randomSeed());
-    app.sel = null; app.mode = null; app.busy = false; app.pileView = null; app.pick = null; app.replaceFor = null; app.deckPick = null;
+    app.state = DT.run.start(seed || DT.rng.randomSeed(), DT.save.loadMeta());
+    app.view = 'run';
+    app.sel = null; app.mode = null; app.busy = false; app.pileView = null; app.pick = null; app.picks = []; app.replaceFor = null; app.deckPick = null;
     commit();
+  }
+
+  function toLobby() {
+    app.view = 'lobby';
+    app.pileView = null; app.deckPick = null;
+    render();
+  }
+
+  // 로비에서 영구 데이터 변경
+  function metaChange(fn) {
+    const meta = DT.save.loadMeta();
+    if (!fn(meta)) return flash('코인이 부족합니다');
+    DT.save.saveMeta(meta);
+    render();
   }
 
   // 턴 종료 후 자동 진행: 동료 행동 → 적 행동 → 다음 내 턴
@@ -169,7 +187,34 @@ window.DT = window.DT || {};
       case 'enemy': return tapEnemy(data.id);
       case 'reveal': return tapReveal(data.owner, data.uid);
       case 'ally': return tapAlly(data.id);
-      case 'start-run': return app.pick && afterChoice(DT.run.pickCompanion(s, app.pick));
+      case 'pick-comp': {
+        const max = s.companionPicks || 1;
+        if (app.picks.includes(data.id)) app.picks = app.picks.filter((k) => k !== data.id);
+        else app.picks = (max === 1 ? [] : app.picks.slice(-(max - 1))).concat(data.id);
+        return render();
+      }
+      case 'start-run': {
+        if (!app.picks.length) return;
+        const ok = DT.run.pickCompanion(s, app.picks);
+        app.picks = [];
+        return afterChoice(ok);
+      }
+      // 로비
+      case 'lobby': return toLobby();
+      case 'go': {
+        if (runActive()) { app.view = 'run'; commit(); if (s.screen === 'combat' && (s.phase === 'ally' || s.phase === 'enemy') && !app.busy) runAutoPhases(); return; }
+        return newRun(app.urlSeed);
+      }
+      case 'abandon': {
+        if (!runActive()) return;
+        const pct = Math.round(DT.config.coins.keep.death * 100);
+        if (!window.confirm(`진행 중인 판을 포기할까요? 사망과 같이 이번 판 코인의 ${pct}%만 남습니다.`)) return;
+        DT.run.endRun(s, 'death');
+        commit();
+        return toLobby();
+      }
+      case 'buy-upgrade': return metaChange((m) => DT.lobby.buy(m, data.id));
+      case 'unlock': return metaChange((m) => DT.lobby.unlockCompanion(m, data.id));
       case 'recruit': {
         const r = DT.run.recruit(s, data.kind);
         if (r.needReplace) { app.replaceFor = data.kind; return render(); }
@@ -223,9 +268,7 @@ window.DT = window.DT || {};
       case 'reward-skip': return afterChoice(DT.run.skipReward(s));
       case 'retry': return newRun(s.seed);
       case 'new-seed': return newRun();
-      case 'menu':
-        if (window.confirm('현재 판을 버리고 새 게임을 시작할까요?')) newRun();
-        return;
+      case 'to-lobby': return toLobby();
       case 'info': return flash(data.msg);
       case 'status': {
         const d = DT.data.statuses[data.key];
@@ -254,15 +297,11 @@ window.DT = window.DT || {};
     });
     window.addEventListener('resize', () => DT.ui.layoutHand());
 
-    const urlSeed = new URLSearchParams(location.search).get('seed');
+    // 항상 로비에서 시작. 진행 중인 판이 있으면 로비에서 이어하기.
+    app.urlSeed = new URLSearchParams(location.search).get('seed');
     const saved = DT.save.loadRun();
-    if (saved && (!urlSeed || urlSeed === String(saved.seed))) {
-      app.state = saved;
-      commit();
-      if (saved.screen === 'combat' && (saved.phase === 'ally' || saved.phase === 'enemy')) runAutoPhases();
-    } else {
-      newRun(urlSeed);
-    }
+    if (saved && saved.screen !== 'runEnd') app.state = saved;
+    toLobby();
   }
 
   document.addEventListener('DOMContentLoaded', boot);
