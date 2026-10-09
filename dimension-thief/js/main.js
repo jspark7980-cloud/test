@@ -3,7 +3,7 @@ window.DT = window.DT || {};
 
 (function () {
   // view: 'lobby' | 'run'
-const app = (DT.app = { bagView: false, bagSel: null, bagRev: 0, view: 'lobby', state: null, sel: null, mode: null, busy: false, flash: '', pileView: null, pick: null, picks: [], replaceFor: null, deckPick: null, urlSeed: null });
+const app = (DT.app = { lobbyTab: 'main', lsel: null, prep: null, prepSeed: null, bagView: false, bagSel: null, bagRev: 0, view: 'lobby', state: null, sel: null, mode: null, busy: false, flash: '', pileView: null, pick: null, picks: [], replaceFor: null, deckPick: null, urlSeed: null });
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   let flashTimer = null;
 
@@ -42,7 +42,8 @@ const app = (DT.app = { bagView: false, bagSel: null, bagRev: 0, view: 'lobby', 
       if (e.type === 'victory') meta.combatsWon++;
       if (e.type === 'runEnd') {
         meta.coins += e.banked;           // 판 종료: 보존된 코인을 영구 저장
-        meta.stash = (meta.stash || []).concat(e.keptItems || []);   // 남은 아이템은 창고로
+        (e.keptItems || []).forEach((it) => DT.lobby.stashAdd(meta, it));   // 남은 아이템은 창고로
+        DT.lobby.markShopStale(meta);                                       // 로비 귀환: 상점 무료 갱신
         meta.runs++;
         if (e.how === 'clear') meta.clears++;
         meta.bestFloor = Math.max(meta.bestFloor, e.floor);
@@ -60,15 +61,26 @@ const app = (DT.app = { bagView: false, bagSel: null, bagRev: 0, view: 'lobby', 
 
   function toLobby() {
     app.view = 'lobby';
+    app.lobbyTab = 'main';
     app.pileView = null; app.deckPick = null;
     render();
   }
 
   // 로비에서 영구 데이터 변경
-  function metaChange(fn) {
+  function metaChange(fn, failMsg) {
     const meta = DT.save.loadMeta();
-    if (!fn(meta)) return flash('코인이 부족합니다');
+    if (!fn(meta)) return flash(failMsg || '코인이 부족합니다');
     DT.save.saveMeta(meta);
+    render();
+  }
+
+  // 로비 탭 열기 (상점은 열 때 진열을 확정해 저장)
+  function openTab(tab) {
+    app.view = 'lobby';
+    app.lobbyTab = tab;
+    app.lsel = null;
+    if (tab === 'shop') { const m = DT.save.loadMeta(); DT.lobby.ensureShop(m); DT.save.saveMeta(m); }
+    if (tab === 'prep' && !app.prep) app.prep = { picks: [], equip: {}, bag: [], slot: null };
     render();
   }
 
@@ -212,7 +224,61 @@ const app = (DT.app = { bagView: false, bagSel: null, bagRev: 0, view: 'lobby', 
       case 'lobby': return toLobby();
       case 'go': {
         if (runActive()) { app.view = 'run'; commit(); if (s.screen === 'combat' && (s.phase === 'ally' || s.phase === 'enemy') && !app.busy) runAutoPhases(); return; }
-        return newRun(app.urlSeed);
+        return openTab('prep');
+      }
+      case 'ltab': return openTab(data.tab);
+      case 'shop-buy': return metaChange((m) => DT.lobby.buy(m, +data.i), '코인이 부족하거나 창고가 가득 찼습니다');
+      case 'shop-pin': return metaChange((m) => DT.lobby.togglePin(m, +data.i));
+      case 'shop-refresh': return metaChange((m) => DT.lobby.refreshShop(m));
+      case 'lsel': app.lsel = app.lsel === data.uid ? null : data.uid; return render();
+      case 'sell': {
+        const it = DT.save.loadMeta().stash.find((x) => x.uid === data.uid);
+        if (!it || !window.confirm(`${DT.items.def(it.id).name}을(를) 🪙 ${DT.lobby.sellPrice(it)}에 팔까요?`)) return;
+        app.lsel = null;
+        return metaChange((m) => DT.lobby.sell(m, data.uid));
+      }
+      case 'forge': return metaChange((m) => DT.lobby.forge(m, data.uid));
+      // 출발 준비
+      case 'prep-comp': {
+        const p = app.prep;
+        const max = DT.lobby.companionPicks(DT.save.loadMeta());
+        if (p.picks.includes(data.id)) { p.picks = p.picks.filter((k) => k !== data.id); delete p.equip[data.id]; }
+        else {
+          if (p.picks.length >= max) { const out = p.picks.shift(); delete p.equip[out]; }
+          p.picks.push(data.id);
+        }
+        return render();
+      }
+      case 'prep-slot': app.prep.slot = { who: data.who, slot: data.slot }; return render();
+      case 'prep-slot-close': app.prep.slot = null; return render();
+      case 'prep-put': {
+        const p = app.prep;
+        const { who, slot } = p.slot;
+        for (const sl of Object.values(p.equip)) for (const k of Object.keys(sl)) if (sl[k] === data.uid) delete sl[k];
+        p.bag = p.bag.filter((u) => u !== data.uid);
+        (p.equip[who] = p.equip[who] || {})[slot] = data.uid;
+        p.slot = null;
+        return render();
+      }
+      case 'prep-clear': delete (app.prep.equip[data.who] || {})[data.slot]; app.prep.slot = null; return render();
+      case 'prep-bag': {
+        const p = app.prep;
+        if (p.bag.includes(data.uid)) p.bag = p.bag.filter((u) => u !== data.uid);
+        else if (p.bag.length < DT.config.items.bag) p.bag.push(data.uid);
+        else return flash('가방이 가득 찼습니다');
+        return render();
+      }
+      case 'prep-go': {
+        if (!app.prep.picks.length) return flash('동료를 1명 이상 고르세요');
+        const meta = DT.save.loadMeta();
+        const loadout = DT.lobby.takeLoadout(meta, app.prep);
+        DT.save.saveMeta(meta);
+        const seed = app.prepSeed || app.urlSeed || DT.rng.randomSeed();
+        app.prep = null; app.prepSeed = null; app.lobbyTab = 'main';
+        app.state = DT.run.start(seed, meta, loadout);
+        app.view = 'run';
+        app.sel = null; app.mode = null; app.busy = false; app.pileView = null; app.pick = null; app.picks = []; app.bagView = false;
+        return commit();
       }
       case 'abandon': {
         if (!runActive()) return;
@@ -296,7 +362,7 @@ const app = (DT.app = { bagView: false, bagSel: null, bagRev: 0, view: 'lobby', 
       case 'heist-skip': return afterChoice(DT.run.skipHeist(s));
       case 'reward-take': return app.pick && afterChoice(DT.run.takeReward(s, app.pick));
       case 'reward-skip': return afterChoice(DT.run.skipReward(s));
-      case 'retry': return newRun(s.seed);
+      case 'retry': app.prepSeed = s.seed; return openTab('prep');
       case 'new-seed': return newRun();
       case 'to-lobby': return toLobby();
       case 'info': return flash(data.msg);
