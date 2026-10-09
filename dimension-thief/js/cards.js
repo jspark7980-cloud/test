@@ -19,6 +19,20 @@ DT.cards = {
     return def.effects.some((e) => DT.effects.toOf(e) === 'opponent');
   },
 
+  // 방어도·회복 등 아군 1명을 지정할 수 있는 카드 (지정 안 하면 자신)
+  allyTargetable(def) {
+    return def.effects.some((e) => DT.effects.toOf(e) === 'ally');
+  },
+
+  // 동료를 반드시 지정해야 하는 카드 (예: 후퇴)
+  needsCompanion(def) {
+    return def.effects.some((e) => e.type === 'order' && DT.effects.orders[e.order] && DT.effects.orders[e.order].allyChoice === 'companion');
+  },
+
+  isAttack(def) {
+    return def.effects.some((e) => e.type === 'damage' && DT.effects.toOf(e) !== 'self');
+  },
+
   // 추가 선택이 필요한 효과(예: 슬쩍 → 공개 카드 선택)
   choiceOf(def) {
     for (const e of def.effects) {
@@ -48,7 +62,8 @@ DT.cards = {
       (c.effects || []).forEach((e) => {
         if (!DT.effects.handlers[e.type]) console.warn('[카드]', id, '알 수 없는 효과:', e.type);
         if (e.type === 'status' && !D.statuses[e.status]) console.warn('[카드]', id, '알 수 없는 상태:', e.status);
-        if (e.to && !['self', 'opponent', 'allOpponents'].includes(e.to)) console.warn('[카드]', id, '알 수 없는 대상:', e.to);
+        if (e.to && !['self', 'opponent', 'allOpponents', 'ally'].includes(e.to)) console.warn('[카드]', id, '알 수 없는 대상:', e.to);
+        if (e.type === 'order' && !DT.effects.orders[e.order]) console.warn('[카드]', id, '알 수 없는 지휘:', e.order);
       });
     }
     for (const [dim, list] of Object.entries(D.encounters)) {
@@ -56,6 +71,10 @@ DT.cards = {
     }
     for (const [id, en] of Object.entries(D.enemies)) {
       en.deck.forEach((cid) => { if (!D.cards[cid]) console.warn('[적]', id, '덱에 없는 카드:', cid); });
+      (en.companionDeck || []).forEach((cid) => { if (!D.cards[cid]) console.warn('[적]', id, '동료 덱에 없는 카드:', cid); });
+    }
+    for (const [id, c] of Object.entries(D.companions || {})) {
+      c.deck.forEach((cid) => { if (!D.cards[cid]) console.warn('[동료]', id, '덱에 없는 카드:', cid); });
     }
   },
 };

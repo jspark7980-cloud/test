@@ -1,12 +1,21 @@
-// 한 판(런) 진행: 전투 → 강탈 → 카드 보상 → 다음 전투.
+// 한 판(런) 진행: 동료 선택 → 전투 → 강탈(카드 또는 동료 영입) → 카드 보상 → 다음 전투.
 // 3단계에서 맵이 생기면 nextCombat 을 맵 노드 선택으로 바꾼다.
 window.DT = window.DT || {};
 
 DT.run = {
   start(seed) {
     const s = DT.state.createRun(seed);
-    DT.run.nextCombat(s);
+    s.screen = 'pickCompanion';
+    s.starterOptions = Object.keys(DT.data.companions);
     return s;
+  },
+
+  pickCompanion(state, kind) {
+    if (state.screen !== 'pickCompanion' || !state.starterOptions.includes(kind)) return false;
+    DT.party.add(state, kind, false);
+    state.starterOptions = null;
+    DT.run.nextCombat(state);
+    return true;
   },
 
   pickEncounter(state) {
@@ -37,8 +46,11 @@ DT.run = {
       return true;
     }
     state.stats.kills += state.enemies.length;
-    const groups = state.enemies.filter((e) => e.executed).map((e) => ({
+    DT.party.removeFallen(state);
+    const seen = new Set();
+    const groups = state.enemies.filter((e) => e.executed && !seen.has(e.kind) && seen.add(e.kind)).map((e) => ({
       enemyName: e.name, kind: e.kind, options: DT.reward.heistOptions(e.kind),
+      role: DT.data.enemies[e.kind].role || null,
     }));
     state.heist = groups.length ? { picksLeft: Math.min(DT.config.heist.maxPerCombat, groups.length), groups } : null;
     state.reward = { options: DT.reward.cardChoices(state) };
@@ -62,6 +74,25 @@ DT.run = {
     h.picksLeft--;
     if (h.picksLeft <= 0 || !h.groups.length) { state.heist = null; state.screen = 'reward'; }
     return true;
+  },
+
+  // 강탈한 적을 동료로 영입(역할 계승). 슬롯이 가득 차면 replaceId(내보낼 동료)가 필요하다.
+  recruit(state, kind, replaceId) {
+    const h = state.heist;
+    if (state.screen !== 'heist' || !h) return { ok: false };
+    const gi = h.groups.findIndex((g) => g.kind === kind && g.role);
+    if (gi < 0) return { ok: false };
+    if (DT.party.slotsFree(state) <= 0 && !replaceId) return { ok: false, needReplace: true };
+    const c = DT.party.add(state, kind, true, replaceId);
+    if (!c) return { ok: false, needReplace: true };
+    h.groups.splice(gi, 1);
+    state.wanted++;
+    state.stats.heists++;
+    state.stats.recruits = (state.stats.recruits || 0) + 1;
+    DT.state.emit(state, { type: 'recruit', kind, id: c.id });
+    h.picksLeft--;
+    if (h.picksLeft <= 0 || !h.groups.length) { state.heist = null; state.screen = 'reward'; }
+    return { ok: true };
   },
 
   skipHeist(state) {

@@ -6,7 +6,8 @@
 //   cost:    에너지 비용
 //   origin:  출신 차원 id (data/dimensions.js)
 //   effects: [{ type, value, to?, ... }]  — js/effects.js 에 등록된 효과 타입
-//            to: 'self' | 'opponent' | 'allOpponents' (생략 시 효과별 기본값)
+//            to: 'self' | 'opponent' | 'allOpponents' | 'ally' (생략 시 효과별 기본값)
+//            방어도·회복은 기본 'ally': 아군 1명을 탭해 지정, 지정 안 하면 자신
 //   rarity:  'common' | 'uncommon' | 'rare' — 있으면 전투 보상 후보.
 //            없으면 적 전용 카드(슬쩍·강탈로만 얻음)
 //   exhaust: true 면 사용 후 소멸(이번 전투에서 제외)
@@ -43,6 +44,16 @@ DT.data.cards = {
   adrenaline:   { name: '아드레날린', type: 'skill',  cost: 0, origin: 'thief', icon: '💉', rarity: 'rare',
                   effects: [{ type: 'energy', value: 1 }, { type: 'draw', value: 2 }], exhaust: true },
 
+  // ── 지휘 카드 (도둑 전용, 동료가 있어야 의미 있음) ──
+  cmd_focus:   { name: '표적 지정', type: 'skill',  cost: 0, origin: 'thief', icon: '🎯', rarity: 'uncommon',
+                 effects: [{ type: 'order', order: 'focus' }] },
+  cmd_pincer:  { name: '협공',     type: 'attack', cost: 1, origin: 'thief', icon: '🤝', rarity: 'common',
+                 effects: [{ type: 'damage', value: 5 }, { type: 'order', order: 'assist' }] },
+  cmd_cover:   { name: '엄호 명령', type: 'skill',  cost: 1, origin: 'thief', icon: '🫡', rarity: 'uncommon',
+                 effects: [{ type: 'order', order: 'cover' }, { type: 'draw', value: 1 }] },
+  cmd_retreat: { name: '후퇴',     type: 'skill',  cost: 0, origin: 'thief', icon: '↩️', rarity: 'common',
+                 effects: [{ type: 'order', order: 'retreat' }, { type: 'block', value: 5 }] },
+
   // ── 중세 왕국 보상 카드 (방어·회복) ──
   md_shield_wall: { name: '방패벽',   type: 'skill',  cost: 2, origin: 'medieval', icon: '🏰', rarity: 'uncommon',
                     effects: [{ type: 'block', value: 13 }] },
@@ -71,7 +82,7 @@ DT.data.cards = {
 
   // ── 적 전용: 석궁병 ──
   ar_bolt:   { name: '석궁 사격', type: 'attack', cost: 1, origin: 'medieval', icon: '🏹',
-               effects: [{ type: 'damage', value: 8 }] },
+               effects: [{ type: 'damage', value: 9 }] },
   ar_poison: { name: '독화살',    type: 'attack', cost: 1, origin: 'medieval', icon: '🐍',
                effects: [{ type: 'damage', value: 3 }, { type: 'status', status: 'poison', value: 3 }] },
   ar_aim:    { name: '조준',      type: 'skill',  cost: 1, origin: 'medieval', icon: '🎯',
@@ -81,19 +92,41 @@ DT.data.cards = {
 
   // ── 적 전용: 수도사 ──
   mk_staff:  { name: '지팡이질', type: 'attack', cost: 1, origin: 'medieval', icon: '🦯',
-               effects: [{ type: 'damage', value: 7 }] },
+               effects: [{ type: 'damage', value: 8 }] },
   mk_prayer: { name: '기도',     type: 'skill',  cost: 1, origin: 'medieval', icon: '🙏',
                effects: [{ type: 'heal', value: 4 }, { type: 'block', value: 3 }] },
   mk_curse:  { name: '파문',     type: 'skill',  cost: 1, origin: 'medieval', icon: '🕯️',
                effects: [{ type: 'status', status: 'weak', value: 2 }, { type: 'status', status: 'vulnerable', value: 1 }] },
   mk_bless:  { name: '축복',     type: 'skill',  cost: 1, origin: 'medieval', icon: '✨',
-               effects: [{ type: 'status', status: 'strength', value: 2, to: 'self' }] },
+               effects: [{ type: 'status', status: 'strength', value: 2, to: 'ally' }] },
 
   // ── 적 전용: 종자 ──
   sq_poke:  { name: '서툰 찌르기', type: 'attack', cost: 1, origin: 'medieval', icon: '🥢',
-              effects: [{ type: 'damage', value: 6 }] },
+              effects: [{ type: 'damage', value: 7 }] },
   sq_guard: { name: '막기',       type: 'skill',  cost: 1, origin: 'medieval', icon: '🪣',
               effects: [{ type: 'block', value: 5 }] },
-  sq_taunt: { name: '도발',       type: 'skill',  cost: 1, origin: 'medieval', icon: '📣',
+  sq_taunt: { name: '조롱',       type: 'skill',  cost: 1, origin: 'medieval', icon: '📣',
               effects: [{ type: 'status', status: 'vulnerable', value: 1 }, { type: 'block', value: 2 }] },
+
+  // ── 동료 전용 (시작 동료) ──
+  cp_guard:  { name: '방패 막기',  type: 'skill',  cost: 1, origin: 'thief', icon: '🛡️',
+               effects: [{ type: 'block', value: 8 }] },
+  cp_taunt:  { name: '도발 외침',  type: 'skill',  cost: 1, origin: 'thief', icon: '📢',
+               effects: [{ type: 'status', status: 'taunt', value: 1, to: 'self' }, { type: 'block', value: 6, to: 'self' }] },
+  cp_bash:   { name: '방패 치기',  type: 'attack', cost: 1, origin: 'thief', icon: '🔰',
+               effects: [{ type: 'damage', value: 6 }] },
+  cp_mend:   { name: '약초 치료',  type: 'skill',  cost: 1, origin: 'thief', icon: '🌿',
+               effects: [{ type: 'heal', value: 8 }] },
+  cp_tonic:  { name: '강장제',     type: 'skill',  cost: 1, origin: 'thief', icon: '🧃',
+               effects: [{ type: 'status', status: 'strength', value: 2, to: 'ally' }] },
+  cp_charm:  { name: '보호 부적',  type: 'skill',  cost: 1, origin: 'thief', icon: '🧿',
+               effects: [{ type: 'block', value: 7 }] },
+  cp_dart:   { name: '마비 침',    type: 'attack', cost: 1, origin: 'thief', icon: '📌',
+               effects: [{ type: 'damage', value: 5 }, { type: 'status', status: 'weak', value: 1 }] },
+  cp_cleave: { name: '베어내기',   type: 'attack', cost: 1, origin: 'thief', icon: '🪓',
+               effects: [{ type: 'damage', value: 7 }] },
+  cp_lunge:  { name: '급소 찌르기', type: 'attack', cost: 1, origin: 'thief', icon: '🗡️',
+               effects: [{ type: 'damage', value: 10 }] },
+  cp_parry:  { name: '받아넘기기', type: 'skill',  cost: 1, origin: 'thief', icon: '⚔️',
+               effects: [{ type: 'block', value: 5, to: 'self' }, { type: 'damage', value: 3 }] },
 };

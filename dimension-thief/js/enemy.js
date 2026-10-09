@@ -1,4 +1,5 @@
 // 적: 자기 덱과 손패를 가지고, 손패 일부를 공개하며, 매 턴 1~2장 사용.
+// 누구를 노릴지는 js/ai.js 가 정한다(진형·도발).
 window.DT = window.DT || {};
 
 DT.enemy = {
@@ -7,12 +8,12 @@ DT.enemy = {
     if (!d) throw new Error('알 수 없는 적: ' + kind);
     const e = {
       id: 'e' + (state.enemies.length + 1), kind,
-      name: d.name, icon: d.icon, origin: d.origin,
+      name: d.name, icon: d.icon, origin: d.origin, row: d.row || 'front',
       hp: d.hp, maxHp: d.hp, block: 0, statuses: {},
       handSize: d.handSize, reveal: d.reveal, actions: d.actions.slice(),
       drawPile: d.deck.map((id) => DT.state.makeCard(state, id)),
       hand: [], discardPile: [], exhaustPile: [],
-      intent: 0, pending: 0, lastPlayed: null, dead: false,
+      intent: 0, pending: 0, targetId: null, lastPlayed: null, dead: false,
     };
     e.maxHand = Math.max(10, d.handSize);
     DT.rng.shuffle(state, e.drawPile);
@@ -32,12 +33,13 @@ DT.enemy = {
     }
   },
 
-  // 다음 턴에 쓸 장수 결정(플레이어에게 표시)
+  // 다음 턴에 쓸 장수와 노릴 대상 결정(플레이어에게 표시)
   plan(state, e) {
     e.intent = Math.min(DT.rng.int(state, e.actions[0], e.actions[1]), e.hand.length);
+    DT.ai.enemyPlanTarget(state, e);
   },
 
-  // 사용할 카드 고르기. 1단계는 손패에서 무작위.
+  // 사용할 카드 고르기: 손패에서 무작위
   choose(state, e) {
     return DT.rng.pick(state, e.hand);
   },
@@ -46,11 +48,15 @@ DT.enemy = {
     const card = DT.enemy.choose(state, e);
     e.pending--;
     if (!card) return;
+    const def = DT.cards.def(card.id);
+    const tgt = DT.ai.enemyActTarget(state, e);
+    const ally = DT.ai.enemyAlly(state, e, def);
     DT.deck.removeFromHand(e, card.uid);
-    DT.state.emit(state, { type: 'play', actor: e.id, card: Object.assign({}, card) });
-    DT.state.log(state, `${e.name}: [${DT.cards.def(card.id).name}]`);
-    DT.effects.resolveCard(state, e.id, 'player', card, null);
+    DT.state.emit(state, { type: 'play', actor: e.id, card: Object.assign({}, card), target: DT.cards.isAttack(def) ? tgt : null });
+    const tgtName = DT.cards.isAttack(def) ? ` → ${DT.state.actor(state, tgt).name}` : '';
+    DT.state.log(state, `${e.name}: [${def.name}]${tgtName}`);
+    DT.effects.resolveCard(state, e.id, tgt, card, null, ally);
     DT.deck.afterPlay(state, e, card);
-    e.lastPlayed = card.id;   // 복제(3단계 이후)용
+    e.lastPlayed = card.id;
   },
 };

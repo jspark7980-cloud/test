@@ -2,7 +2,7 @@
 window.DT = window.DT || {};
 
 (function () {
-  const app = (DT.app = { state: null, sel: null, mode: null, busy: false, flash: '', pileView: null, pick: null });
+  const app = (DT.app = { state: null, sel: null, mode: null, busy: false, flash: '', pileView: null, pick: null, replaceFor: null });
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   let flashTimer = null;
 
@@ -28,7 +28,7 @@ window.DT = window.DT || {};
 
   function recordMeta(s, events) {
     const relevant = events.filter((e) =>
-      (e.type === 'steal' || e.type === 'copy') ? e.by === 'player' : (e.type === 'heist' || e.type === 'victory'));
+      (e.type === 'steal' || e.type === 'copy') ? e.by === 'player' : (e.type === 'heist' || e.type === 'victory' || e.type === 'recruit'));
     const finished = s.screen === 'over' && !s.metaRecorded;
     if (!relevant.length && !finished) return;
     const meta = DT.save.loadMeta();
@@ -36,6 +36,7 @@ window.DT = window.DT || {};
       if (e.type === 'steal') { meta.steals++; meta.codex[e.cardId] = true; }   // 도감
       if (e.type === 'heist') { meta.heists++; meta.codex[e.cardId] = true; }
       if (e.type === 'copy') meta.copies++;
+      if (e.type === 'recruit') { meta.heists++; meta.recruits = (meta.recruits || 0) + 1; }
       if (e.type === 'victory') meta.combatsWon++;
     });
     if (finished) {
@@ -48,14 +49,23 @@ window.DT = window.DT || {};
 
   function newRun(seed) {
     app.state = DT.run.start(seed || DT.rng.randomSeed());
-    app.sel = null; app.mode = null; app.busy = false; app.pileView = null; app.pick = null;
+    app.sel = null; app.mode = null; app.busy = false; app.pileView = null; app.pick = null; app.replaceFor = null;
     commit();
   }
 
-  async function runEnemyTurn() {
+  // 턴 종료 후 자동 진행: 동료 행동 → 적 행동 → 다음 내 턴
+  async function runAutoPhases() {
     const s = app.state;
     app.busy = true;
     render();
+    while (app.state === s && s.phase === 'ally') {
+      await wait(DT.config.ui.allyActDelay);
+      if (app.state !== s) return;
+      if (!DT.combat.allyAct(s)) break;
+      commit();
+    }
+    if (app.state !== s) return;
+    if (s.phase === 'ally') { DT.combat.beginEnemyPhase(s); commit(); }
     await wait(DT.config.ui.enemyTurnStartDelay);
     while (app.state === s && s.phase === 'enemy') {
       if (!DT.combat.enemyAct(s)) break;
@@ -73,8 +83,8 @@ window.DT = window.DT || {};
   const selCard = () => app.sel && app.state.player.hand.find((c) => c.uid === app.sel);
   const deselect = () => { app.sel = null; app.mode = null; };
 
-  function play(uid, tgtId, choice) {
-    const r = DT.combat.playCard(app.state, uid, tgtId, choice);
+  function play(uid, tgtId, choice, allyId) {
+    const r = DT.combat.playCard(app.state, uid, tgtId, choice, allyId);
     deselect();
     if (!r.ok) { flash(r.reason); return; }
     commit();
@@ -84,9 +94,13 @@ window.DT = window.DT || {};
     if (!canInteract()) return;
     if (app.sel === uid) {
       const def = DT.cards.def(selCard().id);
-      if (!DT.cards.needsTarget(def)) return play(uid, null, null);
-      deselect();
-      return render();
+      if (DT.cards.needsTarget(def)) { deselect(); return render(); }
+      if (DT.cards.needsCompanion(def)) {
+        const comps = DT.party.companions(app.state);
+        if (comps.length === 1) return play(uid, null, null, comps[0].id);
+        return flash('동료를 탭하세요');
+      }
+      return play(uid, null, null, 'player');
     }
     const chk = DT.combat.canPlay(app.state, uid);
     if (!chk.ok) return flash(chk.reason);
@@ -115,11 +129,17 @@ window.DT = window.DT || {};
     tapEnemy(owner);
   }
 
-  function tapPlayer() {
+  // 아군(도둑·동료) 탭: 방어·회복 카드를 그 아군에게, 후퇴는 동료에게
+  function tapAlly(id) {
     if (!canInteract() || !app.sel) return;
     const def = DT.cards.def(selCard().id);
-    if (!DT.cards.needsTarget(def)) play(app.sel, null, null);
-    else flash('대상 적을 탭하세요');
+    if (DT.cards.needsTarget(def)) return flash('대상 적을 탭하세요');
+    if (DT.cards.needsCompanion(def)) {
+      if (id === 'player') return flash('동료를 탭하세요');
+      return play(app.sel, null, null, id);
+    }
+    if (DT.cards.allyTargetable(def) || id === 'player') return play(app.sel, null, null, id);
+    flash('이 카드는 나에게만 쓸 수 있습니다 (카드를 한 번 더 탭)');
   }
 
   function endTurn() {
@@ -127,7 +147,7 @@ window.DT = window.DT || {};
     deselect();
     DT.combat.endPlayerTurn(app.state);
     commit();
-    if (app.state.phase === 'enemy') runEnemyTurn();
+    if (app.state.phase === 'ally') runAutoPhases();
   }
 
   // ── 보상 입력 ──
@@ -148,7 +168,19 @@ window.DT = window.DT || {};
       case 'hand': return tapHand(data.uid);
       case 'enemy': return tapEnemy(data.id);
       case 'reveal': return tapReveal(data.owner, data.uid);
-      case 'player': return tapPlayer();
+      case 'ally': return tapAlly(data.id);
+      case 'start-run': return app.pick && afterChoice(DT.run.pickCompanion(s, app.pick));
+      case 'recruit': {
+        const r = DT.run.recruit(s, data.kind);
+        if (r.needReplace) { app.replaceFor = data.kind; return render(); }
+        return afterChoice(r.ok);
+      }
+      case 'replace': {
+        const kind = app.replaceFor;
+        app.replaceFor = null;
+        return afterChoice(DT.run.recruit(s, kind, data.id).ok);
+      }
+      case 'cancel-replace': app.replaceFor = null; return render();
       case 'end-turn': return endTurn();
       case 'pile': app.pileView = data.pile; return render();
       case 'close-overlay': app.pileView = null; return render();
@@ -195,7 +227,7 @@ window.DT = window.DT || {};
     if (saved && (!urlSeed || urlSeed === String(saved.seed))) {
       app.state = saved;
       commit();
-      if (saved.screen === 'combat' && saved.phase === 'enemy') runEnemyTurn();
+      if (saved.screen === 'combat' && (saved.phase === 'ally' || saved.phase === 'enemy')) runAutoPhases();
     } else {
       newRun(urlSeed);
     }
