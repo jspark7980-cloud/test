@@ -60,6 +60,36 @@ window.DT = window.DT || {};
     return true;
   };
 
+  // ── 차원·깊이 ──
+  R.dimOrder = (state) => DT.data.dimensions[state.dimension].order || 1;
+  // 깊이: 1차원 1층 = 1, 2차원 1층 = 13 …
+  R.depth = (state) => (R.dimOrder(state) - 1) * cfg().map.floors + (state.floor || 0);
+  R.depthLabel = function (depth) {
+    const F = cfg().map.floors;
+    if (!depth) return '-';
+    const order = Math.min(4, Math.floor((depth - 1) / F) + 1);
+    const dim = Object.values(DT.data.dimensions).find((d) => d.order === order);
+    return `${dim ? dim.name : order + '차원'} ${depth - (order - 1) * F}층`;
+  };
+
+  // 보스 격파 → 다음 차원
+  R.nextDimension = function (state) {
+    if (state.screen !== 'dimClear') return false;
+    const next = DT.data.dimensions[state.dimension].next;
+    state.dimension = next;
+    state.instabilityMod = 0;          // 차원 안정제는 그 차원 동안만
+    state.floor = 0;
+    state.pos = null;
+    state.lastEncounter = null;
+    state.map = DT.map.generate(state);
+    state.freeNaturalize = cfg().dimension.freeNaturalize;
+    for (const a of DT.party.living(state)) a.hp = Math.min(a.maxHp, a.hp + Math.round(a.maxHp * cfg().dimension.travelHeal));
+    state.screen = 'map';
+    log(state, `── ${DT.data.dimensions[next].name} ──`);
+    DT.state.emit(state, { type: 'dimension', dimension: next });
+    return true;
+  };
+
   // ── 차원 불안정 ──
   // 도둑 덱(영구)에서 현재 차원과 출신이 다른 카드 수(중립 출신 제외) + 안정제 보정
   R.instability = function (state) {
@@ -87,6 +117,13 @@ window.DT = window.DT || {};
     const from = DT.data.dimensions[c.origin].name;
     c.origin = state.dimension;
     log(state, `[${DT.cards.nameOf(c)}] 귀화: ${from} → ${DT.data.dimensions[state.dimension].name}`);
+    return true;
+  };
+
+  // 차원 이동 직후 받은 무료 귀화(맵에서 언제든)
+  R.freeNaturalize = function (state, uid) {
+    if (state.screen !== 'map' || !(state.freeNaturalize > 0) || !R.naturalize(state, uid)) return false;
+    state.freeNaturalize--;
     return true;
   };
 
@@ -154,11 +191,12 @@ window.DT = window.DT || {};
     const kind = state.combatKind || 'normal';
     const G = cfg().gold;
     const range = G[kind === 'normal' ? 'combat' : kind];
-    const gold = Math.round((DT.rng.int(state, range[0], range[1]) + state.wanted * G.perWanted) * (1 + DT.relics.fx(state, 'goldMult')));
+    const gold = Math.round((DT.rng.int(state, range[0], range[1]) + state.wanted * G.perWanted)
+      * (1 + DT.relics.fx(state, 'goldMult')) * (G.dimMult[R.dimOrder(state) - 1] || 1));
     const C = cfg().coins;
     const mult = kind === 'boss' ? C.bossMult : kind === 'elite' ? C.eliteMult : 1;
     const itemMult = (1 + DT.items.partyFx(state, 'coinMult')) * (DT.items.partyFx(state, 'greed') ? 2 : 1);
-    const coins = Math.round((C.base + state.floor * C.perFloor) * mult * itemMult);
+    const coins = Math.round((C.base + R.depth(state) * C.perFloor) * mult * itemMult);
     state.gold += gold;
     state.runCoins += coins;
     const drops = DT.items.dropsFor(state, kind);
@@ -233,11 +271,13 @@ window.DT = window.DT || {};
   };
 
   // ── 카드 보상 ──
+  // 보스 보상 뒤: 다음 차원이 있으면 차원 이동 화면, 마지막(지옥)이면 클리어
   function afterReward(state) {
     const fromBoss = state.reward && state.reward.kind === 'boss';
     state.reward = null;
-    if (fromBoss) R.endRun(state, 'clear');
-    else state.screen = 'map';
+    if (!fromBoss) state.screen = 'map';
+    else if (DT.data.dimensions[state.dimension].next) state.screen = 'dimClear';
+    else R.endRun(state, 'clear');
   }
 
   R.takeReward = function (state, cardId) {
@@ -504,11 +544,11 @@ window.DT = window.DT || {};
     const keep = cfg().coins.keep[how];
     const banked = Math.floor(state.runCoins * keep);
     const items = DT.items.settle(state, how);
-    state.runEnd = { how, runCoins: state.runCoins, banked, keep, floor: state.floor, items };
+    state.runEnd = { how, runCoins: state.runCoins, banked, keep, floor: state.floor, depth: R.depth(state), dimension: state.dimension, items };
     state.screen = 'runEnd';
     state.phase = 'over';
     const words = { mapEscape: '맵에서 도주', combatEscape: '전투 중 도주', death: '사망', clear: '차원 클리어', scroll: '귀환 두루마리' };
     log(state, `판 종료: ${words[how]} · 코인 ${banked} 보존 · 아이템 ${items.kept.length}개 보존, ${items.lost.length}개 분실`);
-    DT.state.emit(state, { type: 'runEnd', how, banked, floor: state.floor, keptItems: items.kept });
+    DT.state.emit(state, { type: 'runEnd', how, banked, floor: R.depth(state), keptItems: items.kept });
   };
 })();

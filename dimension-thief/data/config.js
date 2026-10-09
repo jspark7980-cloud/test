@@ -42,9 +42,14 @@ DT.config = {
     start: 40,
     combat: [12, 18], elite: [30, 40], boss: [60, 80],
     perWanted: 3,                 // 수배도 1당 전투 골드 +3
+    dimMult: [1, 1.25, 1.5, 1.75], // 차원(1~4)별 전투 골드 배율
   },
 
-  // 판 밖의 화폐(코인): 승리 시 base + 층 × perFloor, 정예·보스 배수
+  // 차원 이동(I단계): 보스를 쓰러뜨리면 다음 차원 1층부터. 이동할 때 아군 전원 최대 체력의 travelHeal 회복
+  // freeNaturalize: 새 차원에 들어가면 맵에서 쓸 수 있는 무료 귀화 횟수(다음 차원으로 넘어가면 다시 이 값)
+  dimension: { travelHeal: 0.3, freeNaturalize: 3 },
+
+  // 판 밖의 화폐(코인): 승리 시 base + 깊이 × perFloor, 정예·보스 배수 (깊이 = 이전 차원 층 수 + 지금 층)
   coins: {
     base: 8, perFloor: 2, eliteMult: 2, bossMult: 5,
     // 판 종료 방식별 보존 비율 (scroll: 귀환 두루마리)
@@ -115,8 +120,8 @@ DT.config = {
   merchant: { otherRatio: 0.3 },              // 전리품이 아닌 아이템은 상점가의 30%에 판매
   forge: { max: 3, costMult: [0.5, 1, 1.5], perPlus: 0.5 },   // +1당 수치형 효과 +50%
 
-  ui: { enemyTurnStartDelay: 500, enemyActDelay: 1000, allyActDelay: 850 },
+  ui: { enemyTurnStartDelay: 500, enemyActDelay: 1000, allyActDelay: 850, crowdSpeed: 0.55 },
 
   // 지금까지 만들어진 진행 단계(DESIGN.md 12장). 아직 없는 단계의 로비 강화는 잠긴다.
-  builtStages: 'ABCDEFGH',
+  builtStages: 'ABCDEFGHI',
 };

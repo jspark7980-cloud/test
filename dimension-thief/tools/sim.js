@@ -79,6 +79,12 @@ function scorePlay(s, c, def, t, need, alive) {
   if (def.effects.some((x) => x.type === 'status' && x.to !== 'self')) score += 3;
   if (def.effects.some((x) => x.type === 'status' && x.to === 'self')) score += 4;
   if (def.effects.some((x) => x.type === 'draw' || x.type === 'energy')) score += 4;
+  const lock = def.effects.find((x) => x.type === 'lock');
+  if (lock) score += (lock.to === 'allOpponents' ? alive.length : t ? 1 : 0) * lock.value * 2;
+  const det = def.effects.find((x) => x.type === 'detonate');
+  if (det && t) score += Math.min((t.statuses.poison || 0) * det.value, t.hp);
+  const lose = def.effects.find((x) => x.type === 'loseHp');
+  if (lose) { if (s.player.hp <= lose.value + 8) return null; score -= lose.value * 0.6; }
   if (def.effects.some((x) => x.type === 'steal')) {
     if (!t) return null;
     const rv = t.hand.filter((x) => x.revealed);
@@ -134,7 +140,8 @@ function fight(s) {
 // ── 1) 동료별 × 전투 구성별: 시작 덱·최대 체력으로 N번씩 ──
 const comps = SOLO ? [null] : Object.keys(DT.data.companions);
 const rows = [];
-for (const comp of comps) for (const [dim, kinds] of Object.entries(DT.data.encounters)) {
+// 시작 덱으로 비교할 수 있는 1차원만 (2~4차원은 아래 한 판 시뮬레이션에서 차원별로 집계)
+for (const comp of comps) for (const [dim, kinds] of Object.entries(DT.data.encounters).filter(([d]) => d === 'medieval')) {
   for (const enc of Object.entries(kinds).flatMap(([k, l]) => l.map((e) => Object.assign({ kind: k }, e)))) {
     let wins = 0, turns = 0, hpLeft = 0, heists = 0, steals = 0, compDeaths = 0;
     for (let i = 0; i < N; i++) {
@@ -167,6 +174,9 @@ function choosePath(s, R) {
   };
   return opts.map((n) => ({ n, v: score(n) + R() })).sort((a, b) => b.v - a.v)[0].n.id;
 }
+const DIMS = ['medieval', 'cyber', 'abyss', 'hell'];
+const instIn = {};
+const reach = { medieval: 0, cyber: 0, abyss: 0, hell: 0 }, cleared = { medieval: 0, cyber: 0, abyss: 0, hell: 0 };
 const runs = { clear: 0, death: 0, deathFloors: [], turns: 0, fights: 0, coins: 0, wanted: 0, compsAtEnd: 0, kept: 0, lost: 0 };
 for (let i = 0; i < N; i++) {
   let rs = (i * 2654435761) >>> 0;
@@ -174,7 +184,8 @@ for (let i = 0; i < N; i++) {
   const s = DT.run.start('SIMRUN-' + i);
   if (SOLO) { s.starterOptions = ['shieldbearer']; }
   let guard = 0;
-  while (s.screen !== 'runEnd' && guard++ < 400) {
+  reach.medieval++;
+  while (s.screen !== 'runEnd' && guard++ < 2000) {
     if (s.screen === 'pickCompanion') {
       DT.run.pickCompanion(s, s.starterOptions[i % s.starterOptions.length]);
       if (SOLO) s.allies = [];
@@ -189,6 +200,7 @@ for (let i = 0; i < N; i++) {
           DT.items.use(s, it.uid, 'player');
         }
       }
+      while (s.freeNaturalize > 0 && DT.run.naturalizable(s).length) DT.run.freeNaturalize(s, DT.run.naturalizable(s)[0].uid);
       DT.run.enterNode(s, choosePath(s, R));
     }
     else if (s.screen === 'combat') { runs.turns += fight(s); runs.fights++; DT.run.resolve(s); }
@@ -220,10 +232,11 @@ for (let i = 0; i < N; i++) {
       DT.run.chooseEvent(s, k);
     } else if (s.screen === 'eventResult') DT.run.closeEvent(s);
     else if (s.screen === 'pickRelic') DT.run.pickRelic(s, s.relicChoices[0]);
+    else if (s.screen === 'dimClear') { cleared[s.dimension]++; DT.run.nextDimension(s); reach[s.dimension]++; instIn[s.dimension] = (instIn[s.dimension] || 0) + DT.run.instability(s); }
     s.events.length = 0;
   }
-  if (s.runEnd.how === 'clear') runs.clear++;
-  else { runs.death++; runs.deathFloors.push(s.runEnd.floor); }
+  if (s.runEnd.how === 'clear') { runs.clear++; cleared.hell++; }
+  else { runs.death++; runs.deathFloors.push(s.runEnd.depth); }
   runs.coins += s.runEnd.banked;
   runs.wanted += s.wanted;
   runs.compsAtEnd += s.allies.length;
@@ -247,8 +260,12 @@ for (const r of rows) {
 }
 const df = {};
 runs.deathFloors.forEach((f) => { df[f] = (df[f] || 0) + 1; });
-console.log(`\n1차원 한 판 ${N}회 (맵·은신처·암시장·이벤트 포함, 시작 동료 순환${SOLO ? ', 동료 없음' : ''})`);
-console.log(`  클리어 ${pct(runs.clear, N)} · 전투당 평균 ${avg(runs.turns, runs.fights)}턴 · 보존 코인 평균 ${avg(runs.coins, N)} · 끝날 때 수배도 평균 ${avg(runs.wanted, N)} · 남은 동료 평균 ${avg(runs.compsAtEnd, N)}`);
+console.log(`\n한 판 ${N}회: 1차원 → 4차원 (맵·은신처·암시장·이벤트 포함, 시작 동료 순환${SOLO ? ', 동료 없음' : ''})`);
+console.log('  차원별: ' + DIMS.map((d) => `${DT.data.dimensions[d].name} 도달 ${reach[d]} → 정복 ${cleared[d]} (${pct(cleared[d], reach[d])})`).join(' · '));
+console.log('  차원 진입 시 평균 불안정: ' + DIMS.slice(1).map((d) => `${DT.data.dimensions[d].name} ${avg(instIn[d] || 0, reach[d])}`).join(' · '));
+const bossD = {}; runs.deathFloors.forEach((f) => { const k = Math.floor((f - 1) / 12) + (f % 12 === 0 ? '보스' : '맵'); bossD[k] = (bossD[k] || 0) + 1; });
+console.log('  사망: ' + Object.entries(bossD).map(([k, n]) => `${+k[0] + 1}차원 ${k.slice(1)} ${n}`).join(' · '));
+console.log(`  전체 클리어 ${pct(runs.clear, N)} · 전투당 평균 ${avg(runs.turns, runs.fights)}턴 · 보존 코인 평균 ${avg(runs.coins, N)} · 끝날 때 수배도 평균 ${avg(runs.wanted, N)} · 남은 동료 평균 ${avg(runs.compsAtEnd, N)}`);
 console.log(`  판당 아이템: 창고로 ${avg(runs.kept, N)}개, 분실 ${avg(runs.lost, N)}개`);
 console.log(`  판당 유물: ${avg(runs.relics || 0, N)}개`);
-console.log('  사망한 층:', Object.entries(df).map(([f, n]) => `${f}층×${n}`).join(' ') || '없음');
+console.log('  사망 위치:', Object.entries(df).map(([f, n]) => `${DT.run.depthLabel(+f)}×${n}`).join(' ') || '없음');
