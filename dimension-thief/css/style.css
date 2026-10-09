@@ -362,3 +362,34 @@ button { font: inherit; color: inherit; }
 .ct-icon, .factile span { font-size: 28px; }
 .comptile small, .factile small { color: var(--muted); font-size: 12px; } .comptile .ok { color: #7ef0a8; }
 .factile.locked { opacity: 0.5; }
+
+/* ── E단계: 아이템 ── */
+.g-common { --g: #c9c9c9; } .g-rare { --g: #5aa8ff; } .g-hero { --g: #c77dff; } .g-legend { --g: #ffb347; }
+span.g-common, span.g-rare, span.g-hero, span.g-legend { color: var(--g); font-weight: 700; }
+.ichip { display: inline-flex; align-items: center; gap: 3px; font-size: 13px; padding: 2px 8px; margin: 2px; border-radius: 9px;
+  border: 1.5px solid var(--g); background: rgba(0,0,0,0.3); white-space: nowrap; }
+.ichip.lost { opacity: 0.55; text-decoration: line-through; }
+.itile { width: 112px; min-height: 82px; border-radius: 12px; border: 2px solid var(--g, var(--line)); background: rgba(0,0,0,0.3);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 6px; text-align: center; cursor: pointer; }
+.itile.empty { border-style: dashed; border-color: var(--line); cursor: default; opacity: 0.5; }
+.itile.sel { box-shadow: 0 0 0 3px #fff; transform: translateY(-3px); }
+.itile .ii { font-size: 28px; } .itile .in { font-size: 13px; font-weight: 700; } .itile .ig { font-size: 11px; color: var(--g); }
+.itemgrid { display: flex; flex-wrap: wrap; gap: 8px; }
+.baggrid { display: grid; grid-template-columns: minmax(300px, 0.9fr) 1.3fr; gap: 20px; min-height: 0; overflow-y: auto; }
+.baggrid h3 { margin: 6px 0; font-size: 15px; } .baggrid h3 small { color: var(--muted); font-weight: 400; font-size: 12px; }
+.eqrow { display: grid; grid-template-columns: 1.1fr 1fr 1fr 1fr; gap: 6px; align-items: center; margin-bottom: 8px; }
+.eqwho { font-size: 14px; } .eqwho small { color: var(--muted); }
+.eqslot { min-height: 40px; border-radius: 10px; border: 1.5px dashed var(--line); display: grid; place-items: center; font-size: 12px; color: var(--muted); }
+.eqslot.filled { border: none; cursor: pointer; } .eqslot .ichip { font-size: 12px; white-space: normal; }
+.bagactions { margin-top: 12px; padding: 12px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); min-height: 80px; }
+.seldesc { font-size: 14px; margin-bottom: 8px; }
+.selbtns { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn.danger { border-color: rgba(224, 69, 90, 0.6); }
+.muted { color: var(--muted); }
+.eqicons { font-size: 13px; letter-spacing: 1px; }
+.lootitems { margin: 6px 0; }
+.warnline { color: #ffb347 !important; font-size: 14px; }
+.enditems { margin: 8px 0; font-size: 14px; display: flex; flex-direction: column; gap: 6px; }
+.itemoffers { display: flex; gap: 18px; justify-content: center; margin-top: 10px; }
+.stashpeek { width: 100%; margin-top: 4px; }
+.c-cost.cheap { background: #7ef0a8; }

@@ -64,6 +64,7 @@ DT.lobby = {
     state.goldBonus = L('startGold') * U.startGold.value;
     const extra = U.pilfer.extra.slice(0, L('pilfer')).flat();
     if (extra.length) state.player.masterDeck.forEach((c) => { if (c.id === 'pilfer') c.extra = extra; });
+    state.pocketCap = DT.config.items.pocketBase + L('safePocket');
     state.starterOptions = DT.lobby.starterOptions(meta);
     state.companionPicks = DT.lobby.companionPicks(meta);
   },

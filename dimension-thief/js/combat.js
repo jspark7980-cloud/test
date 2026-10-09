@@ -6,20 +6,39 @@ window.DT = window.DT || {};
   const log = (s, m) => DT.state.log(s, m);
 
   C.living = (state) => state.enemies.filter((e) => !e.dead);
-  C.belowHeistLine = (e) => e.hp <= e.maxHp * DT.config.heist.threshold;
+  // 강탈 기준선(시간 도둑의 낫: 도둑의 기준이 올라감)
+  C.heistThreshold = (state) => Math.max(DT.config.heist.threshold, state ? DT.items.fx(state.player, 'heistThreshold') : 0);
+  C.belowHeistLine = (e, state) => e.hp <= e.maxHp * C.heistThreshold(state);
+
+  // 이번 턴 실제 비용: 만능 열쇠검으로 얻은 카드 0, 손재주 비약이면 슬쩍하기 0
+  C.costFor = function (state, card) {
+    if (card.free) return 0;
+    if (card.id === 'pilfer' && state.turnFlags && state.turnFlags.freePilfer) return 0;
+    return DT.cards.costOf(card);
+  };
 
   C.start = function (state, enemyKinds) {
     const p = state.player;
     p.drawPile = DT.rng.shuffle(state, p.masterDeck.map((c) => Object.assign({}, c)));
     p.hand = []; p.discardPile = []; p.exhaustPile = [];
     p.block = 0; p.statuses = {};
+    // 장비: 손패 최대·드로우(도둑 길드 배지)
+    const P = DT.config.player;
+    p.maxHand = P.maxHand + DT.items.fx(p, 'handMax');
+    p.drawPerTurn = P.draw + DT.items.fx(p, 'drawBonus');
     DT.party.prepare(state);
+    for (const a of DT.party.living(state)) a.cheatedDeath = false;
     state.enemies = [];
     enemyKinds.forEach((k) => state.enemies.push(DT.enemy.create(state, k)));
     state.turn = 0; state.result = null; state.orders = {};
     state.enemies.forEach((e) => { DT.enemy.refill(state, e); DT.enemy.plan(state, e); });
     log(state, `${state.enemies.map((e) => e.name).join(', ')}이(가) 나타났다!`);
     C.startPlayerTurn(state);
+    // 누더기 망토: 전투 시작 방어도 (첫 턴 방어도 초기화 뒤에 준다)
+    for (const a of DT.party.living(state)) {
+      const b = DT.items.fx(a, 'combatBlock');
+      if (b) DT.effects.gainBlock(state, a.id, b);
+    }
   };
 
   // when: 'turnStart' | 'turnEnd'
@@ -61,6 +80,7 @@ window.DT = window.DT || {};
     state.turn++;
     state.phase = 'player';
     state.orders = {};
+    state.turnFlags = {};
     for (const a of DT.party.living(state)) {
       a.block = 0;                     // 방어도는 내 턴 시작 시 사라짐
       C.tickStatuses(state, a.id, 'turnStart');
@@ -68,8 +88,8 @@ window.DT = window.DT || {};
       if (state.result) return;
     }
     p.energy = p.maxEnergy;
-    for (const e of C.living(state)) e.heistReady = C.belowHeistLine(e);
-    DT.deck.draw(state, p, p.drawPerTurn);
+    for (const e of C.living(state)) e.heistReady = C.belowHeistLine(e, state);
+    DT.deck.draw(state, p, p.drawPerTurn + (state.turn === 1 ? DT.items.fx(p, 'firstTurnDraw') : 0));
     for (const c of DT.party.companions(state)) DT.ai.planCompanion(state, c);
   };
 
@@ -81,7 +101,7 @@ window.DT = window.DT || {};
     if (!card) return { ok: false, reason: '손패에 없는 카드' };
     const def = DT.cards.def(card.id);
     if (def.unplayable) return { ok: false, reason: '사용할 수 없는 카드' };
-    if (DT.cards.costOf(card) > p.energy) return { ok: false, reason: '에너지가 부족합니다' };
+    if (C.costFor(state, card) > p.energy) return { ok: false, reason: '에너지가 부족합니다' };
     // 대상이 필요한 카드는 대상 후보 중 하나라도 가능하면 선택 허용
     if (DT.cards.needsTarget(def)) {
       const reasons = C.living(state).map((e) => DT.effects.canUse(state, 'player', e.id, card, null, allyId));
@@ -110,21 +130,40 @@ window.DT = window.DT || {};
     const why = DT.effects.canUse(state, 'player', tgtId, card, choice, allyId);
     if (why) return { ok: false, reason: why };
 
-    p.energy -= DT.cards.costOf(card);
+    p.energy -= C.costFor(state, card);
     DT.deck.removeFromHand(p, uid);
     DT.state.emit(state, { type: 'play', actor: 'player', card: Object.assign({}, card) });
     const toAlly = allyId && allyId !== 'player' ? ` → ${DT.state.actor(state, allyId).name}` : '';
     log(state, `나: [${DT.cards.nameOf(card)}]${toAlly}`);
     DT.effects.resolveCard(state, 'player', tgtId, card, choice, allyId);
+    C.maybeTwice(state, 'player', card, tgtId, allyId);
     DT.deck.afterPlay(state, p, card);
     C.checkEnd(state);
     return { ok: true };
   };
 
+  // 쌍단검: 매 턴 첫 공격 카드를 한 번 더
+  C.maybeTwice = function (state, id, card, tgtId, allyId) {
+    const a = DT.state.actor(state, id);
+    state.turnFlags = state.turnFlags || {};
+    const key = 'firstAttack:' + id;
+    if (state.result || state.turnFlags[key] || !DT.cards.isAttack(DT.cards.def(card.id))) return;
+    state.turnFlags[key] = true;
+    if (!DT.items.fx(a, 'firstAttackTwice')) return;
+    const t = tgtId && DT.state.actor(state, tgtId);
+    if (tgtId && (!t || t.dead)) return;
+    DT.state.log(state, `${a.name}: 쌍단검! 한 번 더`);
+    DT.effects.resolveCard(state, id, tgtId, card, null, allyId);
+  };
+
   // 내 턴 종료 → 동료 행동 단계
   C.endPlayerTurn = function (state) {
     if (state.phase !== 'player' || state.result) return;
-    for (const a of DT.party.living(state)) C.tickStatuses(state, a.id, 'turnEnd');
+    for (const a of DT.party.living(state)) {
+      C.tickStatuses(state, a.id, 'turnEnd');
+      const h = DT.items.fx(a, 'turnEndHeal');   // 회복 로브
+      if (h && !a.dead) DT.effects.heal(state, a.id, h);
+    }
     DT.deck.discardHand(state, state.player);
     state.phase = 'ally';
     for (const c of DT.party.companions(state)) c.pending = !!c.intent;
@@ -152,6 +191,7 @@ window.DT = window.DT || {};
         : act.allyId && act.allyId !== c.id ? ` → ${DT.state.actor(state, act.allyId).name}` : '';
       log(state, `${c.name}: [${def.name}]${to}`);
       DT.effects.resolveCard(state, c.id, act.targetId, act.card, null, act.allyId);
+      C.maybeTwice(state, c.id, act.card, act.targetId, act.allyId);
       DT.deck.afterPlay(state, c, act.card);
     }
     C.checkEnd(state);
@@ -167,7 +207,8 @@ window.DT = window.DT || {};
       C.tickStatuses(state, e.id, 'turnStart');
       C.runPassives(state, e.id, 'turnStart');
       if (state.result) return;
-      e.pending = e.dead ? 0 : e.intent;
+      e.pending = e.dead || e.skipTurn ? 0 : e.intent;   // 연막 수류탄
+      e.skipTurn = false;
     }
   };
 

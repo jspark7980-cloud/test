@@ -2,7 +2,7 @@
 window.DT = window.DT || {};
 
 DT.state = {
-  VERSION: 6,
+  VERSION: 7,
 
   createRun(seed) {
     const P = DT.data.player;
@@ -24,6 +24,9 @@ DT.state = {
       lastLoot: null,
       market: null, event: null, seenEvents: [], removeCount: 0,
       runEnd: null,
+      bag: [], pocket: [], pocketCap: 1, nextItemId: 1,   // 아이템 (js/items.js)
+      fallen: [],        // 쓰러져 이탈한 동료(부활 깃털로 되살릴 수 있음)
+      turnFlags: {},     // 이번 턴 한정 표시(쌍단검·손재주 비약 등)
       wanted: 0,         // 수배도: 강탈 시 +1
       heist: null,       // 강탈 대기 { picksLeft, groups:[{ enemyName, kind, options:[카드 id] }] }
       reward: null,      // 카드 보상 { options:[카드 id] }
@@ -40,6 +43,7 @@ DT.state = {
         hp: C.hp, maxHp: C.hp, block: 0, statuses: {},
         energy: 0, maxEnergy: C.energy, drawPerTurn: C.draw, maxHand: C.maxHand,
         masterDeck: [], drawPile: [], hand: [], discardPile: [], exhaustPile: [],
+        equip: { weapon: null, armor: null, accessory: null },
       },
       allies: [],        // 동료(도둑 제외). 판 동안 유지, 쓰러지면 전투 후 이탈
       nextAllyId: 1,

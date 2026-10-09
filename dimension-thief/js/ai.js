@@ -43,7 +43,11 @@ window.DT = window.DT || {};
 
   // ── 적 ──
   function enemyCandidates(s, e) {
-    const living = DT.party.living(s);
+    let living = DT.party.living(s);
+    if (s.turn <= 1) {
+      const seen = living.filter((a) => !DT.items.fx(a, 'stealthFirstTurn'));
+      if (seen.length) living = seen;   // 은신 망토
+    }
     const pref = DT.data.enemies[e.kind].targets || 'front';
     const row = living.filter((a) => a.row === pref);
     return row.length ? row : living;
@@ -96,7 +100,7 @@ window.DT = window.DT || {};
     for (const e of enemies) {
       const dmg = E().previewDamage(s, card, c.id, e.id);
       const kills = dmg >= e.hp + e.block;
-      const heistWait = DT.combat.belowHeistLine(e) && !e.heistReady;
+      const heistWait = DT.combat.belowHeistLine(e, s) && !e.heistReady;
       let v = Math.min(dmg, e.hp + e.block) + (1 - e.hp / e.maxHp) * 8;
       if (kills) v += heistWait ? -60 : e.heistReady ? 50 : 35;
       if (!best || v > best.value) best = { id: e.id, value: v };

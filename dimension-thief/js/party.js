@@ -21,6 +21,7 @@ DT.party = {
       masterDeck: deck.map((id) => DT.state.makeCard(state, id)),
       drawPile: [], hand: [], discardPile: [], exhaustPile: [], maxHand: 10,
       intent: null, dead: false,
+      equip: { weapon: null, armor: null, accessory: null },
     };
     return c;
   },
@@ -30,6 +31,7 @@ DT.party = {
       const i = state.allies.findIndex((a) => a.id === replaceId);
       if (i >= 0) {
         DT.state.log(state, `${state.allies[i].name}이(가) 파티를 떠났다.`);
+        DT.items.returnEquipment(state, state.allies[i]);
         state.allies.splice(i, 1);
       }
     }
@@ -57,6 +59,7 @@ DT.party = {
     const fallen = state.allies.filter((a) => a.dead);
     fallen.forEach((a) => DT.state.log(state, `${a.name}이(가) 쓰러져 파티에서 이탈했다.`));
     state.allies = state.allies.filter((a) => !a.dead);
+    state.fallen = (state.fallen || []).concat(fallen);   // 장비는 몸에 남는다(부활 깃털로 복귀 가능)
     return fallen;
   },
 

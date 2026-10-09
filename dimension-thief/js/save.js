@@ -40,7 +40,8 @@ DT.save = {
   loadMeta() {
     // coins: 로비에서 쓰는 영구 화폐(판 종료 시 보존된 코인이 쌓인다)
     // upgrades: 영구 강화 단계 { id: 단계 }, unlocked: 해금한 동료 id
-    return Object.assign({ coins: 0, upgrades: {}, unlocked: [], runs: 0, clears: 0, bestFloor: 0, combatsWon: 0, steals: 0, heists: 0, copies: 0, codex: {} },
+    // stash: 창고(판이 끝나고 남은 아이템)
+    return Object.assign({ coins: 0, upgrades: {}, unlocked: [], stash: [], runs: 0, clears: 0, bestFloor: 0, combatsWon: 0, steals: 0, heists: 0, copies: 0, codex: {} },
       DT.save._get(DT.save.META_KEY) || {});
   },
   saveMeta(meta) {
