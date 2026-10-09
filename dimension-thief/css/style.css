@@ -46,7 +46,7 @@ button { font: inherit; color: inherit; }
 .tb-mid { font-weight: 700; letter-spacing: 0.1em; }
 
 /* ── 전장 ── */
-#field { display: grid; grid-template-columns: minmax(220px, 0.8fr) 2fr; align-items: center; min-height: 0; }
+#field { display: grid; grid-template-columns: auto auto 1fr; align-items: center; min-height: 0; }
 #left { display: flex; flex-direction: column; align-items: center; gap: 14px; }
 #enemies { display: flex; justify-content: center; gap: 4vw; }
 .enemy-wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; }
@@ -217,7 +217,8 @@ button { font: inherit; color: inherit; }
 .float.heist { color: #ffd166; font-size: 26px; }
 
 /* ── 보상 화면 ── */
-#overlay.show .panel { animation: popin 0.35s 0.6s both; }
+#overlay.show .panel { animation: popin 0.3s both; }
+#overlay.show.late .panel { animation-delay: 0.6s; }
 @keyframes popin { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: none; } }
 .panel h1.heist { color: #ffd166; }
 .panel p { color: var(--muted); } .panel p b { color: var(--text); }
@@ -231,3 +232,58 @@ button { font: inherit; color: inherit; }
 .panel h3.grouphead { margin: 14px 0 0; color: #ffd166; font-size: 17px; }
 .panel .pickrow + h3.grouphead { border-top: 1px solid var(--line); padding-top: 12px; }
 .panel.wide { max-height: 94vh; overflow-y: auto; }
+
+/* ── B단계: 파티 진형 ── */
+#left { align-items: flex-start; justify-content: center; gap: 8px; }
+#allies { display: flex; align-items: flex-start; gap: 8px; }
+#vs { align-self: center; font-size: 22px; opacity: 0.35; padding: 0 6px; }
+#enemies, #enemies.compact { display: flex; justify-content: center; align-items: flex-start; gap: 10px; }
+.unit { display: flex; flex-direction: column; align-items: center; gap: 6px; position: relative; }
+.unit.back { transform: translateY(-18px) scale(0.94); opacity: 0.92; }
+.unit.dead { opacity: 0.35; filter: grayscale(1); }
+.rowtag { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+.rowtag.front { color: var(--text); opacity: 0.7; }
+.unit.ally .actor { width: clamp(108px, 11vw, 140px); padding: 8px 8px; gap: 4px; }
+.unit.enemy-wrap .actor { width: clamp(150px, 16vw, 200px); padding: 10px 10px; gap: 4px; }
+.unit .portrait { font-size: clamp(34px, 4.2vw, 50px); }
+.unit .aname { font-size: 14px; white-space: nowrap; }
+.unit .hpbar { height: 18px; } .unit .hptext { font-size: 12px; }
+.unit .st { font-size: 13px; padding: 2px 6px; } .unit .st small { display: none; }
+.unit .sts { min-height: 24px; gap: 4px; }
+.unit .blockbadge { left: -30px; font-size: 13px; padding: 2px 6px; }
+.unit .ehand { flex-direction: column; gap: 4px; min-height: 0; width: clamp(150px, 16vw, 200px); }
+.unit .chip { min-height: 30px; font-size: 12px; padding: 3px 6px; gap: 4px; }
+.unit .chip-desc { font-size: 11px; }
+.unit .intent { font-size: 12px; text-align: center; }
+.unit .intent b { font-size: 14px; }
+.role { font-size: 12px; opacity: 0.8; }
+.cintent { width: clamp(108px, 11vw, 140px); font-size: 11px; color: var(--muted); text-align: center; display: flex; flex-direction: column; gap: 2px; }
+.cintent .chip { flex-wrap: wrap; justify-content: center; }
+.cto { color: var(--accent); font-weight: 700; font-size: 12px; }
+.threat {
+  position: absolute; top: -12px; right: -8px; z-index: 2;
+  background: #e0455a; color: #fff; font-weight: 800; font-size: 13px; padding: 1px 7px; border-radius: 9px;
+}
+.orderbadge {
+  position: absolute; bottom: -12px; left: 50%; transform: translateX(-50%); white-space: nowrap; z-index: 2;
+  background: var(--accent); color: #120f18; font-weight: 800; font-size: 12px; padding: 1px 8px; border-radius: 9px;
+}
+.unit .dmgpreview { right: -36px; font-size: 15px; }
+.unit .heistbadge { font-size: 11px; top: -12px; }
+#log { width: 100%; max-width: 380px; min-height: 0; font-size: 12px; }
+#banner.ally .b-who { color: #8fd3ff; }
+
+/* 동료 선택·영입 */
+.compcard {
+  width: clamp(190px, 22vw, 250px); padding: 16px; border-radius: 16px; cursor: pointer;
+  background: var(--panel); border: 3px solid var(--line); display: flex; flex-direction: column; gap: 6px; text-align: center;
+}
+.compcard.selected { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent); transform: translateY(-6px); }
+.cc-icon { font-size: 52px; } .cc-name { font-size: 20px; font-weight: 800; }
+.cc-role { color: var(--accent); font-size: 14px; font-weight: 700; }
+.cc-desc { font-size: 13px; color: var(--muted); line-height: 1.4; }
+.cc-deck { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
+.cc-deck span { font-size: 12px; background: rgba(0,0,0,0.3); border-radius: 8px; padding: 2px 6px; }
+.btn.recruit { margin: 10px auto 4px; display: block; min-height: 52px; font-size: 16px; font-weight: 800; border-color: #8fd3ff; color: #cdeaff; }
+.panel .row .btn small { font-weight: 400; color: var(--muted); }
+.unit.ally .orderbadge { top: -12px; bottom: auto; left: 8px; transform: none; }

@@ -13,6 +13,8 @@ DT.data.statuses = {
                 desc: '주는 피해 -25%. 자기 턴 종료 시 1 감소.' },
   strength:   { name: '힘',   icon: '💪', kind: 'buff',   decay: null, damageDealtAdd: 1,
                 desc: '공격 피해 + 수치.' },
+  taunt:      { name: '도발', icon: '📢', kind: 'buff', decay: 'turnEnd', taunt: true,
+                desc: '적의 단일 대상 공격을 이 캐릭터가 받는다. 자기 턴 종료 시 1 감소.' },
   poison:     { name: '독',   icon: '☠️', kind: 'debuff', decay: 'turnStart', turnStartDamage: true,
                 desc: '자기 턴 시작 시 수치만큼 피해(방어도 무시) 후 1 감소.' },
 };

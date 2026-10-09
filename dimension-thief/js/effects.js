@@ -2,12 +2,13 @@
 // 새 효과 타입은 DT.effects.register(type, handler) 로 추가.
 //
 // handler = {
-//   defaultTo: 'self' | 'opponent' | 'allOpponents'   // eff.to 생략 시 대상
+//   defaultTo: 'self' | 'opponent' | 'allOpponents' | 'ally'   // eff.to 생략 시 대상
 //   describe(eff, view) → 설명 문자열
-//   apply(ctx, eff)                     // ctx: { state, srcId, tgtId, card, choice, targetsOf(eff) }
+//   apply(ctx, eff)                     // ctx: { state, srcId, tgtId, allyId, card, choice, targetsOf(eff) }
 //   canUse?(ctx, eff) → 사용 불가 사유 문자열 또는 null
 //   choice?: 'revealed'                 // UI에서 추가 선택이 필요한 효과
 // }
+// 'ally' 대상: 사용자가 지정한 아군(allyId). 지정하지 않으면 자신.
 window.DT = window.DT || {};
 
 (function () {
@@ -18,24 +19,34 @@ window.DT = window.DT || {};
   E.register = (type, handler) => { E.handlers[type] = handler; };
 
   E.toOf = (eff) => {
+    if (eff.type === 'order' && E.orders && E.orders[eff.order]) return E.orders[eff.order].to;
     const h = E.handlers[eff.type];
     return eff.to || (h && h.defaultTo) || 'opponent';
   };
 
+  const sameSide = (a, b) => DT.state.isAlly(a) === DT.state.isAlly(b);
+
   // 효과 대상 id 목록
-  E.targetIds = function (state, srcId, tgtId, to) {
+  E.targetIds = function (state, srcId, tgtId, to, allyId) {
     if (to === 'self') return [srcId];
+    if (to === 'ally') {
+      const a = allyId && actor(state, allyId);
+      return [a && !a.dead && sameSide(srcId, allyId) ? allyId : srcId];
+    }
     if (to === 'allOpponents') {
-      return srcId === 'player' ? DT.combat.living(state).map((e) => e.id) : ['player'];
+      return DT.state.isAlly(srcId)
+        ? DT.combat.living(state).map((e) => e.id)
+        : DT.party.living(state).map((a) => a.id);
     }
     return tgtId ? [tgtId] : [];
   };
 
-  function makeCtx(state, srcId, tgtId, card, choice) {
-    const ctx = { state, srcId, tgtId, card, choice };
-    ctx.targetsOf = (eff) => E.targetIds(state, srcId, tgtId, E.toOf(eff));
+  function makeCtx(state, srcId, tgtId, card, choice, allyId) {
+    const ctx = { state, srcId, tgtId, card, choice, allyId };
+    ctx.targetsOf = (eff) => E.targetIds(state, srcId, tgtId, E.toOf(eff), allyId);
     return ctx;
   }
+  E.makeCtx = makeCtx;
 
   // ── 수치 계산 ──
   E.calcDamage = function (state, srcId, tgtId, base) {
@@ -98,6 +109,15 @@ window.DT = window.DT || {};
   };
 
   E.dealDamage = function (state, srcId, tgtId, base) {
+    // 엄호 명령: 도둑을 노린 공격을 탱커가 대신 받는다
+    const cover = state.orders && state.orders.cover;
+    if (tgtId === 'player' && cover) {
+      const t = actor(state, cover);
+      if (t && !t.dead) {
+        tgtId = cover;
+        DT.state.emit(state, { type: 'cover', target: cover });
+      }
+    }
     return E.applyDamage(state, tgtId, E.calcDamage(state, srcId, tgtId, base), { source: srcId });
   };
 
@@ -124,8 +144,8 @@ window.DT = window.DT || {};
   };
 
   // ── 카드 실행 ──
-  E.canUse = function (state, srcId, tgtId, card, choice) {
-    const ctx = makeCtx(state, srcId, tgtId, card, choice);
+  E.canUse = function (state, srcId, tgtId, card, choice, allyId) {
+    const ctx = makeCtx(state, srcId, tgtId, card, choice, allyId);
     for (const eff of DT.cards.def(card.id).effects) {
       const h = E.handlers[eff.type];
       const why = h && h.canUse ? h.canUse(ctx, eff) : null;
@@ -145,8 +165,8 @@ window.DT = window.DT || {};
     }
   };
 
-  E.resolveCard = function (state, srcId, tgtId, card, choice) {
-    E.resolveEffects(makeCtx(state, srcId, tgtId, card, choice), DT.cards.def(card.id).effects);
+  E.resolveCard = function (state, srcId, tgtId, card, choice, allyId) {
+    E.resolveEffects(makeCtx(state, srcId, tgtId, card, choice, allyId), DT.cards.def(card.id).effects);
   };
 
   // ── 효과 타입들 ──
@@ -174,13 +194,13 @@ window.DT = window.DT || {};
   });
 
   E.register('block', {
-    defaultTo: 'self',
+    defaultTo: 'ally',
     describe: (eff) => `방어도 <b>${val(eff)}</b>`,
     apply(ctx, eff) { ctx.targetsOf(eff).forEach((id) => E.gainBlock(ctx.state, id, val(eff))); },
   });
 
   E.register('heal', {
-    defaultTo: 'self',
+    defaultTo: 'ally',
     describe: (eff) => `체력 <b>${val(eff)}</b> 회복`,
     apply(ctx, eff) { ctx.targetsOf(eff).forEach((id) => E.heal(ctx.state, id, val(eff))); },
   });
@@ -198,6 +218,7 @@ window.DT = window.DT || {};
     describe(eff) {
       const d = S()[eff.status] || { name: eff.status };
       if (eff.to === 'self') return `${d.name} ${val(eff) > 0 ? '+' : ''}${val(eff)}`;
+      if (eff.to === 'ally') return `아군 ${d.name} ${val(eff) > 0 ? '+' : ''}${val(eff)}`;
       return `${allTag(eff)}${d.name} ${val(eff)} 부여`;
     },
     apply(ctx, eff) { ctx.targetsOf(eff).forEach((id) => E.applyStatus(ctx.state, id, eff.status, val(eff))); },
@@ -278,7 +299,81 @@ window.DT = window.DT || {};
       DT.state.log(ctx.state, `${src.name}이(가) ${t.name}의 [${def.name}]을(를) 복제했다!`);
       if (ctx.srcId === 'player') ctx.state.stats.copies++;
       DT.state.emit(ctx.state, { type: 'copy', by: ctx.srcId, from: t.id, cardId: t.lastPlayed });
-      E.resolveEffects(makeCtx(ctx.state, ctx.srcId, t.id, ctx.card, null), def.effects);
+      E.resolveEffects(makeCtx(ctx.state, ctx.srcId, t.id, ctx.card, null, ctx.allyId), def.effects);
+    },
+  });
+
+  // 지휘(도둑 전용): focus 표적 지정 / assist 협공 / cover 엄호 명령 / retreat 후퇴
+  const tankOf = (state) => DT.party.companions(state).find((c) => c.role === 'tank');
+  const ORDERS = {
+    focus: {
+      to: 'opponent',
+      text: '이번 턴 동료 전원이 대상 적을 공격',
+      check: (ctx) => (DT.party.companions(ctx.state).length ? null : '동료가 없습니다'),
+      run(ctx, id) {
+        ctx.state.orders.focus = id;
+        DT.state.log(ctx.state, `표적 지정: 동료들이 ${actor(ctx.state, id).name}을(를) 노린다.`);
+      },
+    },
+    assist: {
+      to: 'opponent',
+      text: '동료 1명이 같은 적을 추가 공격',
+      check: () => null,
+      run(ctx, id) {
+        const comps = DT.party.companions(ctx.state);
+        const c = comps.find((x) => x.role === 'dealer') || comps[0];
+        const t = actor(ctx.state, id);
+        if (!c || !t || t.dead) return;
+        DT.state.log(ctx.state, `협공! ${c.name}의 추가 공격`);
+        DT.state.emit(ctx.state, { type: 'assist', by: c.id, target: id });
+        E.dealDamage(ctx.state, c.id, id, c.basicAttack);
+      },
+    },
+    cover: {
+      to: 'self',
+      text: '이번 턴 탱커가 나 대신 피해를 받음',
+      check: (ctx) => (tankOf(ctx.state) ? null : '탱커 동료가 없습니다'),
+      run(ctx) {
+        const t = tankOf(ctx.state);
+        ctx.state.orders.cover = t.id;
+        DT.state.log(ctx.state, `엄호 명령: ${t.name}이(가) 도둑을 지킨다.`);
+      },
+    },
+    retreat: {
+      to: 'ally',
+      text: '동료 1명을 뒷줄로 이동',
+      allyChoice: 'companion',
+      check(ctx) {
+        if (!ctx.allyId) return null;   // 대상 지정 전(카드 선택 단계)
+        const a = actor(ctx.state, ctx.allyId);
+        if (!a || ctx.allyId === 'player') return '동료를 지정하세요';
+        return a.row === 'back' ? '이미 뒷줄에 있습니다' : null;
+      },
+      run(ctx, id) {
+        const a = actor(ctx.state, id);
+        if (!a || id === 'player') return;
+        a.row = 'back';
+        DT.ai.refreshEnemyTargets(ctx.state);
+        DT.state.log(ctx.state, `${a.name}이(가) 뒷줄로 물러났다.`);
+        DT.state.emit(ctx.state, { type: 'move', target: id });
+      },
+    },
+  };
+  E.orders = ORDERS;
+  E.register('order', {
+    defaultTo: 'opponent',
+    describe: (eff) => (ORDERS[eff.order] ? ORDERS[eff.order].text : eff.order),
+    canUse(ctx, eff) {
+      const o = ORDERS[eff.order];
+      if (!o) return null;
+      if (eff.order !== 'cover' && eff.order !== 'retreat' && !DT.party.companions(ctx.state).length) return '동료가 없습니다';
+      return o.check(ctx);
+    },
+    apply(ctx, eff) {
+      const o = ORDERS[eff.order];
+      if (!o) return;
+      const ids = E.targetIds(ctx.state, ctx.srcId, ctx.tgtId, o.to, ctx.allyId);
+      o.run(ctx, ids[0]);
     },
   });
 })();
