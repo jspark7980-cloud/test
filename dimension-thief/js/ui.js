@@ -99,7 +99,7 @@ window.DT = window.DT || {};
     const targeting = selDef && DT.cards.needsTarget(selDef);
     const stealing = selDef && DT.cards.choiceOf(selDef) === 'revealed';
     const compact = s.enemies.length > 1;
-    const threshold = DT.data.rewards.heistThreshold;
+    const threshold = DT.config.heist.threshold;
     const box = $('#enemies');
     box.className = compact ? 'compact n' + s.enemies.length : '';
     box.innerHTML = s.enemies.map((e) => {
@@ -115,7 +115,11 @@ window.DT = window.DT || {};
       const intent = e.dead ? (e.executed ? '💰 강탈 성공' : '쓰러짐') : (s.phase === 'enemy' && e.pending > 0
         ? `행동 중… 남은 ${e.pending}장` : `다음 턴 행동 <b>${e.intent}</b>장`);
       const last = e.lastPlayed ? `직전: ${DT.cards.def(e.lastPlayed).name}` : '직전: 없음';
-      const heistable = !e.dead && e.hp <= e.maxHp * threshold;
+      // 강탈: 이번 턴 시작 때 이미 기준 이하였으면 지금 처치 시 강탈, 이번 턴에 떨어졌으면 다음 턴부터
+      const heistNow = !e.dead && e.heistReady;
+      const heistNext = !e.dead && !e.heistReady && DT.combat.belowHeistLine(e);
+      const heistBadge = heistNow ? '<div class="heistbadge">💰 지금 처치하면 강탈</div>'
+        : heistNext ? '<div class="heistbadge next">⏳ 다음 턴 강탈 가능</div>' : '';
       // 선택한 카드의 예상 피해
       let preview = '';
       if (sel && !e.dead) {
@@ -126,8 +130,8 @@ window.DT = window.DT || {};
       return `<div class="enemy-wrap ${e.dead ? 'dead' : ''}">
         <div class="ehand">${handCards}</div>
         <div class="intent">${intent}</div>
-        <div class="actor enemy ${targeting && !e.dead ? 'targetable' : ''} ${heistable ? 'heistable' : ''}" data-act="enemy" data-id="${e.id}" data-actor="${e.id}">
-          ${heistable ? '<div class="heistbadge">💰 강탈 가능</div>' : ''}
+        <div class="actor enemy ${targeting && !e.dead ? 'targetable' : ''} ${heistNow ? 'heistable' : ''}" data-act="enemy" data-id="${e.id}" data-actor="${e.id}">
+          ${heistBadge}
           <div class="portrait">${e.icon}${blockHTML(e)}${preview}</div>
           <div class="aname">${e.name}</div>
           ${barHTML(e, threshold)}
@@ -192,7 +196,7 @@ window.DT = window.DT || {};
         else if (DT.cards.choiceOf(def) === 'revealed') txt = `[${def.name}] 적 또는 적의 공개 카드를 탭하세요`;
         else if (DT.cards.needsTarget(def)) txt = `[${def.name}] 대상 적을 탭하세요`;
         else txt = `[${def.name}] 한 번 더 탭하면 사용`;
-      } else txt = '카드를 탭해 선택하세요 · 체력 25% 이하에서 처치하면 강탈';
+      } else txt = '카드를 탭해 선택하세요 · 빈사(체력 25%↓) 적은 다음 턴에 처치하면 강탈';
     }
     const h = $('#hint');
     h.textContent = txt;
@@ -226,13 +230,15 @@ window.DT = window.DT || {};
       };
     }
     if (s.screen === 'heist') {
-      const h = s.heists[0];
+      const h = s.heist;
+      const many = h.groups.length > 1;
       return {
-        key: 'heist:' + s.floor + ':' + s.heists.length,
+        key: 'heist:' + s.floor + ':' + h.groups.length,
         html: `<div class="panel wide">
           <h1 class="heist">💰 강탈!</h1>
-          <p><b>${h.enemyName}</b>을(를) 체력 25% 이하에서 쓰러뜨렸다. 카드 1장을 골라 <b>덱에 영구 추가</b>한다. (수배도 +1)</p>
-          ${pickRow(h.options, app)}
+          <p>${many ? `빈사 상태의 적 ${h.groups.length}명을 처치했다. <b>그중 한 명</b>의` : `<b>${h.groups[0].enemyName}</b>의`}
+            카드 1장을 골라 <b>덱에 영구 추가</b>한다. (수배도 +1)</p>
+          ${h.groups.map((g) => `${many ? `<h3 class="grouphead">${g.enemyName}</h3>` : ''}${pickRow(g.options, app)}`).join('')}
           <div class="row">
             <button class="btn big" data-act="heist-skip">포기</button>
             <button class="btn big primary" data-act="heist-take" ${app.pick ? '' : 'disabled'}>가져가기</button>

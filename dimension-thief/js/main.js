@@ -56,11 +56,11 @@ window.DT = window.DT || {};
     const s = app.state;
     app.busy = true;
     render();
-    await wait(500);
+    await wait(DT.config.ui.enemyTurnStartDelay);
     while (app.state === s && s.phase === 'enemy') {
       if (!DT.combat.enemyAct(s)) break;
       commit();
-      await wait(1000);
+      await wait(DT.config.ui.enemyActDelay);
     }
     if (app.state !== s) return;      // 도중에 새 게임 시작
     DT.combat.endEnemyTurn(s);

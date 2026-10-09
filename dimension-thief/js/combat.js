@@ -6,6 +6,7 @@ window.DT = window.DT || {};
   const log = (s, m) => DT.state.log(s, m);
 
   C.living = (state) => state.enemies.filter((e) => !e.dead);
+  C.belowHeistLine = (e) => e.hp <= e.maxHp * DT.config.heist.threshold;
 
   C.start = function (state, enemyKinds) {
     const p = state.player;
@@ -47,6 +48,7 @@ window.DT = window.DT || {};
     C.tickStatuses(state, 'player', 'turnStart');
     if (state.result) return;
     p.energy = p.maxEnergy;
+    for (const e of C.living(state)) e.heistReady = C.belowHeistLine(e);
     DT.deck.draw(state, p, p.drawPerTurn);
   };
 

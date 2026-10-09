@@ -1,9 +1,9 @@
-// 플레이어 기본 수치와 시작 덱.
+// 플레이어 이름·시작 덱. 수치(체력·에너지 등)는 data/config.js.
 window.DT = window.DT || {};
 DT.data = DT.data || {};
 
 DT.data.player = {
-  name: '차원 도둑', icon: '🦹', hp: 60, energy: 3, draw: 5, maxHand: 10,
+  name: '차원 도둑', icon: '🦹',
   starterDeck: [
     'stab', 'stab', 'stab', 'stab',
     'dodge', 'dodge', 'dodge', 'dodge',
