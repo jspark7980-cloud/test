@@ -76,7 +76,7 @@ window.DT = window.DT || {};
   // 카드가 특정 대상에게 줄 예상 피해(방어도 무시 전). 대상이 아니면 0.
   E.previewDamage = function (state, card, srcId, tgtId) {
     let total = 0;
-    for (const eff of DT.cards.def(card.id).effects) {
+    for (const eff of DT.cards.effectsOf(card)) {
       if (eff.type !== 'damage') continue;
       const to = E.toOf(eff);
       if (to === 'self') continue;
@@ -146,7 +146,7 @@ window.DT = window.DT || {};
   // ── 카드 실행 ──
   E.canUse = function (state, srcId, tgtId, card, choice, allyId) {
     const ctx = makeCtx(state, srcId, tgtId, card, choice, allyId);
-    for (const eff of DT.cards.def(card.id).effects) {
+    for (const eff of DT.cards.effectsOf(card)) {
       const h = E.handlers[eff.type];
       const why = h && h.canUse ? h.canUse(ctx, eff) : null;
       if (why) return why;
@@ -166,7 +166,7 @@ window.DT = window.DT || {};
   };
 
   E.resolveCard = function (state, srcId, tgtId, card, choice, allyId) {
-    E.resolveEffects(makeCtx(state, srcId, tgtId, card, choice, allyId), DT.cards.def(card.id).effects);
+    E.resolveEffects(makeCtx(state, srcId, tgtId, card, choice, allyId), DT.cards.effectsOf(card));
   };
 
   // ── 효과 타입들 ──

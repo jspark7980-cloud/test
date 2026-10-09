@@ -2,7 +2,7 @@
 window.DT = window.DT || {};
 
 (function () {
-  const app = (DT.app = { state: null, sel: null, mode: null, busy: false, flash: '', pileView: null, pick: null, replaceFor: null });
+  const app = (DT.app = { state: null, sel: null, mode: null, busy: false, flash: '', pileView: null, pick: null, replaceFor: null, deckPick: null });
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   let flashTimer = null;
 
@@ -28,9 +28,8 @@ window.DT = window.DT || {};
 
   function recordMeta(s, events) {
     const relevant = events.filter((e) =>
-      (e.type === 'steal' || e.type === 'copy') ? e.by === 'player' : (e.type === 'heist' || e.type === 'victory' || e.type === 'recruit'));
-    const finished = s.screen === 'over' && !s.metaRecorded;
-    if (!relevant.length && !finished) return;
+      (e.type === 'steal' || e.type === 'copy') ? e.by === 'player' : ['heist', 'victory', 'recruit', 'runEnd'].includes(e.type));
+    if (!relevant.length) return;
     const meta = DT.save.loadMeta();
     relevant.forEach((e) => {
       if (e.type === 'steal') { meta.steals++; meta.codex[e.cardId] = true; }   // 도감
@@ -38,18 +37,19 @@ window.DT = window.DT || {};
       if (e.type === 'copy') meta.copies++;
       if (e.type === 'recruit') { meta.heists++; meta.recruits = (meta.recruits || 0) + 1; }
       if (e.type === 'victory') meta.combatsWon++;
+      if (e.type === 'runEnd') {
+        meta.coins += e.banked;           // 판 종료: 보존된 코인을 영구 저장
+        meta.runs++;
+        if (e.how === 'clear') meta.clears++;
+        meta.bestFloor = Math.max(meta.bestFloor, e.floor);
+      }
     });
-    if (finished) {
-      s.metaRecorded = true;
-      meta.runs++;
-      meta.bestFloor = Math.max(meta.bestFloor, s.floor);
-    }
     DT.save.saveMeta(meta);
   }
 
   function newRun(seed) {
     app.state = DT.run.start(seed || DT.rng.randomSeed());
-    app.sel = null; app.mode = null; app.busy = false; app.pileView = null; app.pick = null; app.replaceFor = null;
+    app.sel = null; app.mode = null; app.busy = false; app.pileView = null; app.pick = null; app.replaceFor = null; app.deckPick = null;
     commit();
   }
 
@@ -181,6 +181,38 @@ window.DT = window.DT || {};
         return afterChoice(DT.run.recruit(s, kind, data.id).ok);
       }
       case 'cancel-replace': app.replaceFor = null; return render();
+      // 맵·노드
+      case 'node': return afterChoice(DT.run.enterNode(s, data.id));
+      case 'escape': {
+        if (!DT.run.canEscape(s)) return flash('보스전에서는 도주할 수 없습니다');
+        const pct = Math.round(DT.config.coins.keep[s.screen === 'combat' ? 'combatEscape' : 'mapEscape'] * 100);
+        if (!window.confirm(`도주할까요? 이번 판 코인 ${s.runCoins}의 ${pct}%를 가지고 판을 끝냅니다.`)) return;
+        app.busy = false;
+        return afterChoice(DT.run.escape(s));
+      }
+      case 'rest': return afterChoice(DT.run.hideoutRest(s));
+      case 'laylow': return afterChoice(DT.run.hideoutLayLow(s));
+      case 'leave': return afterChoice(DT.run.leave(s));
+      case 'buy': {
+        if (!DT.run.buyCard(s, +data.i)) return flash('골드가 부족합니다');
+        return commit();
+      }
+      // 덱에서 카드 고르기(강화·제거)
+      case 'deck-pick': app.deckPick = { purpose: data.purpose, uid: null }; return render();
+      case 'deck-card': if (app.deckPick) app.deckPick.uid = data.uid; return render();
+      case 'deck-cancel': app.deckPick = null; return render();
+      case 'deck-confirm': {
+        const dp = app.deckPick;
+        if (!dp || !dp.uid) return;
+        app.deckPick = null;
+        const ok = dp.purpose === 'upgrade' ? DT.run.upgradeCard(s, dp.uid) : DT.run.removeCard(s, dp.uid);
+        if (!ok) return flash(dp.purpose === 'remove' ? '골드가 부족하거나 제거할 수 없습니다' : '강화할 수 없는 카드입니다');
+        return afterChoice(true);
+      }
+      case 'event-opt': {
+        if (!DT.run.canChooseEvent(s, +data.i)) return flash('조건이 맞지 않습니다');
+        return afterChoice(DT.run.chooseEvent(s, +data.i));
+      }
       case 'end-turn': return endTurn();
       case 'pile': app.pileView = data.pile; return render();
       case 'close-overlay': app.pileView = null; return render();

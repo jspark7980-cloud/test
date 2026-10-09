@@ -24,10 +24,10 @@ window.DT = window.DT || {};
     const dim = DT.data.dimensions[card.origin] || {};
     const cls = ['card', 'type-' + def.type, def.rarity ? 'r-' + def.rarity : '',
       o.small ? 'small' : '', o.selected ? 'selected' : '', o.disabled ? 'disabled' : '',
-      o.glow ? 'glow' : '', card.temp ? 'temp' : ''].join(' ');
+      o.glow ? 'glow' : '', card.temp ? 'temp' : '', card.up ? 'upgraded' : ''].join(' ');
     return `<div class="${cls}" style="--origin:${dim.color || '#888'}" ${o.attrs || ''}>
-      <div class="c-cost">${def.cost}</div>
-      <div class="c-name">${def.name}</div>
+      <div class="c-cost">${DT.cards.costOf(card)}</div>
+      <div class="c-name">${DT.cards.nameOf(card)}</div>
       <div class="c-art">${def.icon || DT.cards.typeIcon[def.type] || '✦'}</div>
       <div class="c-desc"><div>${DT.cards.describe(card, o.view)}</div></div>
       <div class="c-foot"><span class="c-origin">${dim.name || card.origin}</span>${card.temp ? '<span class="c-tag">슬쩍</span>' : ''}</div>
@@ -75,12 +75,18 @@ window.DT = window.DT || {};
       : { player: '나의 턴', ally: '동료 행동', enemy: '적의 턴' }[s.phase] || '';
     $('#topbar').innerHTML = `
       <div class="tb-left"><span class="dimname">${dim.name}</span>
-        <span class="turn">전투 ${s.floor} · 턴 ${s.turn}</span>
+        <span class="turn">${s.floor}층 · 턴 ${s.turn}</span>
         <span class="wanted" data-act="info" data-msg="수배도: 강탈·영입할 때마다 +1. 높을수록 보상과 정예 적이 늘어난다(이후 단계).">🚨 수배도 ${s.wanted}</span></div>
       <div class="tb-mid">${phase}</div>
-      <div class="tb-right"><span class="seed">시드 ${s.seed}</span>
+      <div class="tb-right">
+        <span class="money" data-act="info" data-msg="골드: 이번 판에서만 쓰는 돈(암시장·이벤트). 코인: 판이 끝나면 비율대로 남는 영구 화폐.">💰 ${s.gold} · 🪙 ${s.runCoins}</span>
         <button class="btn small" data-act="pile" data-pile="masterDeck">내 덱 ${s.player.masterDeck.length}</button>
-        <button class="btn small" data-act="menu">새 게임</button></div>`;
+        ${escapeBtn(s)}</div>`;
+  }
+
+  function escapeBtn(s) {
+    const can = DT.run.canEscape(s);
+    return `<button class="btn small escape" data-act="escape" ${can ? '' : 'disabled'}>${can ? '🏃 도주' : '🚫 도주 불가'}</button>`;
   }
 
   // 아군: 뒷줄 → 앞줄 순서(앞줄이 가운데 쪽)
@@ -169,7 +175,7 @@ window.DT = window.DT || {};
         <div class="actor enemy ${targeting && !e.dead ? 'targetable' : ''} ${heistNow ? 'heistable' : ''}" data-act="enemy" data-id="${e.id}" data-actor="${e.id}">
           ${heistBadge}${focused}
           <div class="portrait">${e.icon}${blockHTML(e)}${preview}</div>
-          <div class="aname">${e.name}</div>
+          <div class="aname">${e.name}${e.rank === 'elite' ? '<span class="rankbadge elite">정예</span>' : e.rank === 'boss' ? '<span class="rankbadge boss">보스</span>' : ''}</div>
           ${barHTML(e, threshold)}
           <div class="sts">${statusesHTML(e)}</div>
           <div class="epiles">${last}</div>
@@ -281,6 +287,12 @@ window.DT = window.DT || {};
           <button class="btn big" data-act="close-overlay">닫기</button></div>`,
       };
     }
+    if (app.deckPick) return deckPickContent(app);
+    if (s.screen === 'map') return mapContent(app);
+    if (s.screen === 'hideout') return hideoutContent(app);
+    if (s.screen === 'market') return marketContent(app);
+    if (s.screen === 'event') return eventContent(app);
+    if (s.screen === 'runEnd') return runEndContent(app);
     if (s.screen === 'pickCompanion') {
       return {
         key: 'start:' + s.seed,
@@ -326,9 +338,10 @@ window.DT = window.DT || {};
     }
     if (s.screen === 'reward') {
       return {
-        key: 'reward:' + s.floor,
+        key: 'reward:' + s.floor + ':' + s.reward.options.join(','),
         html: `<div class="panel wide">
-          <h1 class="win">전투 ${s.floor} 승리!</h1>
+          <h1 class="win">${s.reward.kind === 'event' ? '카드 획득' : s.reward.kind === 'boss' ? '👑 보스 격파!' : `${s.floor}층 승리!`}</h1>
+          ${s.reward.kind !== 'event' && s.lastLoot ? `<p class="loot">💰 골드 +${s.lastLoot.gold} · 🪙 코인 +${s.lastLoot.coins}</p>` : ''}
           <p>카드 1장을 골라 덱에 추가하거나 건너뛴다.</p>
           ${pickRow(s.reward.options, app)}
           <div class="row">
@@ -337,21 +350,162 @@ window.DT = window.DT || {};
           </div></div>`,
       };
     }
-    if (s.screen === 'over') {
-      const st = s.stats;
-      return {
-        key: 'over:' + s.seed,
-        html: `<div class="panel">
-          <h1 class="lose">패배…</h1>
-          <p>전투 ${s.floor}에서 붙잡혔다.</p>
-          <p class="stats">처치 ${st.kills} · 슬쩍 ${st.steals} · 강탈 ${st.heists} · 영입 ${st.recruits || 0} · 복제 ${st.copies} · 덱 ${s.player.masterDeck.length}장</p>
-          <div class="row">
-            <button class="btn big" data-act="retry">같은 시드로 다시</button>
-            <button class="btn big primary" data-act="new-seed">새 시드로 시작</button>
-          </div></div>`,
-      };
-    }
     return null;
+  }
+
+  // ── 맵 ──
+  function partyStrip(s) {
+    return `<div class="partystrip">${DT.party.allies(s).filter((a) => !a.dead).map((a) =>
+      `<span class="pm">${a.icon} <b>${a.hp}</b>/${a.maxHp}</span>`).join('')}</div>`;
+  }
+
+  function mapContent(app) {
+    const s = app.state;
+    const m = s.map;
+    const F = DT.config.map.floors;
+    const L = DT.config.map.lanes;
+    const reach = DT.map.reachable(s);
+    const pos = (n) => ({
+      x: 4 + ((n.floor - 1) / (F - 1)) * 92,
+      y: n.type === 'boss' ? 50 : 12 + (n.lane / (L - 1)) * 76,
+    });
+    let lines = '';
+    for (const n of Object.values(m.nodes)) {
+      const a = pos(n);
+      for (const nid of n.next) {
+        const b = pos(m.nodes[nid]);
+        const taken = n.visited && m.nodes[nid].visited;
+        lines += `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" class="${taken ? 'taken' : ''}" />`;
+      }
+    }
+    const nodes = Object.values(m.nodes).map((n) => {
+      const p = pos(n);
+      const can = reach.includes(n.id);
+      const cls = ['mnode', 't-' + n.type, can ? 'reach' : '', n.visited ? 'visited' : '', s.pos === n.id ? 'here' : ''].join(' ');
+      return `<button class="${cls}" style="left:${p.x}%;top:${p.y}%" ${can ? `data-act="node" data-id="${n.id}"` : 'disabled'}
+        aria-label="${n.floor}층 ${DT.map.label(n.type)}">${DT.map.icon(n.type)}</button>`;
+    }).join('');
+    const W = DT.config.wanted;
+    const ambush = Math.round(Math.min(W.ambushCap, s.wanted * W.ambushPerWanted) * 100);
+    return {
+      key: 'map:' + s.pos + ':' + s.gold + ':' + s.wanted + ':' + s.player.masterDeck.length,
+      html: `<div class="panel full mapview">
+        <div class="maphead">
+          <div><span class="dimname">${DT.data.dimensions[s.dimension].name}</span> <span class="turn">${s.floor ? s.floor + '층' : '출발 전'} / ${F}층</span></div>
+          ${partyStrip(s)}
+          <div class="mh-right">
+            <span class="money">💰 ${s.gold} · 🪙 ${s.runCoins}</span>
+            <span class="wanted" data-act="info" data-msg="수배도가 높을수록 일반 전투가 수배 추격대(정예)로 바뀔 확률이 오른다. 은신처에서 잠복하면 감소.">🚨 수배도 ${s.wanted}${ambush ? ` · 추격대 ${ambush}%` : ''}</span>
+            <button class="btn small" data-act="pile" data-pile="masterDeck">내 덱 ${s.player.masterDeck.length}</button>
+            ${escapeBtn(s)}
+          </div>
+        </div>
+        <div class="maparea"><svg viewBox="0 0 100 100" preserveAspectRatio="none">${lines}</svg>${nodes}</div>
+        <div class="maplegend">${['combat', 'elite', 'event', 'market', 'hideout', 'boss'].map((t) => `<span>${DT.map.icon(t)} ${DT.map.label(t)}</span>`).join('')}
+          <span class="lg-hint">빛나는 칸을 탭해 이동</span></div>
+      </div>`,
+    };
+  }
+
+  // ── 은신처 ──
+  function hideoutContent(app) {
+    const s = app.state;
+    const H = DT.config.hideout;
+    const canUp = s.player.masterDeck.some((c) => DT.cards.canUpgrade(c));
+    return {
+      key: 'hideout:' + s.pos,
+      html: `<div class="panel">
+        <h1>🏕️ 은신처</h1>
+        <p>하나만 고를 수 있다.</p>
+        ${partyStrip(s)}
+        <div class="choices">
+          <button class="btn choice" data-act="rest">🔥 <b>휴식</b><small>아군 전원 최대 체력의 ${Math.round(H.healRatio * 100)}% 회복</small></button>
+          <button class="btn choice" data-act="deck-pick" data-purpose="upgrade" ${canUp ? '' : 'disabled'}>⚒️ <b>강화</b><small>카드 1장 강화</small></button>
+          <button class="btn choice" data-act="laylow" ${s.wanted ? '' : 'disabled'}>🤫 <b>잠복</b><small>수배도 −${DT.config.wanted.hideoutReduce} (지금 ${s.wanted})</small></button>
+        </div></div>`,
+    };
+  }
+
+  // ── 암시장 ──
+  function marketContent(app) {
+    const s = app.state;
+    const m = s.market;
+    const offers = m.cards.map((it, i) => `<div class="offer ${it.sold ? 'sold' : ''}">
+      ${cardHTML({ uid: '', id: it.id, origin: DT.cards.def(it.id).origin })}
+      <button class="btn price" data-act="buy" data-i="${i}" ${it.sold || s.gold < it.price ? 'disabled' : ''}>${it.sold ? '판매 완료' : `💰 ${it.price}`}</button>
+    </div>`).join('');
+    return {
+      key: 'market:' + s.pos + ':' + s.gold + ':' + m.cards.map((c) => (c.sold ? 1 : 0)).join('') + (m.removed ? 'r' : ''),
+      html: `<div class="panel wide">
+        <h1>🛒 암시장</h1>
+        <p>💰 골드 <b>${s.gold}</b></p>
+        <div class="pickrow">${offers}</div>
+        <div class="choices">
+          <button class="btn choice" data-act="deck-pick" data-purpose="remove" ${m.removed || s.gold < m.removePrice ? 'disabled' : ''}>🗑️ <b>카드 제거</b><small>${m.removed ? '이번 방문에서 사용함' : `💰 ${m.removePrice}`}</small></button>
+          <button class="btn choice" disabled>🌀 <b>귀화</b><small>G단계에서 열림</small></button>
+        </div>
+        <div class="row"><button class="btn big" data-act="leave">떠나기</button></div>
+      </div>`,
+    };
+  }
+
+  // ── 이벤트 ──
+  function eventContent(app) {
+    const s = app.state;
+    const ev = DT.data.events[s.event];
+    return {
+      key: 'event:' + s.event + ':' + s.pos,
+      html: `<div class="panel">
+        <div class="ev-icon">${ev.icon}</div>
+        <h1>${ev.title}</h1>
+        <p class="ev-text">${ev.text}</p>
+        <div class="choices col">${ev.options.map((o, i) => `<button class="btn choice" data-act="event-opt" data-i="${i}" ${DT.run.canChooseEvent(s, i) ? '' : 'disabled'}>
+          <b>${o.label}</b><small>${o.desc || ''}</small></button>`).join('')}</div>
+      </div>`,
+    };
+  }
+
+  // ── 덱에서 카드 고르기(강화·제거) ──
+  function deckPickContent(app) {
+    const s = app.state;
+    const dp = app.deckPick;
+    const up = dp.purpose === 'upgrade';
+    const list = s.player.masterDeck.filter((c) => !up || DT.cards.canUpgrade(c)).slice().sort((a, b) => a.id.localeCompare(b.id));
+    const sel = dp.uid && s.player.masterDeck.find((c) => c.uid === dp.uid);
+    const preview = sel && up ? `<div class="uppreview">${cardHTML(sel)}<span>→</span>${cardHTML(Object.assign({}, sel, { up: 1 }))}</div>` : '';
+    return {
+      key: 'deckpick:' + dp.purpose + ':' + (dp.uid || ''),
+      html: `<div class="panel wide">
+        <h2>${up ? '⚒️ 강화할 카드' : `🗑️ 제거할 카드 (💰 ${s.market ? s.market.removePrice : ''})`}</h2>
+        ${preview}
+        <div class="pilelist">${list.map((c) => cardHTML(c, { small: true, selected: dp.uid === c.uid, attrs: `data-act="deck-card" data-uid="${c.uid}"` })).join('')}</div>
+        <div class="row"><button class="btn big" data-act="deck-cancel">취소</button>
+          <button class="btn big primary" data-act="deck-confirm" ${dp.uid ? '' : 'disabled'}>${up ? '강화' : '제거'}</button></div>
+      </div>`,
+    };
+  }
+
+  // ── 판 종료 ──
+  function runEndContent(app) {
+    const s = app.state;
+    const r = s.runEnd;
+    const meta = DT.save.loadMeta();
+    const title = { clear: '<h1 class="win">🏆 차원 클리어!</h1>', death: '<h1 class="lose">💀 붙잡혔다…</h1>',
+      mapEscape: '<h1 class="heist">🏃 무사히 도주</h1>', combatEscape: '<h1 class="heist">🏃 전투 중 도주</h1>' }[r.how];
+    const st = s.stats;
+    return {
+      key: 'runEnd:' + s.seed + ':' + r.how,
+      html: `<div class="panel">
+        ${title}
+        <p>${r.floor}층까지 진행</p>
+        <div class="coinbox">이번 판 코인 <b>🪙 ${r.runCoins}</b> × ${Math.round(r.keep * 100)}% = <b class="banked">🪙 ${r.banked}</b> 보존</div>
+        <p>보유 코인 <b>🪙 ${meta.coins}</b> <small>(로비 강화는 D단계에서 열림)</small></p>
+        <p class="stats">처치 ${st.kills} · 슬쩍 ${st.steals} · 강탈 ${st.heists} · 영입 ${st.recruits || 0} · 복제 ${st.copies} · 덱 ${s.player.masterDeck.length}장</p>
+        <div class="row">
+          <button class="btn big" data-act="retry">같은 시드로 다시</button>
+          <button class="btn big primary" data-act="new-seed">새 판 시작</button>
+        </div></div>`,
+    };
   }
 
   function renderOverlay(app) {
@@ -373,7 +527,7 @@ window.DT = window.DT || {};
     ov.innerHTML = c.html;
     ov.classList.add('show');
     // 전투가 막 끝난 화면은 마지막 타격 연출을 본 뒤 등장
-    ov.classList.toggle('late', /^(heist|reward|over):/.test(c.key));
+    ov.classList.toggle('late', /^(heist|reward|runEnd):/.test(c.key));
   }
 
   UI.render = function (app) {
@@ -453,6 +607,8 @@ window.DT = window.DT || {};
         banner(`<div class="b-who">슬쩍 성공!</div>${cardHTML(Object.assign(plainCard(ev.cardId), { temp: true }))}`, 'steal');
       } else if (ev.type === 'copy' && ev.by === 'player') {
         banner(`<div class="b-who">복제!</div>${cardHTML(plainCard(ev.cardId))}`, 'steal');
+      } else if (ev.type === 'passive') {
+        floatAt(ev.target, ev.text, 'stat', i);
       } else if (ev.type === 'recruit') {
         const a = actor(s, ev.id);
         banner(`<div class="b-who">🤝 ${a ? a.name : ''} 합류!</div>`, 'steal');

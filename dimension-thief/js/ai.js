@@ -15,7 +15,7 @@ window.DT = window.DT || {};
     const deck = DT.data.enemies[e.kind].deck;
     const dmg = (id) => E().previewDamage(s, { id }, e.id, tgtId);
     const hiddenAvg = deck.reduce((a, id) => a + dmg(id), 0) / deck.length;
-    const vals = e.hand.map((c) => (c.revealed ? dmg(c.id) : hiddenAvg));
+    const vals = e.hand.filter((c) => !DT.cards.def(c.id).unplayable).map((c) => (c.revealed ? dmg(c.id) : hiddenAvg));
     if (!vals.length) return 0;
     return (vals.reduce((a, b) => a + b, 0) / vals.length) * e.intent;
   };

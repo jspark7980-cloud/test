@@ -10,6 +10,30 @@ DT.cards = {
     return d;
   },
 
+  // ── 강화 ──
+  // 카드 인스턴스(card.up = 강화됨)에 맞는 효과·비용·이름
+  effectsOf(card) {
+    const def = DT.cards.def(card.id);
+    if (!card.up) return def.effects;
+    if (def.upgrade && def.upgrade.effects) return def.upgrade.effects;
+    const U = DT.config.upgrade;
+    return def.effects.map((e) => (typeof e.value === 'number' && U[e.type] ? Object.assign({}, e, { value: e.value + U[e.type] }) : e));
+  },
+  costOf(card) {
+    const def = DT.cards.def(card.id);
+    return card.up && def.upgrade && typeof def.upgrade.cost === 'number' ? def.upgrade.cost : def.cost;
+  },
+  nameOf(card) {
+    return DT.cards.def(card.id).name + (card.up ? '+' : '');
+  },
+  canUpgrade(card) {
+    const def = DT.cards.def(card.id);
+    if (card.up || card.temp || def.unplayable) return false;
+    if (def.upgrade) return true;
+    const U = DT.config.upgrade;
+    return def.effects.some((e) => typeof e.value === 'number' && U[e.type]);
+  },
+
   handlerOf(eff) {
     return DT.effects.handlers[eff.type];
   },
@@ -46,7 +70,7 @@ DT.cards = {
   describe(card, view) {
     const def = DT.cards.def(card.id);
     if (def.text) return def.text;
-    const lines = def.effects.map((e) => {
+    const lines = DT.cards.effectsOf(card).map((e) => {
       const h = DT.cards.handlerOf(e);
       return h ? h.describe(e, view) : '(?' + e.type + ')';
     });
@@ -66,8 +90,18 @@ DT.cards = {
         if (e.type === 'order' && !DT.effects.orders[e.order]) console.warn('[카드]', id, '알 수 없는 지휘:', e.order);
       });
     }
-    for (const [dim, list] of Object.entries(D.encounters)) {
-      list.forEach((enc) => enc.enemies.forEach((k) => { if (!D.enemies[k]) console.warn('[전투]', dim, enc.id, '없는 적:', k); }));
+    for (const [dim, kinds] of Object.entries(D.encounters)) {
+      for (const list of Object.values(kinds)) {
+        list.forEach((enc) => enc.enemies.forEach((k) => { if (!D.enemies[k]) console.warn('[전투]', dim, enc.id, '없는 적:', k); }));
+      }
+    }
+    for (const [id, en] of Object.entries(D.enemies)) {
+      (en.startHand || []).forEach((cid) => { if (!D.cards[cid]) console.warn('[적]', id, '시작 손패에 없는 카드:', cid); });
+    }
+    for (const [id, ev] of Object.entries(D.events || {})) {
+      ev.options.forEach((o) => (o.effects || []).forEach((e) => {
+        if (DT.run && !DT.run.EVENT_EFFECTS[e.type]) console.warn('[이벤트]', id, '알 수 없는 효과:', e.type);
+      }));
     }
     for (const [id, en] of Object.entries(D.enemies)) {
       en.deck.forEach((cid) => { if (!D.cards[cid]) console.warn('[적]', id, '덱에 없는 카드:', cid); });

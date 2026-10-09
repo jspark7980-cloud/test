@@ -13,8 +13,10 @@ DT.enemy = {
       handSize: d.handSize, reveal: d.reveal, actions: d.actions.slice(),
       drawPile: d.deck.map((id) => DT.state.makeCard(state, id)),
       hand: [], discardPile: [], exhaustPile: [],
-      intent: 0, pending: 0, targetId: null, lastPlayed: null, dead: false,
+      intent: 0, pending: 0, targetId: null, lastPlayed: null, dead: false, rank: d.rank || 'normal',
     };
+    // 시작 손패(예: 왕관): 항상 공개, 적은 사용하지 않음
+    (d.startHand || []).forEach((id) => e.hand.push(DT.state.makeCard(state, id, { revealed: true })));
     e.maxHand = Math.max(10, d.handSize);
     DT.rng.shuffle(state, e.drawPile);
     return e;
@@ -35,13 +37,14 @@ DT.enemy = {
 
   // 다음 턴에 쓸 장수와 노릴 대상 결정(플레이어에게 표시)
   plan(state, e) {
-    e.intent = Math.min(DT.rng.int(state, e.actions[0], e.actions[1]), e.hand.length);
+    const playable = e.hand.filter((c) => !DT.cards.def(c.id).unplayable).length;
+    e.intent = Math.min(DT.rng.int(state, e.actions[0], e.actions[1]), playable);
     DT.ai.enemyPlanTarget(state, e);
   },
 
-  // 사용할 카드 고르기: 손패에서 무작위
+  // 사용할 카드 고르기: 낼 수 있는 손패에서 무작위
   choose(state, e) {
-    return DT.rng.pick(state, e.hand);
+    return DT.rng.pick(state, e.hand.filter((c) => !DT.cards.def(c.id).unplayable));
   },
 
   act(state, e) {

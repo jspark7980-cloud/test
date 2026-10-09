@@ -2,7 +2,7 @@
 window.DT = window.DT || {};
 
 DT.state = {
-  VERSION: 4,
+  VERSION: 5,
 
   createRun(seed) {
     const P = DT.data.player;
@@ -14,8 +14,16 @@ DT.state = {
       nextUid: 1,
       dimension: 'medieval',
       turn: 0,
-      screen: 'combat',  // 'pickCompanion' | 'combat' | 'heist' | 'reward' | 'over'
-      floor: 0,          // 몇 번째 전투인지
+      screen: 'pickCompanion', // 'pickCompanion' | 'map' | 'combat' | 'heist' | 'reward' | 'hideout' | 'market' | 'event' | 'runEnd'
+      floor: 0,          // 맵의 현재 층
+      map: null,         // { nodes: {id: node}, floors: [[id]] } — js/map.js
+      pos: null,         // 현재 노드 id (출발 전 null)
+      gold: 0,           // 판 안의 화폐
+      runCoins: 0,       // 이번 판에서 얻은 코인(판 종료 시 비율대로 보존)
+      combatKind: null,  // 'normal' | 'elite' | 'boss'
+      lastLoot: null,
+      market: null, event: null, seenEvents: [], removeCount: 0,
+      runEnd: null,
       wanted: 0,         // 수배도: 강탈 시 +1
       heist: null,       // 강탈 대기 { picksLeft, groups:[{ enemyName, kind, options:[카드 id] }] }
       reward: null,      // 카드 보상 { options:[카드 id] }

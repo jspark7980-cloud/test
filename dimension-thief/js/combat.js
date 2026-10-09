@@ -41,6 +41,20 @@ window.DT = window.DT || {};
     }
   };
 
+  // 가지고 있는 카드의 지속 효과(예: 왕관). 덱·손패·버린 더미 어디에 있든 발동
+  C.runPassives = function (state, id, when) {
+    const a = DT.state.actor(state, id);
+    if (!a || a.dead) return;
+    const owned = [...(a.hand || []), ...(a.drawPile || []), ...(a.discardPile || [])];
+    for (const card of owned) {
+      const def = DT.cards.def(card.id);
+      if (!def.passive || def.passive.on !== when) continue;
+      log(state, `${a.name}: [${def.name}]의 힘`);
+      DT.effects.resolveEffects(DT.effects.makeCtx(state, id, null, card, null, id), def.passive.effects);
+      if (state.result) return;
+    }
+  };
+
   // 아군 턴 시작: 아군 전원 방어도 초기화·상태 처리, 도둑 드로우, 동료 행동 계획
   C.startPlayerTurn = function (state) {
     const p = state.player;
@@ -50,6 +64,7 @@ window.DT = window.DT || {};
     for (const a of DT.party.living(state)) {
       a.block = 0;                     // 방어도는 내 턴 시작 시 사라짐
       C.tickStatuses(state, a.id, 'turnStart');
+      C.runPassives(state, a.id, 'turnStart');
       if (state.result) return;
     }
     p.energy = p.maxEnergy;
@@ -66,7 +81,7 @@ window.DT = window.DT || {};
     if (!card) return { ok: false, reason: '손패에 없는 카드' };
     const def = DT.cards.def(card.id);
     if (def.unplayable) return { ok: false, reason: '사용할 수 없는 카드' };
-    if (def.cost > p.energy) return { ok: false, reason: '에너지가 부족합니다' };
+    if (DT.cards.costOf(card) > p.energy) return { ok: false, reason: '에너지가 부족합니다' };
     // 대상이 필요한 카드는 대상 후보 중 하나라도 가능하면 선택 허용
     if (DT.cards.needsTarget(def)) {
       const reasons = C.living(state).map((e) => DT.effects.canUse(state, 'player', e.id, card, null, allyId));
@@ -95,11 +110,11 @@ window.DT = window.DT || {};
     const why = DT.effects.canUse(state, 'player', tgtId, card, choice, allyId);
     if (why) return { ok: false, reason: why };
 
-    p.energy -= def.cost;
+    p.energy -= DT.cards.costOf(card);
     DT.deck.removeFromHand(p, uid);
     DT.state.emit(state, { type: 'play', actor: 'player', card: Object.assign({}, card) });
     const toAlly = allyId && allyId !== 'player' ? ` → ${DT.state.actor(state, allyId).name}` : '';
-    log(state, `나: [${def.name}]${toAlly}`);
+    log(state, `나: [${DT.cards.nameOf(card)}]${toAlly}`);
     DT.effects.resolveCard(state, 'player', tgtId, card, choice, allyId);
     DT.deck.afterPlay(state, p, card);
     C.checkEnd(state);
@@ -150,6 +165,7 @@ window.DT = window.DT || {};
     for (const e of C.living(state)) {
       e.block = 0;                     // 적 방어도도 자기 턴 시작 시 사라짐
       C.tickStatuses(state, e.id, 'turnStart');
+      C.runPassives(state, e.id, 'turnStart');
       if (state.result) return;
       e.pending = e.dead ? 0 : e.intent;
     }
