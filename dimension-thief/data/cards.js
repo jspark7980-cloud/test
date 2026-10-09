@@ -174,4 +174,17 @@ DT.data.cards = {
                   effects: [{ type: 'block', value: 8 }] },
   cp_mock:      { name: '조롱의 노래', type: 'attack', cost: 1, origin: 'thief', icon: '🎭',
                   effects: [{ type: 'damage', value: 3 }, { type: 'status', status: 'weak', value: 2 }] },
+
+  // ── 사이버 도시 (자동 발동·잠금) — 차원 균열에서 먼저 만날 수 있다. 나머지는 I단계 ──
+  cy_turret:   { name: '자동 포탑',  type: 'skill',  cost: 1, origin: 'cyber', icon: '🛰️', rarity: 'uncommon',
+                 text: '포탑 설치: 내 턴 시작마다<br>모든 적에게 피해 2<br><i>소멸</i>',
+                 effects: [{ type: 'status', status: 'turret', value: 1, to: 'self' }], exhaust: true },
+  cy_firewall: { name: '방화벽',     type: 'skill',  cost: 1, origin: 'cyber', icon: '🧱', rarity: 'common',
+                 effects: [{ type: 'block', value: 6 }, { type: 'draw', value: 1 }] },
+  cy_shutdown: { name: '강제 종료',  type: 'attack', cost: 1, origin: 'cyber', icon: '⛔', rarity: 'common',
+                 effects: [{ type: 'damage', value: 5 }, { type: 'status', status: 'weak', value: 2 }] },
+
+  // ── 차원 불안정 변이로 생기는 카드 ──
+  rift_noise:  { name: '차원 잡음',  type: 'power', cost: 0, origin: 'thief', icon: '📺', unplayable: true,
+                 text: '사용 불가<br><i>불안정 변이 · 이번 전투만</i>', effects: [] },
 };

@@ -142,7 +142,7 @@ DT.lobby = {
     return true;
   },
 
-  buy(meta, i) {
+  shopBuy(meta, i) {
     const slot = DT.lobby.ensureShop(meta).slots[i];
     if (!slot || slot.sold || meta.coins < slot.price || DT.lobby.stashFull(meta)) return false;
     meta.coins -= slot.price;

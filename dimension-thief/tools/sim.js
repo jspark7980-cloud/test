@@ -22,6 +22,13 @@ ctx.window = ctx;
 vm.createContext(ctx);
 files.forEach((f) => vm.runInContext(fs.readFileSync(path.join(root, f), 'utf8'), ctx, { filename: f }));
 const DT = ctx.DT;
+// 모듈 객체에 같은 이름의 함수가 두 번 정의되면 앞의 것이 조용히 사라진다 → 검사
+for (const f of files.filter((x) => x.startsWith('js/'))) {
+  const src = fs.readFileSync(path.join(root, f), 'utf8');
+  const names = [...src.matchAll(/^  ([A-Za-z_]\w*)\s*\(/gm)].map((m) => m[1]).filter((n) => !['if', 'for', 'while', 'switch', 'return'].includes(n));
+  const dup = names.filter((n, i) => names.indexOf(n) !== i);
+  if (dup.length) process.stderr.write(`[경고] ${f}: 같은 이름의 함수가 두 번 정의됨 → ${[...new Set(dup)].join(', ')}\n`);
+}
 const E = DT.effects;
 DT.cards.validate();
 
@@ -194,7 +201,13 @@ for (let i = 0; i < N; i++) {
         DT.run.takeHeist(s, opts[0]);
       }
     } else if (s.screen === 'reward') DT.run.takeReward(s, s.reward.options[0]);
-    else if (s.screen === 'hideout') {
+    else if (s.screen === 'rift') {
+      // 불안정이 안전 범위면 가져오고, 아니면 건너뜀
+      const inf = DT.run.instabilityInfo(s);
+      if (inf.value < inf.safeMax) DT.run.takeRift(s, s.rift.options[0]); else DT.run.skipRift(s);
+    } else if (s.screen === 'hideout') {
+      const inf = DT.run.instabilityInfo(s);
+      if (inf.level !== 'safe' && DT.run.naturalizable(s).length) { DT.run.hideoutNaturalize(s, DT.run.naturalizable(s)[0].uid); s.events.length = 0; continue; }
       const low = DT.party.living(s).some((a) => a.hp / a.maxHp < 0.7);
       const up = s.player.masterDeck.find((c) => DT.cards.canUpgrade(c) && c.id !== 'dodge');
       if (low || !up) DT.run.hideoutRest(s); else DT.run.upgradeCard(s, up.uid);

@@ -83,9 +83,9 @@ DT.map = {
   },
 
   icon(type) {
-    return { combat: '⚔️', elite: '💀', market: '🛒', hideout: '🏕️', event: '❓', boss: '👑' }[type] || '·';
+    return { combat: '⚔️', elite: '💀', market: '🛒', hideout: '🏕️', event: '❓', boss: '👑', rift: '🌀' }[type] || '·';
   },
   label(type) {
-    return { combat: '전투', elite: '정예', market: '암시장', hideout: '은신처', event: '이벤트', boss: '보스' }[type] || type;
+    return { combat: '전투', elite: '정예', market: '암시장', hideout: '은신처', event: '이벤트', boss: '보스', rift: '차원 균열' }[type] || type;
   },
 };

@@ -47,6 +47,36 @@ window.DT = window.DT || {};
     return true;
   };
 
+  // ── 차원 불안정 ──
+  // 도둑 덱(영구)에서 현재 차원과 출신이 다른 카드 수(중립 출신 제외) + 안정제 보정
+  R.instability = function (state) {
+    const dims = DT.data.dimensions;
+    const n = state.player.masterDeck.filter((c) => c.origin !== state.dimension && !(dims[c.origin] && dims[c.origin].neutral)).length;
+    return Math.max(0, n + (state.instabilityMod || 0));
+  };
+  // { value, level: 'safe' | 'unstable' | 'critical', safeMax, unstableMax, ignored }
+  R.instabilityInfo = function (state) {
+    const I = cfg().instability;
+    const extra = DT.items.partyFx(state, 'instabilityLimit');   // 차원 나침반: 한도 +2
+    const safeMax = I.safeMax + extra;
+    const unstableMax = I.unstableMax + extra;
+    const value = R.instability(state);
+    const level = value <= safeMax ? 'safe' : value <= unstableMax ? 'unstable' : 'critical';
+    return { value, level, safeMax, unstableMax, ignored: !!DT.items.fx(state.player, 'ignoreInstability') };
+  };
+
+  // 귀화: 카드 출신을 현재 차원으로
+  R.naturalizable = (state) => state.player.masterDeck.filter((c) => c.origin !== state.dimension
+    && !(DT.data.dimensions[c.origin] && DT.data.dimensions[c.origin].neutral));
+  R.naturalize = function (state, uid) {
+    const c = state.player.masterDeck.find((x) => x.uid === uid);
+    if (!c || !R.naturalizable(state).includes(c)) return false;
+    const from = DT.data.dimensions[c.origin].name;
+    c.origin = state.dimension;
+    log(state, `[${DT.cards.nameOf(c)}] 귀화: ${from} → ${DT.data.dimensions[state.dimension].name}`);
+    return true;
+  };
+
   // ── 맵 ──
   R.enterNode = function (state, nodeId) {
     if (state.screen !== 'map' || !DT.map.reachable(state).includes(nodeId)) return false;
@@ -67,6 +97,7 @@ window.DT = window.DT || {};
       case 'hideout': state.screen = 'hideout'; break;
       case 'market': R.openMarket(state); break;
       case 'event': R.openEvent(state); break;
+      case 'rift': R.openRift(state); break;
       default: state.screen = 'map';
     }
     return true;
@@ -284,9 +315,50 @@ window.DT = window.DT || {};
     return true;
   };
 
+  R.hideoutNaturalize = function (state, uid) {
+    if (state.screen !== 'hideout' || !R.naturalize(state, uid)) return false;
+    state.screen = 'map';
+    return true;
+  };
+
+  R.naturalizePrice = (state) => cfg().naturalize.marketBase + cfg().naturalize.marketStep * (state.naturalizeCount || 0);
+  R.marketNaturalize = function (state, uid) {
+    const m = state.market;
+    if (state.screen !== 'market' || !m || m.naturalized || state.gold < R.naturalizePrice(state)) return false;
+    const price = R.naturalizePrice(state);
+    if (!R.naturalize(state, uid)) return false;
+    state.gold -= price;
+    state.naturalizeCount = (state.naturalizeCount || 0) + 1;
+    m.naturalized = true;
+    return true;
+  };
+
   R.leave = function (state) {
     if (!['market', 'hideout'].includes(state.screen)) return false;
     state.market = null;
+    state.screen = 'map';
+    return true;
+  };
+
+  // ── 차원 균열: 다음 차원 카드 1장(불안정 +1) ──
+  R.openRift = function (state) {
+    const next = DT.data.dimensions[state.dimension].next;
+    const pool = Object.entries(DT.data.cards).filter(([, c]) => c.rarity && c.origin === next).map(([id]) => id);
+    DT.rng.shuffle(state, pool);
+    state.rift = { dimension: next, options: pool.slice(0, cfg().rift.choices) };
+    state.screen = 'rift';
+  };
+  R.takeRift = function (state, cardId) {
+    if (state.screen !== 'rift' || !state.rift.options.includes(cardId)) return false;
+    state.player.masterDeck.push(DT.state.makeCard(state, cardId));
+    log(state, `🌀 차원 균열에서 [${DT.cards.def(cardId).name}]을(를) 가져왔다. 차원 불안정 ${R.instability(state)}`);
+    state.rift = null;
+    state.screen = 'map';
+    return true;
+  };
+  R.skipRift = function (state) {
+    if (state.screen !== 'rift') return false;
+    state.rift = null;
     state.screen = 'map';
     return true;
   };

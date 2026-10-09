@@ -31,6 +31,7 @@ window.DT = window.DT || {};
     state.enemies = [];
     enemyKinds.forEach((k) => state.enemies.push(DT.enemy.create(state, k)));
     state.turn = 0; state.result = null; state.orders = {};
+    C.mutate(state);
     state.enemies.forEach((e) => { DT.enemy.refill(state, e); DT.enemy.plan(state, e); });
     log(state, `${state.enemies.map((e) => e.name).join(', ')}이(가) 나타났다!`);
     C.startPlayerTurn(state);
@@ -41,6 +42,24 @@ window.DT = window.DT || {};
     }
   };
 
+  // 차원 불안정 변이: 이번 전투 동안 덱의 카드 몇 장이 '차원 잡음' 또는 다른 차원 카드로 바뀐다
+  C.mutate = function (state) {
+    const info = DT.run.instabilityInfo(state);
+    const I = DT.config.instability;
+    if (info.level === 'safe' || info.ignored) return;
+    const n = info.level === 'critical' ? I.mutateCritical : I.mutateUnstable;
+    const pile = state.player.drawPile;
+    const foreign = Object.entries(DT.data.cards).filter(([, c]) => c.rarity && c.origin !== state.dimension && !DT.data.dimensions[c.origin].neutral).map(([id]) => id);
+    for (let k = 0; k < n && pile.length; k++) {
+      const i = DT.rng.int(state, 0, pile.length - 1);
+      const old = pile[i];
+      const id = DT.rng.next(state) < I.noiseChance || !foreign.length ? 'rift_noise' : DT.rng.pick(state, foreign);
+      pile[i] = DT.state.makeCard(state, id, { temp: true, mutated: true });
+      log(state, `🌀 차원 불안정! [${DT.cards.nameOf(old)}] → [${DT.cards.def(id).name}] (이번 전투)`);
+    }
+    DT.state.emit(state, { type: 'passive', target: 'player', text: `🌀 변이 ${n}장` });
+  };
+
   // when: 'turnStart' | 'turnEnd'
   C.tickStatuses = function (state, id, when) {
     const a = DT.state.actor(state, id);
@@ -49,6 +68,12 @@ window.DT = window.DT || {};
       const d = defs[key];
       const v = a.statuses[key];
       if (!d) continue;
+      if (when === 'turnStart' && d.turnStartHitAll && v > 0 && !a.dead) {   // 자동 포탑
+        const foes = DT.state.isAlly(id) ? C.living(state).map((e) => e.id) : DT.party.living(state).map((x) => x.id);
+        log(state, `${a.name}: ${d.name} 발동`);
+        foes.forEach((f) => DT.effects.applyDamage(state, f, d.turnStartHitAll * v, { source: id }));
+        if (state.result) return;
+      }
       if (when === 'turnStart' && d.turnStartDamage && v > 0 && !a.dead) {
         log(state, `${a.name}: ${d.name} 피해 ${v}`);
         DT.effects.applyDamage(state, id, v, { ignoreBlock: true });
@@ -85,6 +110,13 @@ window.DT = window.DT || {};
       a.block = 0;                     // 방어도는 내 턴 시작 시 사라짐
       C.tickStatuses(state, a.id, 'turnStart');
       C.runPassives(state, a.id, 'turnStart');
+      if (state.result) return;
+    }
+    // 차원 불안정 폭주: 매 턴 피해
+    const inst = DT.run.instabilityInfo(state);
+    if (inst.level === 'critical' && !inst.ignored) {
+      log(state, `🌀 차원 불안정 폭주: 피해 ${DT.config.instability.critDamage}`);
+      DT.effects.applyDamage(state, 'player', DT.config.instability.critDamage, { ignoreBlock: true });
       if (state.result) return;
     }
     p.energy = p.maxEnergy;
