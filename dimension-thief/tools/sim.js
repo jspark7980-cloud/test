@@ -179,6 +179,8 @@ function choosePath(s, R) {
 }
 const DIMS = ['medieval', 'cyber', 'abyss', 'hell'];
 const instIn = {};
+const voidStats = { reach: 0, win: 0, fights: [] };
+let vaults = 0;
 const reach = { medieval: 0, cyber: 0, abyss: 0, hell: 0 }, cleared = { medieval: 0, cyber: 0, abyss: 0, hell: 0 };
 const runs = { clear: 0, death: 0, deathFloors: [], turns: 0, fights: 0, coins: 0, wanted: 0, compsAtEnd: 0, kept: 0, lost: 0 };
 for (let i = 0; i < N; i++) {
@@ -207,7 +209,14 @@ for (let i = 0; i < N; i++) {
       while (s.freeNaturalize > 0 && DT.run.naturalizable(s).length) DT.run.freeNaturalize(s, DT.run.naturalizable(s)[0].uid);
       DT.run.enterNode(s, choosePath(s, R));
     }
-    else if (s.screen === 'combat') { runs.turns += fight(s); runs.fights++; DT.run.resolve(s); }
+    else if (s.screen === 'combat') {
+      const proto = s.dimension === 'void' && s.combatKind === 'boss';
+      const hp0 = s.player.hp;
+      const t = fight(s);
+      runs.turns += t; runs.fights++;
+      if (proto) voidStats.fights.push(`${s.result === 'win' ? '승' : '패'} ${t}턴 체력 ${hp0}→${s.player.hp}`);
+      DT.run.resolve(s);
+    }
     else if (s.screen === 'heist') {
       const g = s.heist.groups.find((x) => x.role);
       if (!SOLO && g && DT.party.slotsFree(s) > 0) DT.run.recruit(s, g.kind);
@@ -236,11 +245,13 @@ for (let i = 0; i < N; i++) {
       DT.run.chooseEvent(s, k);
     } else if (s.screen === 'eventResult') DT.run.closeEvent(s);
     else if (s.screen === 'pickRelic') DT.run.pickRelic(s, s.relicChoices[0]);
+    else if (s.screen === 'voidGate') { cleared.hell++; voidStats.reach++; DT.run.nextDimension(s); }
     else if (s.screen === 'dimClear') { cleared[s.dimension]++; DT.run.nextDimension(s); reach[s.dimension]++; instIn[s.dimension] = (instIn[s.dimension] || 0) + DT.run.instability(s); }
     s.events.length = 0;
   }
-  if (s.runEnd.how === 'clear') { runs.clear++; cleared.hell++; }
+  if (s.runEnd.how === 'clear') { runs.clear++; if (s.dimension === 'void') voidStats.win++; else cleared.hell++; }
   else { runs.death++; runs.deathFloors.push(s.runEnd.depth); }
+  vaults += Object.values(s.map ? s.map.nodes : {}).filter((n) => n.type === 'vault' && n.visited).length;
   runs.coins += s.runEnd.banked;
   runs.wanted += s.wanted;
   runs.compsAtEnd += s.allies.length;
@@ -269,6 +280,8 @@ console.log('  차원별: ' + DIMS.map((d) => `${DT.data.dimensions[d].name} 도
 console.log('  차원 진입 시 평균 불안정: ' + DIMS.slice(1).map((d) => `${DT.data.dimensions[d].name} ${avg(instIn[d] || 0, reach[d])}`).join(' · '));
 const bossD = {}; runs.deathFloors.forEach((f) => { const k = Math.floor((f - 1) / 12) + (f % 12 === 0 ? '보스' : '맵'); bossD[k] = (bossD[k] || 0) + 1; });
 console.log('  사망: ' + Object.entries(bossD).map(([k, n]) => `${+k[0] + 1}차원 ${k.slice(1)} ${n}`).join(' · '));
+console.log(`  차원의 틈: 도달 ${voidStats.reach} → 원조 도둑 처치 ${voidStats.win} · 방문한 황금 금고(마지막 차원 맵 기준) ${vaults}`);
+if (voidStats.fights.length) console.log('  원조 도둑전: ' + voidStats.fights.join(' / '));
 console.log(`  전체 클리어 ${pct(runs.clear, N)} · 전투당 평균 ${avg(runs.turns, runs.fights)}턴 · 보존 코인 평균 ${avg(runs.coins, N)} · 끝날 때 수배도 평균 ${avg(runs.wanted, N)} · 남은 동료 평균 ${avg(runs.compsAtEnd, N)}`);
 console.log(`  판당 아이템: 창고로 ${avg(runs.kept, N)}개, 분실 ${avg(runs.lost, N)}개`);
 console.log(`  판당 유물: ${avg(runs.relics || 0, N)}개`);

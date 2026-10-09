@@ -12,13 +12,18 @@ DT.party = {
   // src: data/companions.js 항목 또는 강탈한 적(data/enemies.js 항목)
   make(state, kind, fromEnemy) {
     const d = fromEnemy ? DT.data.enemies[kind] : DT.data.companions[kind];
-    const deck = fromEnemy ? d.companionDeck : d.deck;
+    // 보유 동료: 돌파·레벨 반영(출발 시 state.roster 에 복사됨). 강탈 영입은 이번 판 한정·성장 없음
+    const e = fromEnemy ? { bt: 0, lv: 1 } : DT.gacha.entry({ roster: state.roster || {} }, kind);
+    const deck = fromEnemy ? d.companionDeck.map((id) => ({ id, up: 0 })) : DT.gacha.deckFor(kind, e.lv);
+    const hp = Math.round(d.hp * DT.gacha.hpMult(e));
     const c = {
       id: 'a' + state.nextAllyId++, kind, fromEnemy: !!fromEnemy,
       name: d.name, icon: d.icon, role: d.role, origin: d.origin,
-      hp: d.hp, maxHp: d.hp, block: 0, statuses: {},
+      hp, maxHp: hp, block: 0, statuses: {},
+      bt: e.bt, lv: e.lv, dmgMult: DT.gacha.dmgMult(e), grade: d.grade || null,
+      ability: d.ability ? { id: d.ability.id, value: DT.gacha.abilityValue(kind, e.bt) } : null,
       row: d.row || 'front', homeRow: d.row || 'front', basicAttack: d.basicAttack || 4,
-      masterDeck: deck.map((id) => DT.state.makeCard(state, id)),
+      masterDeck: deck.map((x) => DT.state.makeCard(state, x.id, x.up ? { up: 1 } : null)),
       drawPile: [], hand: [], discardPile: [], exhaustPile: [], maxHand: 10,
       intent: null, dead: false,
       equip: { weapon: null, armor: null, accessory: null },
@@ -64,9 +69,9 @@ DT.party = {
   },
 
   roleName(role) {
-    return { tank: '탱커', healer: '힐러', dealer: '딜러' }[role] || role;
+    return { tank: '탱커', healer: '힐러', dealer: '딜러', support: '지원' }[role] || role;
   },
   roleIcon(role) {
-    return { tank: '🛡', healer: '✚', dealer: '⚔' }[role] || '';
+    return { tank: '🛡', healer: '✚', dealer: '⚔', support: '✦' }[role] || '';
   },
 };

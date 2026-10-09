@@ -102,6 +102,7 @@ window.DT = window.DT || {};
       const kills = dmg >= e.hp + e.block;
       const heistWait = DT.combat.belowHeistLine(e, s) && !e.heistReady;
       let v = Math.min(dmg, e.hp + e.block) + (1 - e.hp / e.maxHp) * 8;
+      if (c.ability && c.ability.id === 'backline' && e.row === 'back') v += 10;   // 정찰 드론: 뒷줄 우선
       if (kills) v += heistWait ? -60 : e.heistReady ? 50 : 35;
       if (!best || v > best.value) best = { id: e.id, value: v };
     }
@@ -112,7 +113,7 @@ window.DT = window.DT || {};
     return DT.party.living(s).map((a) => ({ a, t: threat(s, a) })).sort((x, y) => y.t - x.t)[0];
   }
 
-  const ATTACK_BASE = { tank: 40, healer: 22, dealer: 60 };
+  const ATTACK_BASE = { tank: 40, healer: 22, dealer: 60, support: 45 };
 
   // 카드 한 장의 가치와 대상
   function evalCard(s, c, card) {

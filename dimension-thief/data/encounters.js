@@ -73,4 +73,23 @@ DT.data.encounters = {
       { id: 'demonking',   enemies: ['hound', 'demonking', 'imp'] },
     ],
   },
+  // 비밀 차원: 4개 차원의 적이 섞여 나온다. 보스는 내 덱을 복사하는 원조 도둑
+  void: {
+    normal: [
+      { id: 'vd_mix1', tier: 1, enemies: ['knight', 'drone'] },
+      { id: 'vd_mix2', tier: 1, enemies: ['merfolk', 'imp'] },
+      { id: 'vd_mix3', tier: 1, enemies: ['enforcer', 'jelly'] },
+      { id: 'vd_mix4', tier: 2, enemies: ['hound', 'drone', 'siren'] },
+      { id: 'vd_mix5', tier: 2, enemies: ['merfolk', 'archer', 'hacker'] },
+      { id: 'vd_mix6', tier: 2, enemies: ['enforcer', 'imp', 'cultist'] },
+    ],
+    elite: [
+      { id: 'vd_elite1', enemies: ['doomknight', 'drone'] },
+      { id: 'vd_elite2', enemies: ['angler', 'hacker'] },
+      { id: 'vd_elite3', enemies: ['mech', 'cultist'] },
+    ],
+    boss: [
+      { id: 'proto', enemies: ['proto_thief'] },
+    ],
+  },
 };

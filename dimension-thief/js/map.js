@@ -3,9 +3,14 @@
 window.DT = window.DT || {};
 
 DT.map = {
+  // 차원별 층 수(비밀 차원은 짧다)
+  floorsOf(state) {
+    return state.dimension === 'void' ? DT.config.void.floors : DT.config.map.floors;
+  },
+
   generate(state) {
     const M = DT.config.map;
-    const F = M.floors;
+    const F = DT.map.floorsOf(state);
     const L = M.lanes;
     const nodes = {};
     const floors = Array.from({ length: F }, () => []);
@@ -59,6 +64,9 @@ DT.map = {
             const clash = special.includes(n.type) && n.prev.some((pid) => nodes[pid].type === n.type);
             if (!clash) break;
           }
+          // 황금 금고: 드물게 전투·이벤트 자리에 나타난다
+          const V = DT.config.vault;
+          if ((n.type === 'combat' || n.type === 'event') && n.floor >= V.minFloor && DT.rng.next(state) < V.chance) n.type = 'vault';
         }
       }
     }
@@ -84,9 +92,9 @@ DT.map = {
   },
 
   icon(type) {
-    return { combat: '⚔️', elite: '💀', market: '🛒', hideout: '🏕️', event: '❓', boss: '👑', rift: '🌀' }[type] || '·';
+    return { combat: '⚔️', elite: '💀', market: '🛒', hideout: '🏕️', event: '❓', boss: '👑', rift: '🌀', vault: '💰' }[type] || '·';
   },
   label(type) {
-    return { combat: '전투', elite: '정예', market: '암시장', hideout: '은신처', event: '이벤트', boss: '보스', rift: '차원 균열' }[type] || type;
+    return { combat: '전투', elite: '정예', market: '암시장', hideout: '은신처', event: '이벤트', boss: '보스', rift: '차원 균열', vault: '황금 금고' }[type] || type;
   },
 };

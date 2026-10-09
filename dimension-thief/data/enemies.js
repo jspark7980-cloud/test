@@ -172,4 +172,14 @@ DT.data.enemies = {
     row: 'back', targets: 'front',
     deck: ['dk_storm', 'dk_storm', 'dk_claw', 'dk_claw', 'dk_throne', 'dk_drain', 'dk_mock'],
   },
+
+  // ════════ 비밀 차원: 차원의 틈 ════════
+  // 원조 도둑: 전투 시작 때 도둑의 덱을 그대로 복사해 쓴다(mirrorDeck). 체력은 config.void.protoHp.
+  //  deck 은 강탈 후보·예상 피해 계산용 기본값
+  proto_thief: {
+    name: '원조 도둑', icon: '🎭', origin: 'void', hp: 600, rank: 'boss', mirrorDeck: true,
+    handSize: 5, reveal: 2, actions: [2, 3],
+    row: 'front', targets: 'front',
+    deck: ['pilfer', 'stab', 'stab', 'dodge', 'dodge'],
+  },
 };

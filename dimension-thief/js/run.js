@@ -79,15 +79,20 @@ window.DT = window.DT || {};
   R.depthLabel = function (depth) {
     const F = cfg().map.floors;
     if (!depth) return '-';
+    if (depth > F * 4) return `차원의 틈 ${depth - F * 4}층`;
     const order = Math.min(4, Math.floor((depth - 1) / F) + 1);
     const dim = Object.values(DT.data.dimensions).find((d) => d.order === order);
     return `${dim ? dim.name : order + '차원'} ${depth - (order - 1) * F}층`;
   };
 
-  // 보스 격파 → 다음 차원
+  // 비밀 차원 '차원의 틈' 개방 조건: 4개 차원 출신 카드를 각 1장 이상 가진 채 마왕 처치
+  R.VOID_KEYS = ['medieval', 'cyber', 'abyss', 'hell'];
+  R.voidReady = (state) => R.VOID_KEYS.every((o) => state.player.masterDeck.some((c) => c.origin === o));
+
+  // 보스 격파 → 다음 차원 (차원의 틈 입구에서 들어가면 'void')
   R.nextDimension = function (state) {
-    if (state.screen !== 'dimClear') return false;
-    const next = DT.data.dimensions[state.dimension].next;
+    if (state.screen !== 'dimClear' && state.screen !== 'voidGate') return false;
+    const next = state.screen === 'voidGate' ? 'void' : DT.data.dimensions[state.dimension].next;
     state.dimension = next;
     state.instabilityMod = 0;          // 차원 안정제는 그 차원 동안만
     state.floor = 0;
@@ -102,10 +107,18 @@ window.DT = window.DT || {};
     return true;
   };
 
+  // 차원의 틈 입구에서 들어가지 않고 귀환(클리어)
+  R.skipVoid = function (state) {
+    if (state.screen !== 'voidGate') return false;
+    R.endRun(state, 'clear');
+    return true;
+  };
+
   // ── 차원 불안정 ──
   // 도둑 덱(영구)에서 현재 차원과 출신이 다른 카드 수(중립 출신 제외) + 안정제 보정
   R.instability = function (state) {
     const dims = DT.data.dimensions;
+    if (dims[state.dimension].chaos) return 0;   // 차원의 틈: 불안정 없음
     const n = state.player.masterDeck.filter((c) => c.origin !== state.dimension && !(dims[c.origin] && dims[c.origin].neutral)).length;
     return Math.max(0, n + (state.instabilityMod || 0) + DT.relics.fx(state, 'instabilityAdd'));
   };
@@ -117,7 +130,7 @@ window.DT = window.DT || {};
     const unstableMax = I.unstableMax + extra + R.asc(state, 'instability');
     const value = R.instability(state);
     const level = value <= safeMax ? 'safe' : value <= unstableMax ? 'unstable' : 'critical';
-    return { value, level, safeMax, unstableMax, ignored: !!DT.items.fx(state.player, 'ignoreInstability') };
+    return { value, level, safeMax, unstableMax, ignored: !!DT.items.fx(state.player, 'ignoreInstability') || DT.abilities.ignoresInstability(state) };
   };
 
   // 귀화: 카드 출신을 현재 차원으로
@@ -156,6 +169,11 @@ window.DT = window.DT || {};
         break;
       }
       case 'elite': R.startCombat(state, 'elite'); break;
+      case 'vault':
+        DT.state.emit(state, { type: 'secret', id: 'vault' });
+        log(state, '💰 황금 금고 발견! 경비가 지키고 있다.');
+        R.startCombat(state, 'vault');
+        break;
       case 'boss': R.startCombat(state, 'boss'); break;
       case 'hideout': state.screen = 'hideout'; break;
       case 'market': R.openMarket(state); break;
@@ -179,7 +197,13 @@ window.DT = window.DT || {};
   };
 
   R.startCombat = function (state, kind) {
-    const enc = R.pickEncounter(state, kind);
+    let enc;
+    if (kind === 'vault') {
+      // 황금 금고 경비: 그 차원 정예 + 일반 적 1
+      const el = R.pickEncounter(state, 'elite');
+      const nm = R.pickEncounter(state, 'normal');
+      enc = { id: 'vault', enemies: el.enemies.concat(nm.enemies[0]) };
+    } else enc = R.pickEncounter(state, kind);
     state.lastEncounter = enc.id;
     state.combatKind = kind;
     state.screen = 'combat';
@@ -197,16 +221,22 @@ window.DT = window.DT || {};
       return true;
     }
     state.stats.kills += state.enemies.length;
-    DT.party.removeFallen(state);
+    const fallenNow = DT.party.removeFallen(state);
+    // 동료 경험치(보유 동료만, 쓰러진 동료는 절반). 영구 데이터 반영은 main.js(recordMeta)
+    const xpBase = DT.config.growth.xp[state.combatKind || 'normal'] || DT.config.growth.xp.normal;
+    const xp = [...state.allies.map((c) => ({ c, v: xpBase })), ...fallenNow.map((c) => ({ c, v: Math.floor(xpBase / 2) }))]
+      .filter((x) => !x.c.fromEnemy).map((x) => ({ kind: x.c.kind, xp: x.v }));
+    if (xp.length) DT.state.emit(state, { type: 'xp', gains: xp });
 
     // 골드·코인
     const kind = state.combatKind || 'normal';
     const G = cfg().gold;
-    const range = G[kind === 'normal' ? 'combat' : kind];
+    const V = cfg().vault;
+    const range = G[kind === 'normal' ? 'combat' : kind === 'vault' ? 'elite' : kind];
     const gold = Math.round((DT.rng.int(state, range[0], range[1]) + state.wanted * G.perWanted)
-      * (1 + DT.relics.fx(state, 'goldMult')) * (G.dimMult[R.dimOrder(state) - 1] || 1));
+      * (1 + DT.relics.fx(state, 'goldMult')) * (G.dimMult[Math.min(4, R.dimOrder(state)) - 1] || 1) * (kind === 'vault' ? V.goldMult : 1));
     const C = cfg().coins;
-    const mult = kind === 'boss' ? C.bossMult : kind === 'elite' ? C.eliteMult : 1;
+    const mult = kind === 'boss' ? C.bossMult : kind === 'elite' ? C.eliteMult : kind === 'vault' ? V.coinMult : 1;
     const itemMult = (1 + DT.items.partyFx(state, 'coinMult')) * (DT.items.partyFx(state, 'greed') ? 2 : 1);
     const ascMult = 1 + (state.ascension || 0) * cfg().ascension.coinBonus;
     const coins = Math.round((C.base + R.depth(state) * C.perFloor) * mult * itemMult * ascMult);
@@ -214,11 +244,11 @@ window.DT = window.DT || {};
     state.runCoins += coins;
     const drops = DT.items.dropsFor(state, kind);
     // 유물: 정예(수배 추격대 포함) 승리마다 1개 / 피 묻은 주사위 회복
-    const relic = kind === 'elite' ? DT.relics.roll(state, 'elite') : null;
+    const relic = kind === 'elite' || kind === 'vault' ? DT.relics.roll(state, 'elite') : null;
     if (relic) DT.relics.gain(state, relic);
     const wh = DT.relics.fx(state, 'winHeal');
     if (wh && state.player.hp > 0) DT.effects.heal(state, 'player', wh);
-    state.lastLoot = { gold, coins, items: drops.got, lostItems: drops.lost, relic };
+    state.lastLoot = { gold, coins, items: drops.got, lostItems: drops.lost, relic, xp };
 
     const seen = new Set();
     const groups = state.enemies.filter((e) => e.executed && !seen.has(e.kind) && seen.add(e.kind)).map((e) => ({
@@ -228,6 +258,12 @@ window.DT = window.DT || {};
     state.heist = groups.length ? { picksLeft: Math.min(cfg().heist.maxPerCombat, groups.length), groups } : null;
     state.reward = { options: DT.reward.cardChoices(state, kind !== 'normal'), kind };
     state.screen = state.heist ? 'heist' : 'reward';
+    // 원조 도둑 처치: 시간의 도둑 해금
+    if (kind === 'boss' && state.dimension === 'void') {
+      DT.state.emit(state, { type: 'secret', id: 'proto' });
+      DT.state.emit(state, { type: 'secret', id: 'timeThief' });
+      log(state, '⏳ 원조 도둑이 남긴 모래시계… 시간의 도둑이 동료가 되었다!');
+    }
     DT.state.emit(state, { type: 'victory', floor: state.floor, kind });
     return true;
   };
@@ -284,13 +320,16 @@ window.DT = window.DT || {};
   };
 
   // ── 카드 보상 ──
-  // 보스 보상 뒤: 다음 차원이 있으면 차원 이동 화면, 마지막(지옥)이면 클리어
+  // 보스 보상 뒤: 다음 차원이 있으면 차원 이동 화면, 지옥이면 클리어(조건을 채웠으면 차원의 틈 입구)
   function afterReward(state) {
     const fromBoss = state.reward && state.reward.kind === 'boss';
     state.reward = null;
     if (!fromBoss) state.screen = 'map';
     else if (DT.data.dimensions[state.dimension].next) state.screen = 'dimClear';
-    else R.endRun(state, 'clear');
+    else if (state.dimension === 'hell' && R.voidReady(state)) {
+      state.screen = 'voidGate';
+      DT.state.emit(state, { type: 'secret', id: 'void' });
+    } else R.endRun(state, 'clear');
   }
 
   R.takeReward = function (state, cardId) {

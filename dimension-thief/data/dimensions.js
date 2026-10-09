@@ -9,4 +9,6 @@ DT.data.dimensions = {
   cyber:    { name: '사이버 도시', order: 2, next: 'abyss',      color: '#2fe3ff', bg: '#0a1120', bg2: '#16233f' },
   abyss:    { name: '심해 왕국',  order: 3, next: 'hell',      color: '#3fd0a8', bg: '#05161a', bg2: '#0c2c33' },
   hell:     { name: '지옥',      order: 4,      color: '#ff5a3c', bg: '#1c0806', bg2: '#3a120c' },
+  // 비밀 차원(v4 4단계): 4개 차원이 뒤섞인 틈. 층 수는 config.void.floors, 차원 불안정 없음(chaos)
+  void:     { name: '차원의 틈',  order: 5, secret: true, chaos: true, color: '#d8d8ff', bg: '#09090f', bg2: '#1d1d33' },
 };

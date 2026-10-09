@@ -79,6 +79,9 @@ window.DT = window.DT || {};
         dmg *= 1 + DT.items.fx(tgt, 'damageTakenMult');
       }
     }
+    // v4: 동료 고유 능력·돌파, 파티 시너지
+    if (src && DT.abilities) dmg = (dmg + DT.abilities.dmgAdd(state, src, tgt)) * DT.abilities.dmgMult(state, src, tgt);
+    if (DT.synergy && state.allies) dmg *= DT.synergy.dealtMult(state, srcId, tgtId) * DT.synergy.takenMult(state, tgtId);
     return Math.max(0, Math.floor(dmg));
   };
 
@@ -143,7 +146,10 @@ window.DT = window.DT || {};
         DT.state.emit(state, { type: 'cover', target: cover });
       }
     }
-    return E.applyDamage(state, tgtId, E.calcDamage(state, srcId, tgtId, base), { source: srcId });
+    let dmg = E.calcDamage(state, srcId, tgtId, base);
+    if (DT.synergy) DT.synergy.recordHit(state, srcId, tgtId);
+    if (DT.abilities && !DT.state.isAlly(srcId)) dmg = DT.abilities.share(state, tgtId, dmg);   // 성기사 분담
+    return E.applyDamage(state, tgtId, dmg, { source: srcId });
   };
 
   E.gainBlock = function (state, id, n) {
@@ -214,7 +220,8 @@ window.DT = window.DT || {};
           if (!living(ctx.state, id) || ctx.state.result) break;
           E.dealDamage(ctx.state, ctx.srcId, id, val(eff));
           // 독 바른 칼: 공격할 때마다 독
-          const pois = DT.items ? DT.items.fx(actor(ctx.state, ctx.srcId), 'poisonOnAttack') : 0;
+          const pois = (DT.items ? DT.items.fx(actor(ctx.state, ctx.srcId), 'poisonOnAttack') : 0)
+            + (DT.abilities ? DT.abilities.poisonOnHit(ctx.state, actor(ctx.state, ctx.srcId)) : 0);   // 해파리 병사
           if (pois && living(ctx.state, id)) E.applyStatus(ctx.state, id, 'poison', pois);
         }
       }
@@ -234,7 +241,12 @@ window.DT = window.DT || {};
   E.register('heal', {
     defaultTo: 'ally',
     describe: (eff) => `체력 <b>${val(eff)}</b> 회복`,
-    apply(ctx, eff) { ctx.targetsOf(eff).forEach((id) => E.heal(ctx.state, id, val(eff))); },
+    apply(ctx, eff) {
+      ctx.targetsOf(eff).forEach((id) => {
+        E.heal(ctx.state, id, val(eff));
+        if (DT.abilities) DT.abilities.onHeal(ctx.state, ctx.srcId, id);   // 인어 치유사
+      });
+    },
   });
 
   E.register('loseHp', {
@@ -253,7 +265,11 @@ window.DT = window.DT || {};
       if (eff.to === 'ally') return `아군 ${d.name} ${val(eff) > 0 ? '+' : ''}${val(eff)}`;
       return `${allTag(eff)}${d.name} ${val(eff)} 부여`;
     },
-    apply(ctx, eff) { ctx.targetsOf(eff).forEach((id) => E.applyStatus(ctx.state, id, eff.status, val(eff))); },
+    apply(ctx, eff) {
+      // 심해 마녀: 적에게 거는 독 배율
+      const mult = eff.status === 'poison' && DT.abilities ? DT.abilities.poisonMult(ctx.state, actor(ctx.state, ctx.srcId)) : 1;
+      ctx.targetsOf(eff).forEach((id) => E.applyStatus(ctx.state, id, eff.status, Math.round(val(eff) * (DT.state.isAlly(id) ? 1 : mult))));
+    },
   });
 
   E.register('draw', {
@@ -348,7 +364,9 @@ window.DT = window.DT || {};
   function stealCandidates(state, victimId) {
     const v = actor(state, victimId);
     if (!v) return [];
-    return victimId === 'player' ? v.hand : v.hand.filter((c) => c.revealed);
+    // 도둑을 노린 슬쩍(원조 도둑): 손패가 비어 있으면(적 턴) 뽑을 덱에서
+    if (victimId === 'player') return v.hand.length ? v.hand : v.drawPile;
+    return v.hand.filter((c) => c.revealed);
   }
   E.register('steal', {
     defaultTo: 'opponent',
@@ -366,7 +384,10 @@ window.DT = window.DT || {};
       const picked = cands.find((c) => c.uid === ctx.choice) || DT.rng.pick(state, cands);
       const victim = actor(state, victimId);
       const thief = actor(state, ctx.srcId);
-      DT.deck.removeFromHand(victim, picked.uid);
+      if (!DT.deck.removeFromHand(victim, picked.uid)) {
+        const di = victim.drawPile.indexOf(picked);
+        if (di >= 0) victim.drawPile.splice(di, 1);
+      }
       delete picked.revealed;
       delete picked.locked;
       picked.temp = true;               // 전투 종료 시 사라짐
@@ -407,11 +428,13 @@ window.DT = window.DT || {};
       DT.state.log(ctx.state, `${src.name}이(가) ${t.name}의 [${def.name}]을(를) 복제했다!`);
       if (ctx.srcId === 'player') ctx.state.stats.copies++;
       DT.state.emit(ctx.state, { type: 'copy', by: ctx.srcId, from: t.id, cardId: t.lastPlayed });
-      // 이중 그림자: 복제 2회
-      const times = 1 + (DT.items ? DT.items.fx(src, 'copyTwice') : 0);
+      // 이중 그림자: 복제 2회 / 저주받은 거울: 3회, 복제마다 불안정 +1
+      const times = Math.max(1 + (DT.items ? DT.items.fx(src, 'copyTwice') : 0), DT.items ? DT.items.fx(src, 'copyTimes') : 0);
       for (let k = 0; k < times && !ctx.state.result && !t.dead; k++) {
         E.resolveEffects(makeCtx(ctx.state, ctx.srcId, t.id, ctx.card, null, ctx.allyId), def.effects);
       }
+      const ci = DT.items ? DT.items.fx(src, 'copyInstability') : 0;
+      if (ci) { ctx.state.instabilityMod = (ctx.state.instabilityMod || 0) + ci; DT.state.log(ctx.state, `🪞 저주받은 거울: 차원 불안정 +${ci}`); }
     },
   });
 

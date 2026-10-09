@@ -84,7 +84,7 @@ window.DT = window.DT || {};
       <div class="tb-right">
         <span class="money" data-act="info" data-msg="골드: 이번 판에서만 쓰는 돈(암시장·이벤트). 코인: 판이 끝나면 비율대로 남는 영구 화폐.">💰 ${s.gold} · 🪙 ${s.runCoins}</span>
         <button class="btn small" data-act="pile" data-pile="masterDeck">내 덱 ${s.player.masterDeck.length}</button>
-        <button class="btn small" data-act="bag">🎒 ${s.bag.length}/${DT.config.items.bag}</button>
+        <button class="btn small" data-act="bag">🎒 ${s.bag.length}/${DT.items.bagCap(s)}</button>
         <button class="btn small gear" data-act="settings-open" aria-label="설정">⚙️</button>
         ${escapeBtn(s)}</div>`;
   }
@@ -153,12 +153,25 @@ window.DT = window.DT || {};
           ${s.orders.cover === a.id ? '<div class="orderbadge">🫡 엄호 중</div>' : ''}
           <div class="portrait">${a.icon}${blockHTML(a)}</div>
           <div class="aname">${a.name}${isComp ? ` <span class="role">${DT.party.roleIcon(a.role)}</span>` : ''}</div>
+          ${isComp && !a.fromEnemy && (a.lv > 1 || a.bt) ? `<div class="lvtag">Lv.${a.lv}${a.bt ? ' ' + '★'.repeat(a.bt) : ''}</div>` : ''}
           ${equipIcons(a)}
           ${barHTML(a)}
           <div class="sts">${statusesHTML(a)}</div>
         </div>
         ${a.dead ? '<div class="cintent">쓰러짐</div>' : intent}
       </div>`;
+    }).join('');
+  }
+
+  // 활성 시너지(탭하면 설명)
+  function renderSynergy(app) {
+    const el = $('#synergy');
+    if (!el) return;
+    const s = app.state;
+    const list = s.screen === 'combat' ? DT.synergy.list(s) : [];
+    el.innerHTML = list.map((x) => {
+      const I = DT.synergy.INFO[x.id];
+      return `<span class="syn ${x.active ? 'on' : 'off'}" data-act="info" data-msg="${I.icon} ${I.name}${x.active ? '' : ' (다른 차원이라 꺼짐)'}: ${I.desc(x.origin)}">${I.icon} ${I.name}${x.origin ? ' · ' + DT.data.dimensions[x.origin].name : ''}</span>`;
     }).join('');
   }
 
@@ -298,7 +311,7 @@ window.DT = window.DT || {};
       <div class="cc-icon">${d.icon}</div>
       <div class="cc-name">${d.name}</div>
       <div class="cc-role">${DT.party.roleIcon(d.role)} ${DT.party.roleName(d.role)} · 체력 ${d.hp} · ${d.row === 'back' ? '뒷줄' : '앞줄'}</div>
-      ${d.desc ? `<div class="cc-desc">${d.desc}</div>` : ''}
+      ${d.ability ? `<div class="cc-desc">✨ ${DT.abilities.describe({ id: d.ability.id, value: DT.gacha.abilityValue(kind, 0) })}</div>` : d.desc ? `<div class="cc-desc">${d.desc}</div>` : ''}
       <div class="cc-deck">${Object.entries(counts).map(([id, n]) => `<span>${DT.cards.def(id).icon || ''} ${DT.cards.def(id).name}${n > 1 ? ' ×' + n : ''}</span>`).join('')}</div>
     </div>`;
   }
@@ -341,6 +354,21 @@ window.DT = window.DT || {};
     if (s.screen === 'market') return marketContent(app);
     if (s.screen === 'event') return eventContent(app);
     if (s.screen === 'eventResult') return eventResultContent(app);
+    if (s.screen === 'voidGate') {
+      return {
+        key: 'voidGate:' + s.seed,
+        html: `<div class="panel voidgate">
+          <h1 class="win">🕳️ 차원의 틈이 열렸다</h1>
+          <p>마왕이 쓰러지자 네 차원의 카드가 공명한다. 틈 너머에 <b>누군가</b>가 기다리고 있다.</p>
+          <ul class="ev-notes">
+            <li>🌀 ${DT.config.void.floors}층짜리 비밀 차원. 네 차원의 적이 뒤섞여 나오고, 차원 불안정이 없다</li>
+            <li>⚠️ 지금 귀환하면 그대로 클리어(코인 100%). 들어가서 쓰러지면 사망 규칙</li>
+          </ul>
+          <div class="row"><button class="btn big" data-act="void-skip">🏠 귀환(클리어)</button>
+            <button class="btn big primary" data-act="next-dim">🕳️ 틈으로 들어간다</button></div>
+        </div>`,
+      };
+    }
     if (s.screen === 'dimClear') {
       const dim = DT.data.dimensions[s.dimension];
       const next = DT.data.dimensions[dim.next];
@@ -424,7 +452,8 @@ window.DT = window.DT || {};
           ${s.reward.kind !== 'event' && s.lastLoot ? `<p class="loot">💰 골드 +${s.lastLoot.gold} · 🪙 코인 +${s.lastLoot.coins}</p>
             ${(s.lastLoot.items || []).length ? `<div class="lootitems">🎒 획득 ${s.lastLoot.items.map((it) => itemTile(it, { compact: true })).join('')}</div>` : ''}
             ${(s.lastLoot.lostItems || []).length ? `<p class="warnline">가방이 가득 차서 두고 온 아이템: ${s.lastLoot.lostItems.map((it) => DT.items.def(it.id).name).join(', ')}</p>` : ''}
-            ${s.lastLoot.relic ? `<div class="lootrelic">🏺 유물 획득 ${relicTile(s.lastLoot.relic)}</div>` : ''}` : ''}
+            ${s.lastLoot.relic ? `<div class="lootrelic">🏺 유물 획득 ${relicTile(s.lastLoot.relic)}</div>` : ''}
+            ${(s.lastLoot.xp || []).length ? `<p class="xpline">✨ 경험치 ${s.lastLoot.xp.map((g) => `${DT.data.companions[g.kind].icon} +${g.xp}`).join(' · ')}</p>` : ''}` : ''}
           <p>카드 1장을 골라 덱에 추가하거나 건너뛴다.</p>
           ${pickRow(s.reward.options, app)}
           <div class="row">
@@ -502,7 +531,7 @@ window.DT = window.DT || {};
         <div class="baggrid">
           <section><h3>장비 ${inCombat ? '' : '<small>장착한 칸을 탭하면 가방으로</small>'}</h3>${slots}</section>
           <section>
-            <h3>가방 ${s.bag.length}/${DT.config.items.bag}</h3><div class="itemgrid">${grid(s.bag, DT.config.items.bag)}</div>
+            <h3>가방 ${s.bag.length}/${DT.items.bagCap(s)}</h3><div class="itemgrid">${grid(s.bag, DT.items.bagCap(s))}</div>
             <h3>👝 안전 주머니 ${s.pocket.length}/${DT.items.pocketCap(s)} <small>죽어도 남는다</small></h3><div class="itemgrid">${grid(s.pocket, DT.items.pocketCap(s))}</div>
             <div class="bagactions">${actions}</div>
           </section>
@@ -520,7 +549,7 @@ window.DT = window.DT || {};
   function mapContent(app) {
     const s = app.state;
     const m = s.map;
-    const F = DT.config.map.floors;
+    const F = DT.map.floorsOf(s);
     const L = DT.config.map.lanes;
     const reach = DT.map.reachable(s);
     const pos = (n) => ({
@@ -557,12 +586,12 @@ window.DT = window.DT || {};
             ${instBadge(s)}
             ${s.freeNaturalize > 0 && DT.run.naturalizable(s).length ? `<button class="btn small primary" data-act="deck-pick" data-purpose="naturalize-free">🌀 무료 귀화 ${s.freeNaturalize}</button>` : ''}
             <button class="btn small" data-act="pile" data-pile="masterDeck">내 덱 ${s.player.masterDeck.length}</button>
-            <button class="btn small" data-act="bag">🎒 가방 ${s.bag.length}/${DT.config.items.bag}</button>
+            <button class="btn small" data-act="bag">🎒 가방 ${s.bag.length}/${DT.items.bagCap(s)}</button>
             ${escapeBtn(s)}
           </div>
         </div>
         <div class="maparea"><svg viewBox="0 0 100 100" preserveAspectRatio="none">${lines}</svg>${nodes}</div>
-        <div class="maplegend">${['combat', 'elite', 'event', 'market', 'hideout', 'rift', 'boss'].map((t) => `<span>${DT.map.icon(t)} ${DT.map.label(t)}</span>`).join('')}
+        <div class="maplegend">${['combat', 'elite', 'event', 'market', 'hideout', 'rift', 'boss'].concat(Object.values(m.nodes).some((n) => n.type === 'vault') ? ['vault'] : []).map((t) => `<span>${DT.map.icon(t)} ${DT.map.label(t)}</span>`).join('')}
           <span class="lg-hint">빛나는 칸을 탭해 이동</span></div>
       </div>`,
     };
@@ -717,13 +746,13 @@ window.DT = window.DT || {};
   }
 
   // ── 로비 ──
-  const TABS = [['main', '🏠 로비'], ['shop', '🏪 상점'], ['stash', '📦 창고'], ['merchant', '🧔 상인'], ['forge', '⚒️ 대장간'], ['codex', '📖 도감']];
+  const TABS = [['main', '🏠 로비'], ['shop', '🏪 상점'], ['stash', '📦 창고'], ['merchant', '🧔 상인'], ['forge', '⚒️ 대장간'], ['gacha', '🎰 뽑기'], ['roster', '👥 동료'], ['codex', '📖 도감']];
 
   function lobbyContent(app) {
     const meta = DT.save.loadMeta();
     const tab = app.lobbyTab || 'main';
-    const body = { main: lobbyMain, shop: lobbyShop, stash: lobbyStash, merchant: lobbyMerchant, forge: lobbyForge, prep: lobbyPrep, codex: lobbyCodex }[tab](app, meta);
-    const key = 'lobby:' + tab + ':' + JSON.stringify([meta.coins, meta.upgrades, meta.unlocked, meta.stash, meta.shop && meta.shop.slots, app.lsel, app.prep, app.prepSeed, app.urlSeed]) + ':' + (app.state ? app.state.floor : '-');
+    const body = { main: lobbyMain, shop: lobbyShop, stash: lobbyStash, merchant: lobbyMerchant, forge: lobbyForge, prep: lobbyPrep, codex: lobbyCodex, gacha: lobbyGacha, roster: lobbyRoster }[tab](app, meta);
+    const key = 'lobby:' + tab + ':' + JSON.stringify([meta.coins, meta.upgrades, meta.unlocked, meta.stash, meta.shop && meta.shop.slots, app.lsel, app.prep, app.prepSeed, app.urlSeed, meta.roster, meta.lastParty, app.gachaRev, app.rosterSel]) + ':' + (app.state ? app.state.floor : '-');
     return {
       key,
       html: `<div class="panel full lobby">
@@ -804,6 +833,70 @@ window.DT = window.DT || {};
     </div>`;
   }
 
+  // ── 뽑기 ──
+  const stars = (bt) => (bt ? '★'.repeat(bt) + '☆'.repeat(DT.config.gacha.maxBreak - bt) : '');
+  function lobbyGacha(app, meta) {
+    const C = DT.config.gacha;
+    const left = DT.gacha.pityLeft(meta);
+    const res = app.gachaResult || [];
+    const best = res.reduce((m, r) => Math.max(m, DT.gacha.GRADES.indexOf(r.grade)), -1);
+    const tiles = res.map((r, i) => {
+      const d = DT.data.companions[r.kind];
+      return `<div class="gtile g-${r.grade}" style="animation-delay:${i * 0.12 + (best >= 3 ? 0.5 : 0)}s">
+        <span class="gi">${d.icon}</span><b>${d.name}</b>
+        <small class="g-${r.grade}">${DT.gacha.gradeName[r.grade]} · ${DT.party.roleName(d.role)}</small>
+        <span class="gnew">${r.isNew ? 'NEW!' : r.refund ? `최대 돌파 → 🪙 +${r.refund}` : `돌파 ${stars(r.bt)}`}</span></div>`;
+    }).join('');
+    return `<div class="facility gacha ${best >= 3 ? 'has-legend' : ''}">
+      <div class="gachahead">
+        <div class="rates">확률 ${Object.entries(C.rates).map(([g, v]) => `<span class="g-${g}">${DT.gacha.gradeName[g]} ${v}%</span>`).join(' · ')}</div>
+        <div class="pity">⭐ 전설 확정까지 <b>${left}</b>회 <small>(${C.pity}회 천장)</small></div>
+      </div>
+      <div class="gachabtns">
+        <button class="btn big ${meta.coins >= C.cost1 ? 'primary' : ''}" data-act="gacha-pull" data-n="1" ${meta.coins >= C.cost1 ? '' : 'disabled'}>1회 뽑기<small>🪙 ${C.cost1}</small></button>
+        <button class="btn big ${meta.coins >= C.cost10 ? 'primary' : ''}" data-act="gacha-pull" data-n="10" ${meta.coins >= C.cost10 ? '' : 'disabled'}>10회 뽑기<small>🪙 ${C.cost10} · ${DT.gacha.gradeName[C.tenGuarantee]} 이상 1명 보장</small></button>
+      </div>
+      <div class="gresults" data-rev="${app.gachaRev || 0}">${tiles || '<p class="muted">동료를 뽑아 보세요. 같은 동료가 또 나오면 돌파(최대 5단계, 단계마다 능력치 +10%·고유 능력 강화).</p>'}</div>
+    </div>`;
+  }
+
+  // ── 동료 목록 ──
+  function lobbyRoster(app, meta) {
+    const order = ['legend', 'hero', 'rare', 'common', 'basic'];
+    const kinds = Object.keys(DT.data.companions).sort((a, b) => order.indexOf(DT.data.companions[a].grade || 'basic') - order.indexOf(DT.data.companions[b].grade || 'basic'));
+    const party = (meta.lastParty || []);
+    const max = DT.lobby.companionPicks(meta);
+    const tiles = kinds.map((k) => {
+      const d = DT.data.companions[k];
+      const grade = d.grade || 'basic';
+      const owned = DT.lobby.starterOptions(meta).includes(k);
+      if (!owned) {
+        const hidden = d.secret;
+        return `<div class="rtile2 locked g-${grade === 'basic' ? 'common' : grade}"><span class="ri">${hidden ? '❔' : d.icon}</span>
+          <b>${hidden ? '???' : d.name}</b><small>${hidden ? '숨겨진 동료' : `${DT.gacha.gradeName[grade]} · ${DT.party.roleName(d.role)}`}</small>
+          <small class="muted">${hidden ? '???' : grade === 'basic' ? '로비에서 코인으로 해금' : '뽑기로 얻기'}</small></div>`;
+      }
+      const e = DT.gacha.entry(meta, k);
+      const inParty = party.includes(k);
+      const ab = d.ability ? DT.abilities.describe({ id: d.ability.id, value: DT.gacha.abilityValue(k, e.bt) }) : d.desc;
+      const next = e.lv < DT.config.growth.maxLevel ? `${e.xp}/${DT.gacha.xpToNext(e.lv)}` : 'MAX';
+      const dimName = DT.data.dimensions[d.origin] ? DT.data.dimensions[d.origin].name : '';
+      return `<div class="rtile2 g-${grade === 'basic' ? 'common' : grade} ${inParty ? 'inparty' : ''}">
+        <span class="ri">${d.icon}</span><b>${d.name}</b>
+        <small><span class="g-${grade === 'basic' ? 'common' : grade}">${DT.gacha.gradeName[grade]}</span> · ${DT.party.roleIcon(d.role)} ${DT.party.roleName(d.role)} · ${dimName}</small>
+        <div class="lvline">Lv.${e.lv} <span class="xpbar"><span style="width:${e.lv >= DT.config.growth.maxLevel ? 100 : Math.round(e.xp / DT.gacha.xpToNext(e.lv) * 100)}%"></span></span> <small>${next}</small></div>
+        ${grade !== 'basic' ? `<div class="stars">${stars(e.bt) || '☆☆☆☆☆'}</div>` : ''}
+        <div class="abil">${ab}</div>
+        <small class="muted">체력 ${Math.round(d.hp * DT.gacha.hpMult(e))}${e.bt ? ` · 피해 +${Math.round(e.bt * DT.config.gacha.breakStat * 100)}%` : ''}</small>
+        <button class="btn small ${inParty ? 'primary' : ''}" data-act="roster-party" data-id="${k}">${inParty ? '✔ 파티' : '파티에 넣기'}</button>
+      </div>`;
+    }).join('');
+    return `<div class="facility roster">
+      <p>파티 ${party.filter((k) => DT.lobby.starterOptions(meta).includes(k)).length}/${max} — 여기서 고른 파티가 출발 준비에 그대로 들어간다. 레벨 5·10·15·20마다 덱이 강해진다(${[5, 10, 15, 20].map((l) => `${l}: ${DT.gacha.milestoneText(l)}`).join(' · ')}).</p>
+      <div class="rostergrid">${tiles}</div>
+    </div>`;
+  }
+
   function lobbyCodex(app, meta) {
     const all = DT.lobby.codexAll();
     const dims = ['medieval', 'cyber', 'abyss', 'hell'];
@@ -816,7 +909,15 @@ window.DT = window.DT || {};
           ? cardHTML({ uid: '', id, origin: d }, { small: true })
           : `<div class="card small back codex-unknown"><div class="back-mark">?</div></div>`).join('')}</div>`;
     }).join('');
+    const sec = Object.entries(DT.data.secrets).map(([id, d]) => {
+      const found = meta.secrets && meta.secrets[id];
+      return `<div class="secret ${found ? 'found' : ''}"><span class="si">${found ? d.icon : '❔'}</span>
+        <div><b>${found ? d.name : '???'}</b><small>${found ? d.hint : '???'}</small></div></div>`;
+    }).join('');
+    const nFound = Object.keys(DT.data.secrets).filter((id) => meta.secrets && meta.secrets[id]).length;
     return `<div class="facility codex">
+      <h3>🔒 비밀 <small>${nFound}/${Object.keys(DT.data.secrets).length} — 발견하면 조건이 공개된다</small></h3>
+      <div class="secretgrid">${sec}</div>
       <p>적에게서 <b>슬쩍하거나 강탈한</b> 카드가 기록된다. 출발 준비에서 기록된 카드 1장을 골라 들고 시작할 수 있다(사용 불가 카드 제외).</p>
       ${groups}
     </div>`;
@@ -903,10 +1004,15 @@ window.DT = window.DT || {};
     const max = DT.lobby.companionPicks(meta);
     const comps = DT.lobby.starterOptions(meta).map((k) => {
       const d = DT.data.companions[k];
-      return `<div class="comptile ${p.picks.includes(k) ? 'picked' : ''}" data-act="prep-comp" data-id="${k}">
-        <span class="ct-icon">${d.icon}</span><b>${d.name}</b><small>${DT.party.roleIcon(d.role)} ${DT.party.roleName(d.role)} · 체력 ${d.hp}</small></div>`;
+      const e = DT.gacha.entry(meta, k);
+      const g = d.grade && d.grade !== 'basic' ? d.grade : 'common';
+      return `<div class="comptile g-${g} ${d.grade && d.grade !== 'basic' ? 'graded' : ''} ${p.picks.includes(k) ? 'picked' : ''}" data-act="prep-comp" data-id="${k}">
+        <span class="ct-icon">${d.icon}</span><b>${d.name}</b><small>${DT.party.roleIcon(d.role)} ${DT.party.roleName(d.role)} · 체력 ${Math.round(d.hp * DT.gacha.hpMult(e))}</small>
+        <small class="lvtag">Lv.${e.lv}${e.bt ? ' ' + '★'.repeat(e.bt) : ''}</small></div>`;
     }).join('');
-    const used = new Set([...Object.values(p.equip).flatMap((sl) => Object.values(sl)), ...p.bag]);
+    // 지금 파티(도둑 + 고른 동료)가 낀 장비만 '사용 중'. 빠진 동료의 편성은 기억만 하고 다른 데 끼울 수 있다
+    const activeEquip = Object.entries(p.equip).filter(([w]) => w === 'player' || p.picks.includes(w)).map(([, sl]) => sl);
+    const used = new Set([...activeEquip.flatMap((sl) => Object.values(sl)), ...p.bag]);
     const byUid = (uid) => meta.stash.find((x) => x.uid === uid);
     const who = [['player', '🦹 차원 도둑'], ...p.picks.map((k) => [k, `${DT.data.companions[k].icon} ${DT.data.companions[k].name}`])];
     const eqRows = who.map(([w, name]) => `<div class="eqrow">
@@ -927,12 +1033,12 @@ window.DT = window.DT || {};
         <div class="selbtns"><button class="btn small" data-act="prep-clear" data-who="${p.slot.who}" data-slot="${p.slot.slot}">비우기</button>
         <button class="btn small" data-act="prep-slot-close">닫기</button></div></div>`;
     }
-    const bagCands = meta.stash.filter((it) => !Object.values(p.equip).some((sl) => Object.values(sl).includes(it.uid)));
+    const bagCands = meta.stash.filter((it) => !activeEquip.some((sl) => Object.values(sl).includes(it.uid)));
     return `<div class="prepgrid">
       <section>
         <h3>동료 ${p.picks.length}/${max} <small>탭해서 고르기</small></h3>
         <div class="comprow">${comps}</div>
-        <h3>장비 <small>칸을 탭해 창고에서 장착</small></h3>
+        <h3>장비 <small>칸을 탭해 창고에서 장착 · 편성은 저장되고, 판에서 살아 돌아온 장비는 다시 그 캐릭터에게</small></h3>
         ${eqRows}
         ${chooser}
       </section>
@@ -1009,6 +1115,7 @@ window.DT = window.DT || {};
     UI.applyTheme(app.state.dimension);
     renderTop(app);
     renderAllies(app);
+    renderSynergy(app);
     renderEnemies(app);
     renderHand(app);
     renderControls(app);

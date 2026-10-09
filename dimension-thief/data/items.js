@@ -63,6 +63,16 @@ DT.data.items = {
   greed_necklace: { kind: 'equip', slot: 'accessory', grade: 'legend', name: '탐욕의 목걸이', icon: '📿',
                     desc: '코인·전리품 2배, 착용자가 받는 피해 +25%', fx: { greed: 1, damageTakenMult: 0.25 } },
 
+  // ── 저주 장비 (v4 4단계): 강하지만 대가가 있다. 정예·황금 금고에서 드물게, 상점에는 없음 ──
+  blood_dagger:   { kind: 'equip', slot: 'weapon', grade: 'cursed', name: '피의 단검', icon: '🩸',
+                    desc: '공격 피해 +5, 내 턴 시작마다 체력 −2', fx: { dmgAdd: 5, turnHpLoss: 2 } },
+  greed_bag:      { kind: 'equip', slot: 'armor', grade: 'cursed', name: '탐욕의 가방', icon: '💼',
+                    desc: '가방 +6칸, 사망하면 안전 주머니도 잃음', fx: { bagAdd: 6, voidPocket: 1 } },
+  madness_crown:  { kind: 'equip', slot: 'accessory', grade: 'cursed', name: '광기의 왕관', icon: '🤪',
+                    desc: '에너지 +1, 내 턴 시작마다 손패 1장 무작위로 버림 (도둑)', fx: { energyAdd: 1, turnDiscard: 1 } },
+  cursed_mirror:  { kind: 'equip', slot: 'accessory', grade: 'cursed', name: '저주받은 거울', icon: '🪞',
+                    desc: '복제 카드가 3회 발동, 복제할 때마다 차원 불안정 +1 (도둑)', fx: { copyTimes: 3, copyInstability: 1 } },
+
   // ── 소모품 (전투 중 1회) ──
   potion:         { kind: 'consumable', grade: 'common', name: '회복 물약', icon: '🧪',
                     desc: '아군 1명 체력 15 회복', use: { target: 'ally', where: ['combat', 'map'], effect: { heal: 15 } } },
