@@ -22,6 +22,13 @@ ctx.window = ctx;
 vm.createContext(ctx);
 files.forEach((f) => vm.runInContext(fs.readFileSync(path.join(root, f), 'utf8'), ctx, { filename: f }));
 const DT = ctx.DT;
+// 모듈 객체에 같은 이름의 함수가 두 번 정의되면 앞의 것이 조용히 사라진다 → 검사
+for (const f of files.filter((x) => x.startsWith('js/'))) {
+  const src = fs.readFileSync(path.join(root, f), 'utf8');
+  const names = [...src.matchAll(/^  ([A-Za-z_]\w*)\s*\(/gm)].map((m) => m[1]).filter((n) => !['if', 'for', 'while', 'switch', 'return'].includes(n));
+  const dup = names.filter((n, i) => names.indexOf(n) !== i);
+  if (dup.length) process.stderr.write(`[경고] ${f}: 같은 이름의 함수가 두 번 정의됨 → ${[...new Set(dup)].join(', ')}\n`);
+}
 const E = DT.effects;
 DT.cards.validate();
 

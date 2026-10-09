@@ -227,7 +227,7 @@ const app = (DT.app = { lobbyTab: 'main', lsel: null, prep: null, prepSeed: null
         return openTab('prep');
       }
       case 'ltab': return openTab(data.tab);
-      case 'shop-buy': return metaChange((m) => DT.lobby.buy(m, +data.i), '코인이 부족하거나 창고가 가득 찼습니다');
+      case 'shop-buy': return metaChange((m) => DT.lobby.shopBuy(m, +data.i), '코인이 부족하거나 창고가 가득 찼습니다');
       case 'shop-pin': return metaChange((m) => DT.lobby.togglePin(m, +data.i));
       case 'shop-refresh': return metaChange((m) => DT.lobby.refreshShop(m));
       case 'lsel': app.lsel = app.lsel === data.uid ? null : data.uid; return render();
