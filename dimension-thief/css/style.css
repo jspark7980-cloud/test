@@ -459,3 +459,25 @@ span.g-common, span.g-rare, span.g-hero, span.g-legend { color: var(--g); font-w
 #enemies.crowd .unit .epiles, #enemies.crowd .rankbadge { display: none; }
 #enemies.crowd .unit .intent { font-size: 11px; }
 #enemies.crowd .heistbadge { font-size: 10px; padding: 1px 6px; }
+
+/* ── J단계: 도감·도둑 레벨·승천·시드 ── */
+.thieflv { margin-bottom: 10px; }
+.thieflv h3 small { color: var(--muted); font-weight: 400; }
+.lvbar { height: 10px; border-radius: 5px; background: rgba(0, 0, 0, 0.4); overflow: hidden; margin: 4px 0 6px; }
+.lvbar div { height: 100%; background: linear-gradient(90deg, var(--accent), #ffd166); }
+.codex { overflow-y: auto; }
+.codex h3 { margin: 10px 0 4px; } .codex h3 small { color: var(--muted); font-weight: 400; }
+.codexgrid, .codexpick { display: flex; flex-wrap: wrap; gap: 8px; }
+.codexgrid .card, .codexpick .card { --card-w: 92px; }
+.codexpick { max-height: 30vh; overflow-y: auto; padding: 6px; background: rgba(0, 0, 0, 0.25); border-radius: 12px; margin-top: 6px; }
+.codexpick .card { cursor: pointer; }
+.codexpick .card.selected { box-shadow: 0 0 0 3px #fff; }
+.codex-unknown { opacity: 0.35; }
+.prepextra { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; }
+.ascdesc { font-size: 12px; line-height: 1.5; }
+.seedrow { display: flex; gap: 8px; align-items: center; }
+.seedrow input { flex: 1; min-width: 0; height: 44px; font-size: 18px; padding: 0 12px; border-radius: 10px; border: 2px solid var(--line);
+  background: rgba(0, 0, 0, 0.35); color: var(--text); text-transform: uppercase; }
+.ascbadge { font-size: 14px; padding: 4px 10px; border-radius: 10px; background: rgba(255, 90, 60, 0.25); color: #ffb3a0; font-weight: 800; }
+.seedrow input { -webkit-user-select: text; user-select: text; }
+.codexgrid { padding: 10px 0 0 10px; }

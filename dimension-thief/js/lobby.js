@@ -62,13 +62,50 @@ DT.lobby = {
     state.player.maxHp += hp;
     state.player.hp += hp;
     state.goldBonus = L('startGold') * U.startGold.value;
-    const extra = U.pilfer.extra.slice(0, L('pilfer')).flat();
+    const extra = DT.lobby.pilferExtra(meta);
     if (extra.length) state.player.masterDeck.forEach((c) => { if (c.id === 'pilfer') c.extra = extra; });
     state.pocketCap = DT.config.items.pocketBase + L('safePocket');
     state.starterOptions = DT.lobby.starterOptions(meta);
     state.companionPicks = DT.lobby.companionPicks(meta);
     state.relicPicks = DT.lobby.locked('startRelic') ? 0 : L('startRelic');
   },
+
+  // ── 도둑 레벨: 누적 강탈 수 ──
+  thiefLevel(meta) {
+    const T = DT.config.thiefLevel;
+    let lv = 1;
+    T.forEach((t, i) => { if ((meta.heists || 0) >= t.at) lv = i + 1; });
+    const next = T[lv];
+    return { level: lv, max: T.length, heists: meta.heists || 0, next: next ? next.at : null, nextDesc: next ? next.desc : null };
+  },
+  // 슬쩍하기에 붙는 효과: 로비 '손재주' + 도둑 레벨, 같은 종류는 합친다
+  pilferExtra(meta) {
+    const lv = DT.lobby.thiefLevel(meta).level;
+    const all = [...DT.data.upgrades.pilfer.extra.slice(0, DT.lobby.level(meta, 'pilfer')).flat(),
+      ...DT.config.thiefLevel.slice(0, lv).flatMap((t) => t.extra)];
+    const merged = [];
+    for (const e of all) {
+      const same = merged.find((x) => x.type === e.type);
+      if (same) same.value += e.value; else merged.push(Object.assign({}, e));
+    }
+    return merged;
+  },
+
+  // ── 도감: 적에게서 훔칠 수 있는 카드 전체 / 훔친 적 있는 카드 ──
+  codexAll() {
+    const ids = new Set();
+    Object.values(DT.data.enemies).forEach((e) => [...e.deck, ...(e.startHand || [])].forEach((id) => ids.add(id)));
+    const order = (id) => (DT.data.dimensions[DT.cards.def(id).origin].order || 0);
+    return [...ids].sort((a, b) => order(a) - order(b));
+  },
+  codexHas: (meta, id) => !!(meta.codex && meta.codex[id]),
+  // 출발할 때 들고 갈 수 있는 도감 카드(사용할 수 있는 카드만)
+  codexCarry(meta) {
+    return DT.lobby.codexAll().filter((id) => DT.lobby.codexHas(meta, id) && !DT.cards.def(id).unplayable);
+  },
+
+  // ── 승천 ──
+  ascensionMax(meta) { return Math.min(meta.ascension || 0, DT.config.ascension.levels.length); },
 
   // ── 창고 ──
   stashCap() { return DT.config.stash.cap; },
@@ -192,7 +229,9 @@ DT.lobby = {
   // prep: { picks: [동료 종류], equip: { 'player' | 동료 종류: { 칸: 창고 uid } }, bag: [창고 uid] }
   // 창고에서 꺼내 판에 가져갈 아이템 묶음을 만든다(창고에서 빠짐)
   takeLoadout(meta, prep) {
-    const out = { picks: prep.picks.slice(), equip: {}, bag: [] };
+    const out = { picks: prep.picks.slice(), equip: {}, bag: [],
+      codexCard: prep.codexCard && DT.lobby.codexCarry(meta).includes(prep.codexCard) ? prep.codexCard : null,
+      ascension: Math.max(0, Math.min(prep.ascension || 0, DT.lobby.ascensionMax(meta))) };
     for (const [who, slots] of Object.entries(prep.equip || {})) {
       if (who !== 'player' && !prep.picks.includes(who)) continue;
       for (const [slot, uid] of Object.entries(slots)) {

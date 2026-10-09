@@ -1,6 +1,7 @@
 // 밸런스 자동 시뮬레이션 (Node 로 실행, 브라우저 불필요)
 //   node dimension-thief/tools/sim.js [판 수=100]
 //   node dimension-thief/tools/sim.js 100 solo   ← 동료 없이
+//   node dimension-thief/tools/sim.js 100 a6     ← 승천 6단계로 한 판
 // 결과: 동료별 × 전투 구성별 승률·평균 턴·남은 체력·강탈률, 연전(체력 유지) 평균 승리 수.
 // 도둑 봇: 보이는 공격만큼 막고, 처치 가능한 적 우선, 가장 센 공개 카드를 슬쩍, 빈사 적은 다음 턴에 처치(강탈).
 // 동료는 게임 속 AI(js/ai.js)가 그대로 움직인다.
@@ -11,7 +12,9 @@ const path = require('path');
 
 const root = path.join(__dirname, '..');
 const N = +process.argv[2] || 100;
-const SOLO = process.argv[3] === 'solo';
+const SOLO = process.argv.includes('solo');
+// 승천 단계: node tools/sim.js 100 a3
+const ASC = +((process.argv.find((a) => /^a\d$/.test(a)) || 'a0').slice(1));
 
 // index.html 의 스크립트 순서대로 로드 (화면·저장·입력 파일 제외)
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
@@ -182,6 +185,7 @@ for (let i = 0; i < N; i++) {
   let rs = (i * 2654435761) >>> 0;
   const R = () => { rs = (rs + 0x6D2B79F5) >>> 0; let t = rs; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
   const s = DT.run.start('SIMRUN-' + i);
+  s.ascension = ASC;
   if (SOLO) { s.starterOptions = ['shieldbearer']; }
   let guard = 0;
   reach.medieval++;
@@ -260,7 +264,7 @@ for (const r of rows) {
 }
 const df = {};
 runs.deathFloors.forEach((f) => { df[f] = (df[f] || 0) + 1; });
-console.log(`\n한 판 ${N}회: 1차원 → 4차원 (맵·은신처·암시장·이벤트 포함, 시작 동료 순환${SOLO ? ', 동료 없음' : ''})`);
+console.log(`\n한 판 ${N}회${ASC ? ` · 승천 ${ASC}` : ''}: 1차원 → 4차원 (맵·은신처·암시장·이벤트 포함, 시작 동료 순환${SOLO ? ', 동료 없음' : ''})`);
 console.log('  차원별: ' + DIMS.map((d) => `${DT.data.dimensions[d].name} 도달 ${reach[d]} → 정복 ${cleared[d]} (${pct(cleared[d], reach[d])})`).join(' · '));
 console.log('  차원 진입 시 평균 불안정: ' + DIMS.slice(1).map((d) => `${DT.data.dimensions[d].name} ${avg(instIn[d] || 0, reach[d])}`).join(' · '));
 const bossD = {}; runs.deathFloors.forEach((f) => { const k = Math.floor((f - 1) / 12) + (f % 12 === 0 ? '보스' : '맵'); bossD[k] = (bossD[k] || 0) + 1; });

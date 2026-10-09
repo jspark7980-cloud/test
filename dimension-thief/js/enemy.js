@@ -6,10 +6,13 @@ DT.enemy = {
   create(state, kind) {
     const d = DT.data.enemies[kind];
     if (!d) throw new Error('알 수 없는 적: ' + kind);
+    // 승천: 적 체력·보스 체력·시작 힘
+    const hp = Math.round(d.hp * (1 + DT.run.asc(state, 'enemyHp') + (d.rank === 'boss' ? DT.run.asc(state, 'bossHp') : 0)));
+    const str = DT.run.asc(state, 'enemyStrength');
     const e = {
       id: 'e' + (state.enemies.length + 1), kind,
       name: d.name, icon: d.icon, origin: d.origin, row: d.row || 'front',
-      hp: d.hp, maxHp: d.hp, block: 0, statuses: {},
+      hp, maxHp: hp, block: 0, statuses: str ? { strength: str } : {},
       handSize: d.handSize, reveal: d.reveal, actions: d.actions.slice(),
       drawPile: d.deck.map((id) => DT.state.makeCard(state, id)),
       hand: [], discardPile: [], exhaustPile: [],

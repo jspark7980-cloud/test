@@ -15,6 +15,13 @@ window.DT = window.DT || {};
     const s = DT.state.createRun(seed);
     s.screen = 'pickCompanion';
     DT.lobby.applyToRun(s, meta || { coins: 0, upgrades: {}, unlocked: [] });
+    if (loadout) {
+      s.ascension = loadout.ascension || 0;
+      if (loadout.codexCard) {
+        s.player.masterDeck.push(DT.state.makeCard(s, loadout.codexCard));
+        log(s, `📖 도감에서 [${DT.cards.def(loadout.codexCard).name}]을(를) 들고 출발`);
+      }
+    }
     if (loadout && loadout.picks.length) {
       R.pickCompanion(s, loadout.picks);
       const byKind = {};
@@ -60,6 +67,11 @@ window.DT = window.DT || {};
     return true;
   };
 
+  // 승천: 고른 단계까지 효과 합 (key: enemyHp · eliteWeight · enemyStrength · restHeal · bossHp · instability)
+  R.asc = function (state, key) {
+    return DT.config.ascension.levels.slice(0, state.ascension || 0).reduce((a, l) => a + (l[key] || 0), 0);
+  };
+
   // ── 차원·깊이 ──
   R.dimOrder = (state) => DT.data.dimensions[state.dimension].order || 1;
   // 깊이: 1차원 1층 = 1, 2차원 1층 = 13 …
@@ -101,8 +113,8 @@ window.DT = window.DT || {};
   R.instabilityInfo = function (state) {
     const I = cfg().instability;
     const extra = DT.items.partyFx(state, 'instabilityLimit');   // 차원 나침반: 한도 +2
-    const safeMax = I.safeMax + extra;
-    const unstableMax = I.unstableMax + extra;
+    const safeMax = I.safeMax + extra + R.asc(state, 'instability');
+    const unstableMax = I.unstableMax + extra + R.asc(state, 'instability');
     const value = R.instability(state);
     const level = value <= safeMax ? 'safe' : value <= unstableMax ? 'unstable' : 'critical';
     return { value, level, safeMax, unstableMax, ignored: !!DT.items.fx(state.player, 'ignoreInstability') };
@@ -196,7 +208,8 @@ window.DT = window.DT || {};
     const C = cfg().coins;
     const mult = kind === 'boss' ? C.bossMult : kind === 'elite' ? C.eliteMult : 1;
     const itemMult = (1 + DT.items.partyFx(state, 'coinMult')) * (DT.items.partyFx(state, 'greed') ? 2 : 1);
-    const coins = Math.round((C.base + R.depth(state) * C.perFloor) * mult * itemMult);
+    const ascMult = 1 + (state.ascension || 0) * cfg().ascension.coinBonus;
+    const coins = Math.round((C.base + R.depth(state) * C.perFloor) * mult * itemMult * ascMult);
     state.gold += gold;
     state.runCoins += coins;
     const drops = DT.items.dropsFor(state, kind);
@@ -298,7 +311,7 @@ window.DT = window.DT || {};
   R.hideoutRest = function (state) {
     if (state.screen !== 'hideout') return false;
     for (const a of DT.party.living(state)) {
-      const amount = Math.round(a.maxHp * cfg().hideout.healRatio);
+      const amount = Math.round(a.maxHp * (cfg().hideout.healRatio + R.asc(state, 'restHeal')));
       a.hp = Math.min(a.maxHp, a.hp + amount);
     }
     log(state, '은신처에서 쉬었다. 아군 전원 체력 회복.');
@@ -549,6 +562,6 @@ window.DT = window.DT || {};
     state.phase = 'over';
     const words = { mapEscape: '맵에서 도주', combatEscape: '전투 중 도주', death: '사망', clear: '차원 클리어', scroll: '귀환 두루마리' };
     log(state, `판 종료: ${words[how]} · 코인 ${banked} 보존 · 아이템 ${items.kept.length}개 보존, ${items.lost.length}개 분실`);
-    DT.state.emit(state, { type: 'runEnd', how, banked, floor: R.depth(state), keptItems: items.kept });
+    DT.state.emit(state, { type: 'runEnd', how, banked, floor: R.depth(state), keptItems: items.kept, ascension: state.ascension || 0 });
   };
 })();
