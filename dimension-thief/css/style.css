@@ -439,3 +439,23 @@ span.g-common, span.g-rare, span.g-hero, span.g-legend { color: var(--g); font-w
 .ev-notes { list-style: none; padding: 0; margin: 10px auto; max-width: 520px; display: flex; flex-direction: column; gap: 6px; }
 .ev-notes li { background: rgba(255, 255, 255, 0.06); border-radius: 10px; padding: 8px 12px; font-size: 16px; }
 @media (max-width: 1100px) { .relic { width: 26px; height: 26px; font-size: 15px; } }
+
+/* ── I단계: 잠금·크라켄 ── */
+.card.locked { filter: grayscale(0.85) brightness(0.7); }
+.card .c-lock { position: absolute; inset: 0; display: grid; place-items: center; font-size: 42px; pointer-events: none;
+  text-shadow: 0 2px 8px #000; }
+.chip.locked { opacity: 0.6; border-style: dashed; }
+#enemies.crowd { display: grid; grid-template-columns: repeat(4, auto); justify-content: center; gap: 4px 8px; }
+#enemies.crowd .unit.back { transform: none; }
+#enemies.crowd .rowtag { display: none; }
+#enemies.crowd .unit .actor { width: clamp(104px, 11vw, 140px); padding: 4px 6px; gap: 2px; }
+#enemies.crowd .unit .ehand { width: clamp(104px, 11vw, 140px); gap: 2px; }
+#enemies.crowd .unit .chip { min-height: 22px; padding: 1px 5px; }
+#enemies.crowd .unit .chip-desc { display: none; }
+#enemies.crowd .unit .portrait { font-size: clamp(24px, 3vw, 34px); }
+#enemies.crowd .unit .aname { font-size: 12px; }
+#enemies.crowd .unit .hpbar { height: 14px; }
+#enemies.crowd .unit .sts { min-height: 0; }
+#enemies.crowd .unit .epiles, #enemies.crowd .rankbadge { display: none; }
+#enemies.crowd .unit .intent { font-size: 11px; }
+#enemies.crowd .heistbadge { font-size: 10px; padding: 1px 6px; }

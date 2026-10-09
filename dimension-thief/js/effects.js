@@ -273,6 +273,77 @@ window.DT = window.DT || {};
     },
   });
 
+  // ── I단계: 차원별 효과 ──
+  // 잠금(사이버): 아군이 쓰면 대상 적의 손패 n장을 잠근다(적의 다음 행동에서 못 씀).
+  // 적이 쓰면 도둑이 '해킹됨' → 다음 내 턴 드로우 뒤 손패 n장 잠김(동료는 영향 없음).
+  E.register('lock', {
+    defaultTo: 'opponent',
+    describe: (eff) => `${allTag(eff)}손패 <b>${val(eff)}</b>장 잠금`,
+    apply(ctx, eff) {
+      const state = ctx.state;
+      if (!DT.state.isAlly(ctx.srcId)) {
+        E.applyStatus(state, 'player', 'jam', val(eff));
+        return;
+      }
+      ctx.targetsOf(eff).forEach((id) => {
+        const t = actor(state, id);
+        if (t && !t.dead && !DT.state.isAlly(id)) DT.combat.lockHand(state, t, val(eff));
+      });
+    },
+  });
+
+  // 독 폭발(심해): 대상의 독 수치 × value 만큼 피해
+  E.register('detonate', {
+    defaultTo: 'opponent',
+    describe(eff, view) {
+      const t = view && view.tgtId && actor(view.state, view.tgtId);
+      const now = t && t.statuses ? ` <i>(지금 ${(t.statuses.poison || 0) * val(eff)})</i>` : '';
+      return `대상의 독 × <b>${val(eff)}</b> 피해${now}`;
+    },
+    apply(ctx, eff) {
+      ctx.targetsOf(eff).forEach((id) => {
+        const t = actor(ctx.state, id);
+        const n = (t && t.statuses.poison) || 0;
+        if (n && living(ctx.state, id)) E.dealDamage(ctx.state, ctx.srcId, id, n * val(eff));
+      });
+    },
+  });
+
+  // 역도둑질(지옥 마왕): 상대가 훔쳐 온 카드(도둑 소굴 출신이 아닌 카드)를 이번 전투 동안 빼앗아 공개 손패로.
+  // 적이 쓰면 도둑의 덱·버린 더미·손패에서, 도둑이 쓰면(슬쩍한 탐욕) 무작위 적의 손패에서.
+  const stolenLike = (c) => { const o = DT.data.dimensions[c.origin]; return !(o && o.neutral) || c.temp; };
+  E.register('counterSteal', {
+    defaultTo: 'self',
+    describe: (eff) => `상대가 훔친 카드 ${val(eff) || 1}장을 빼앗아 옴`,
+    apply(ctx, eff) {
+      const state = ctx.state;
+      const me = actor(state, ctx.srcId);
+      for (let k = 0; k < (val(eff) || 1); k++) {
+        let victim, pool;
+        if (DT.state.isAlly(ctx.srcId)) {
+          const foes = DT.combat.living(state).filter((e) => e.hand.some((c) => !DT.cards.def(c.id).unplayable));
+          victim = DT.rng.pick(state, foes);
+          pool = victim ? victim.hand.filter((c) => !DT.cards.def(c.id).unplayable) : [];
+        } else {
+          victim = state.player;
+          pool = [...victim.hand, ...victim.drawPile, ...victim.discardPile].filter(stolenLike);
+        }
+        const card = DT.rng.pick(state, pool);
+        if (!card) { DT.state.log(state, `${me.name}: 빼앗을 카드가 없다`); return; }
+        for (const pile of ['hand', 'drawPile', 'discardPile']) {
+          const i = victim[pile].indexOf(card);
+          if (i >= 0) victim[pile].splice(i, 1);
+        }
+        delete card.locked;
+        card.temp = true;
+        if (DT.state.isAlly(ctx.srcId)) delete card.revealed; else card.revealed = true;
+        me.hand.push(card);
+        DT.state.log(state, `😈 ${me.name}이(가) ${victim.name}의 [${DT.cards.nameOf(card)}]을(를) 빼앗았다! (이번 전투)`);
+        DT.state.emit(state, { type: 'steal', by: ctx.srcId, from: victim.id, cardId: card.id });
+      }
+    },
+  });
+
   // 슬쩍: 상대 손패(적이면 공개된 카드만)에서 1장을 빼앗아 이번 전투 동안 내 손패로
   function stealCandidates(state, victimId) {
     const v = actor(state, victimId);
@@ -297,6 +368,7 @@ window.DT = window.DT || {};
       const thief = actor(state, ctx.srcId);
       DT.deck.removeFromHand(victim, picked.uid);
       delete picked.revealed;
+      delete picked.locked;
       picked.temp = true;               // 전투 종료 시 사라짐
       picked.stolenFrom = victimId;
       if (DT.items && DT.items.fx(thief, 'stolenFree')) picked.free = true;   // 만능 열쇠검

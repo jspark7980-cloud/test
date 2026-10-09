@@ -22,4 +22,55 @@ DT.data.encounters = {
       { id: 'tyrant',        enemies: ['squire', 'tyrant', 'archer'] },
     ],
   },
+  cyber: {
+    normal: [
+      { id: 'cy_patrol',   tier: 1, enemies: ['enforcer', 'drone'] },
+      { id: 'cy_drones',   tier: 1, enemies: ['drone', 'drone'] },
+      { id: 'cy_hackcop',  tier: 1, enemies: ['enforcer', 'hacker'] },
+      { id: 'cy_squad',    tier: 2, enemies: ['enforcer', 'drone', 'drone'] },
+      { id: 'cy_netcell',  tier: 2, enemies: ['enforcer', 'drone', 'hacker'] },
+      { id: 'cy_riot',     tier: 2, enemies: ['enforcer', 'enforcer', 'hacker'] },
+    ],
+    elite: [
+      { id: 'cy_mech',     enemies: ['mech', 'drone'] },
+      { id: 'cy_mech_h',   enemies: ['mech', 'hacker'] },
+    ],
+    boss: [
+      { id: 'mainframe',   enemies: ['enforcer', 'mainframe', 'drone'] },
+    ],
+  },
+  abyss: {
+    normal: [
+      { id: 'ab_scouts',   tier: 1, enemies: ['merfolk', 'jelly'] },
+      { id: 'ab_jellies',  tier: 1, enemies: ['jelly', 'jelly'] },
+      { id: 'ab_choir',    tier: 1, enemies: ['merfolk', 'siren'] },
+      { id: 'ab_school',   tier: 2, enemies: ['merfolk', 'jelly', 'jelly'] },
+      { id: 'ab_court',    tier: 2, enemies: ['merfolk', 'jelly', 'siren'] },
+      { id: 'ab_guard',    tier: 2, enemies: ['merfolk', 'merfolk', 'siren'] },
+    ],
+    elite: [
+      { id: 'ab_angler',   enemies: ['angler', 'jelly'] },
+      { id: 'ab_angler_s', enemies: ['angler', 'siren'] },
+    ],
+    boss: [
+      { id: 'kraken', enemies: ['tentacle', 'tentacle', 'tentacle', 'tentacle', 'tentacle_b', 'tentacle_b', 'tentacle_b', 'tentacle_b'] },
+    ],
+  },
+  hell: {
+    normal: [
+      { id: 'hl_pack',     tier: 1, enemies: ['hound', 'imp'] },
+      { id: 'hl_imps',     tier: 1, enemies: ['imp', 'imp'] },
+      { id: 'hl_cult',     tier: 1, enemies: ['hound', 'cultist'] },
+      { id: 'hl_hunt',     tier: 2, enemies: ['hound', 'imp', 'imp'] },
+      { id: 'hl_rite',     tier: 2, enemies: ['hound', 'imp', 'cultist'] },
+      { id: 'hl_gate',     tier: 2, enemies: ['hound', 'hound', 'cultist'] },
+    ],
+    elite: [
+      { id: 'hl_doom',     enemies: ['doomknight', 'imp'] },
+      { id: 'hl_doom_c',   enemies: ['doomknight', 'cultist'] },
+    ],
+    boss: [
+      { id: 'demonking',   enemies: ['hound', 'demonking', 'imp'] },
+    ],
+  },
 };

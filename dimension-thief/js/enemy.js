@@ -42,15 +42,15 @@ DT.enemy = {
     DT.ai.enemyPlanTarget(state, e);
   },
 
-  // 사용할 카드 고르기: 낼 수 있는 손패에서 무작위
+  // 사용할 카드 고르기: 낼 수 있는(잠기지 않은) 손패에서 무작위
   choose(state, e) {
-    return DT.rng.pick(state, e.hand.filter((c) => !DT.cards.def(c.id).unplayable));
+    return DT.rng.pick(state, e.hand.filter((c) => !c.locked && !DT.cards.def(c.id).unplayable));
   },
 
   act(state, e) {
     const card = DT.enemy.choose(state, e);
     e.pending--;
-    if (!card) return;
+    if (!card) { DT.state.log(state, `${e.name}: 쓸 수 있는 카드가 없다 (🔒)`); return; }
     const def = DT.cards.def(card.id);
     const tgt = DT.ai.enemyActTarget(state, e);
     const ally = DT.ai.enemyAlly(state, e, def);

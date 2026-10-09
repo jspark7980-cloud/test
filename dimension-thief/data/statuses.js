@@ -3,6 +3,8 @@
 //  turnStartDamage: 턴 시작 시 수치만큼 방어도 무시 피해
 //  damageDealtAdd: 수치 × 값 만큼 공격 피해 가산
 //  damageDealtMult / damageTakenMult: 수치가 1 이상이면 배율 적용
+//  turnStartHitAll: 턴 시작 시 수치마다 상대 전원에게 피해 · turnStartBlock: 턴 시작 시 수치마다 방어도
+//  jam: 도둑 턴 시작(드로우 뒤)에 손패 수치만큼 잠금 후 사라짐 (js/combat.js)
 window.DT = window.DT || {};
 DT.data = DT.data || {};
 
@@ -17,6 +19,10 @@ DT.data.statuses = {
                 desc: '적의 단일 대상 공격을 이 캐릭터가 받는다. 자기 턴 종료 시 1 감소.' },
   turret:     { name: '포탑', icon: '🛰️', kind: 'buff', decay: null, turnStartHitAll: 2,
                 desc: '자기 턴 시작 시 수치마다 모든 적에게 피해 2.' },
+  drone:      { name: '드론', icon: '🛸', kind: 'buff', decay: null, turnStartBlock: 4,
+                desc: '자기 턴 시작 시 수치마다 방어도 4.' },
+  jam:        { name: '해킹됨', icon: '🔒', kind: 'debuff', decay: null,
+                desc: '다음 내 턴에 손패 수치만큼 잠김(그 턴에 사용 불가).' },
   poison:     { name: '독',   icon: '☠️', kind: 'debuff', decay: 'turnStart', turnStartDamage: true,
                 desc: '자기 턴 시작 시 수치만큼 피해(방어도 무시) 후 1 감소.' },
 };

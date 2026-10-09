@@ -24,13 +24,14 @@ window.DT = window.DT || {};
     const dim = DT.data.dimensions[card.origin] || {};
     const cls = ['card', 'type-' + def.type, def.rarity ? 'r-' + def.rarity : '',
       o.small ? 'small' : '', o.selected ? 'selected' : '', o.disabled ? 'disabled' : '',
-      o.glow ? 'glow' : '', card.temp ? 'temp' : '', card.up ? 'upgraded' : ''].join(' ');
+      o.glow ? 'glow' : '', card.temp ? 'temp' : '', card.up ? 'upgraded' : '', card.locked ? 'locked' : ''].join(' ');
     return `<div class="${cls}" style="--origin:${dim.color || '#888'}" ${o.attrs || ''}>
       <div class="c-cost ${o.cost !== undefined && o.cost < DT.cards.costOf(card) ? 'cheap' : ''}">${o.cost !== undefined ? o.cost : DT.cards.costOf(card)}</div>
       <div class="c-name">${DT.cards.nameOf(card)}</div>
       <div class="c-art">${def.icon || DT.cards.typeIcon[def.type] || '✦'}</div>
       <div class="c-desc"><div>${DT.cards.describe(card, o.view)}</div></div>
       <div class="c-foot"><span class="c-origin">${dim.name || card.origin}</span>${card.temp ? '<span class="c-tag">슬쩍</span>' : ''}</div>
+      ${card.locked ? '<div class="c-lock">🔒</div>' : ''}
     </div>`;
   }
   UI.cardHTML = cardHTML;
@@ -41,8 +42,8 @@ window.DT = window.DT || {};
     if (o.hidden) return '<div class="chip back">? 비공개</div>';
     const def = DT.cards.def(card.id);
     const desc = DT.cards.describe(card, o.view).replace(/<br>/g, ' · ');
-    return `<div class="chip type-${def.type} ${o.glow ? 'glow' : ''}" ${o.attrs || ''}>
-      <span class="chip-icon">${def.icon || ''}</span><span class="chip-name">${def.name}</span>
+    return `<div class="chip type-${def.type} ${o.glow ? 'glow' : ''} ${card.locked ? 'locked' : ''}" ${o.attrs || ''}>
+      <span class="chip-icon">${card.locked ? '🔒' : def.icon || ''}</span><span class="chip-name">${def.name}</span>
       <span class="chip-desc">${desc}</span></div>`;
   }
 
@@ -169,6 +170,7 @@ window.DT = window.DT || {};
     const threshold = DT.combat.heistThreshold(s);
     const taunter = DT.party.living(s).find((a) => (a.statuses.taunt || 0) > 0);
     const ordered = [...s.enemies.filter((e) => e.row !== 'back'), ...s.enemies.filter((e) => e.row === 'back')];
+    $('#enemies').classList.toggle('crowd', s.enemies.length > 4);   // 크라켄 촉수 8개: 두 줄 격자
     $('#enemies').innerHTML = ordered.map((e) => {
       const handCards = e.dead ? '' : e.hand.map((c) => chipHTML(c, {
         view: { state: s, srcId: e.id, tgtId: taunter ? taunter.id : e.targetId }, hidden: !c.revealed,
@@ -323,6 +325,25 @@ window.DT = window.DT || {};
     if (s.screen === 'market') return marketContent(app);
     if (s.screen === 'event') return eventContent(app);
     if (s.screen === 'eventResult') return eventResultContent(app);
+    if (s.screen === 'dimClear') {
+      const dim = DT.data.dimensions[s.dimension];
+      const next = DT.data.dimensions[dim.next];
+      const nextInst = s.player.masterDeck.filter((c) => c.origin !== dim.next && !(DT.data.dimensions[c.origin] && DT.data.dimensions[c.origin].neutral)).length;
+      return {
+        key: 'dimClear:' + s.dimension,
+        html: `<div class="panel">
+          <h1 class="win">🌀 ${dim.name} 정복!</h1>
+          <p>차원의 문이 열렸다. 다음은 <b style="color:${next.color}">${next.name}</b> (${next.order}/4차원).</p>
+          <ul class="ev-notes">
+            <li>💚 이동하면서 아군 전원 최대 체력의 ${Math.round(DT.config.dimension.travelHeal * 100)}% 회복</li>
+            <li>🌀 ${dim.name} 카드는 이제 <b>다른 차원 카드</b> → 차원 불안정 ${DT.run.instability(s)} → <b>${nextInst}</b>${s.instabilityMod ? ' (안정제 효과는 끝남)' : ''}<br>
+              <small>도착하면 맵에서 <b>무료 귀화 ${DT.config.dimension.freeNaturalize}회</b>를 쓸 수 있다</small></li>
+            <li>🪙 이번 판 코인 ${s.runCoins} — 지금 도주하면 100% 보존</li>
+          </ul>
+          <div class="row"><button class="btn big primary" data-act="next-dim">${next.name}(으)로</button></div>
+        </div>`,
+      };
+    }
     if (s.screen === 'pickRelic') {
       return {
         key: 'pickRelic:' + s.seed + ':' + (app.pick || ''),
@@ -509,7 +530,7 @@ window.DT = window.DT || {};
     const W = DT.config.wanted;
     const ambush = Math.round(Math.min(W.ambushCap, s.wanted * W.ambushPerWanted) * (1 - DT.relics.fx(s, 'ambushMult')) * 100);
     return {
-      key: 'map:' + s.pos + ':' + s.gold + ':' + s.wanted + ':' + s.player.masterDeck.length + ':' + (s.relics || []).join(','),
+      key: 'map:' + s.pos + ':' + s.gold + ':' + s.wanted + ':' + s.player.masterDeck.length + ':' + (s.relics || []).join(',') + ':' + DT.run.instability(s) + ':' + (s.freeNaturalize || 0),
       html: `<div class="panel full mapview">
         <div class="maphead">
           <div><span class="dimname">${DT.data.dimensions[s.dimension].name}</span> <span class="turn">${s.floor ? s.floor + '층' : '출발 전'} / ${F}층</span>${relicBar(s)}</div>
@@ -518,6 +539,7 @@ window.DT = window.DT || {};
             <span class="money">💰 ${s.gold} · 🪙 ${s.runCoins}</span>
             <span class="wanted" data-act="info" data-msg="수배도가 높을수록 전투 골드가 늘고, 일반 전투가 수배 추격대(정예)로 바뀔 확률이 오른다. 은신처에서 잠복하면 감소.">🚨 수배도 ${s.wanted}${ambush ? ` · 추격대 ${ambush}%` : ''}</span>
             ${instBadge(s)}
+            ${s.freeNaturalize > 0 && DT.run.naturalizable(s).length ? `<button class="btn small primary" data-act="deck-pick" data-purpose="naturalize-free">🌀 무료 귀화 ${s.freeNaturalize}</button>` : ''}
             <button class="btn small" data-act="pile" data-pile="masterDeck">내 덱 ${s.player.masterDeck.length}</button>
             <button class="btn small" data-act="bag">🎒 가방 ${s.bag.length}/${DT.config.items.bag}</button>
             ${escapeBtn(s)}
@@ -632,7 +654,7 @@ window.DT = window.DT || {};
     const s = app.state;
     const dp = app.deckPick;
     const up = dp.purpose === 'upgrade';
-    const nat = dp.purpose === 'naturalize' || dp.purpose === 'naturalize-market';
+    const nat = dp.purpose === 'naturalize' || dp.purpose === 'naturalize-market' || dp.purpose === 'naturalize-free';
     const allowed = nat ? DT.run.naturalizable(s) : null;
     const list = s.player.masterDeck.filter((c) => (up ? DT.cards.canUpgrade(c) : nat ? allowed.includes(c) : true)).slice().sort((a, b) => a.id.localeCompare(b.id));
     const sel = dp.uid && s.player.masterDeck.find((c) => c.uid === dp.uid);
@@ -640,7 +662,7 @@ window.DT = window.DT || {};
     return {
       key: 'deckpick:' + dp.purpose + ':' + (dp.uid || ''),
       html: `<div class="panel wide">
-        <h2>${up ? '⚒️ 강화할 카드' : nat ? `🌀 귀화할 카드 — 출신을 ${DT.data.dimensions[s.dimension].name}로${dp.purpose === 'naturalize-market' ? ` (💰 ${DT.run.naturalizePrice(s)})` : ''}` : `🗑️ 제거할 카드 (💰 ${s.market ? s.market.removePrice : ''})`}</h2>
+        <h2>${up ? '⚒️ 강화할 카드' : nat ? `🌀 귀화할 카드 — 출신을 ${DT.data.dimensions[s.dimension].name}로${dp.purpose === 'naturalize-market' ? ` (💰 ${DT.run.naturalizePrice(s)})` : dp.purpose === 'naturalize-free' ? ` (무료 ${s.freeNaturalize}회 남음)` : ''}` : `🗑️ 제거할 카드 (💰 ${s.market ? s.market.removePrice : ''})`}</h2>
         ${preview}
         <div class="pilelist">${list.map((c) => cardHTML(c, { small: true, selected: dp.uid === c.uid, attrs: `data-act="deck-card" data-uid="${c.uid}"` })).join('')}</div>
         <div class="row"><button class="btn big" data-act="deck-cancel">취소</button>
@@ -654,7 +676,7 @@ window.DT = window.DT || {};
     const s = app.state;
     const r = s.runEnd;
     const meta = DT.save.loadMeta();
-    const title = { clear: '<h1 class="win">🏆 차원 클리어!</h1>', death: '<h1 class="lose">💀 붙잡혔다…</h1>',
+    const title = { clear: '<h1 class="win">🏆 모든 차원을 털었다!</h1>', death: '<h1 class="lose">💀 붙잡혔다…</h1>',
       scroll: '<h1 class="heist">📃 귀환 두루마리로 귀환</h1>',
       mapEscape: '<h1 class="heist">🏃 무사히 도주</h1>', combatEscape: '<h1 class="heist">🏃 전투 중 도주</h1>' }[r.how];
     const st = s.stats;
@@ -662,7 +684,7 @@ window.DT = window.DT || {};
       key: 'runEnd:' + s.seed + ':' + r.how,
       html: `<div class="panel">
         ${title}
-        <p>${r.floor}층까지 진행</p>
+        <p>${DT.run.depthLabel(r.depth || r.floor)}까지 진행</p>
         <div class="coinbox">이번 판 코인 <b>🪙 ${r.runCoins}</b> × ${Math.round(r.keep * 100)}% = <b class="banked">🪙 ${r.banked}</b> 보존</div>
         <p>보유 코인 <b>🪙 ${meta.coins}</b></p>
         ${r.items ? `<div class="enditems">
@@ -734,7 +756,7 @@ window.DT = window.DT || {};
           : `<button class="btn big primary go" data-act="go">▶ 출발 준비<small>${app.urlSeed ? `시드 ${app.urlSeed}` : '동료·장비·가방을 챙겨 중세 왕국으로'}</small></button>`}
         <div class="records">
           <h3>기록</h3>
-          <div>판 ${meta.runs} · 클리어 ${meta.clears} · 최고 ${meta.bestFloor}층</div>
+          <div>판 ${meta.runs} · 클리어 ${meta.clears} · 최고 ${DT.run.depthLabel(meta.bestFloor)}</div>
           <div>승리한 전투 ${meta.combatsWon}</div>
           <div>슬쩍 ${meta.steals} · 강탈 ${meta.heists} · 복제 ${meta.copies}</div>
           <div>📦 창고 ${meta.stash.length}/${DT.lobby.stashCap()}</div>

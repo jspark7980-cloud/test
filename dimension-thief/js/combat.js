@@ -81,6 +81,7 @@ window.DT = window.DT || {};
         foes.forEach((f) => DT.effects.applyDamage(state, f, d.turnStartHitAll * v, { source: id }));
         if (state.result) return;
       }
+      if (when === 'turnStart' && d.turnStartBlock && v > 0 && !a.dead) DT.effects.gainBlock(state, id, d.turnStartBlock * v);   // 지원 드론
       if (when === 'turnStart' && d.turnStartDamage && v > 0 && !a.dead) {
         log(state, `${a.name}: ${d.name} 피해 ${v}`);
         DT.effects.applyDamage(state, id, v, { ignoreBlock: true });
@@ -134,8 +135,24 @@ window.DT = window.DT || {};
     if (watch) log(state, '⌚ 회중시계: 에너지 +1, 카드 1장');
     for (const e of C.living(state)) e.heistReady = C.belowHeistLine(e, state);
     DT.deck.draw(state, p, p.drawPerTurn + watch + (state.turn === 1 ? DT.items.fx(p, 'firstTurnDraw') : 0));
+    // 해킹됨: 드로우한 손패 일부 잠금
+    if (p.statuses.jam) { C.lockHand(state, p, p.statuses.jam); delete p.statuses.jam; }
     for (const c of DT.party.companions(state)) DT.ai.planCompanion(state, c);
   };
+
+  // 잠금: 손패에서 낼 수 있는 카드 n장을 무작위로 잠근다(그 주인의 턴이 끝나면 풀림)
+  C.lockHand = function (state, a, n) {
+    const open = a.hand.filter((c) => !c.locked && !DT.cards.def(c.id).unplayable);
+    DT.rng.shuffle(state, open);
+    const got = open.slice(0, n);
+    got.forEach((c) => { c.locked = true; });
+    if (got.length) {
+      log(state, `🔒 ${a.name}: [${got.map((c) => DT.cards.nameOf(c)).join(', ')}] 잠김`);
+      DT.state.emit(state, { type: 'passive', target: a.id, text: `🔒 ${got.length}장 잠김` });
+    }
+    return got.length;
+  };
+  const unlock = (a) => a.hand.forEach((c) => { delete c.locked; });
 
   // allyId: 방어·회복 카드를 줄 아군(생략 시 자신)
   C.canPlay = function (state, uid, allyId) {
@@ -145,6 +162,7 @@ window.DT = window.DT || {};
     if (!card) return { ok: false, reason: '손패에 없는 카드' };
     const def = DT.cards.def(card.id);
     if (def.unplayable) return { ok: false, reason: '사용할 수 없는 카드' };
+    if (card.locked) return { ok: false, reason: '🔒 잠긴 카드 (이번 턴 사용 불가)' };
     if (C.costFor(state, card) > p.energy) return { ok: false, reason: '에너지가 부족합니다' };
     // 대상이 필요한 카드는 대상 후보 중 하나라도 가능하면 선택 허용
     if (DT.cards.needsTarget(def)) {
@@ -209,6 +227,7 @@ window.DT = window.DT || {};
       const h = DT.items.fx(a, 'turnEndHeal');   // 회복 로브
       if (h && !a.dead) DT.effects.heal(state, a.id, h);
     }
+    unlock(state.player);
     DT.deck.discardHand(state, state.player);
     state.phase = 'ally';
     for (const c of DT.party.companions(state)) c.pending = !!c.intent;
@@ -272,6 +291,7 @@ window.DT = window.DT || {};
     if (state.phase !== 'enemy' || state.result) return;
     for (const e of C.living(state)) {
       e.pending = 0;
+      unlock(e);
       C.tickStatuses(state, e.id, 'turnEnd');
       DT.enemy.refill(state, e);
       DT.enemy.plan(state, e);         // 다음 턴 행동 수·대상 (동료 AI가 이를 보고 판단)

@@ -245,7 +245,7 @@ window.DT = window.DT || {};
   // ── 드롭 ──
   function gradeWeights(state, source) {
     const base = Object.assign({}, cfg().grades[source] || cfg().grades.normal);
-    if (state.floor >= cfg().deepFloor) {
+    if (DT.run.depth(state) >= cfg().deepFloor) {
       for (const [g, d] of Object.entries(cfg().deepShift)) base[g] = Math.max(0, base[g] + d);
     }
     return Object.entries(base);

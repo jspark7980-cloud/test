@@ -101,7 +101,8 @@ const app = (DT.app = { lobbyTab: 'main', lsel: null, prep: null, prepSeed: null
     while (app.state === s && s.phase === 'enemy') {
       if (!DT.combat.enemyAct(s)) break;
       commit();
-      await wait(DT.config.ui.enemyActDelay);
+      // 적이 많으면(크라켄 촉수 8개) 연출을 빠르게
+      await wait(DT.config.ui.enemyActDelay * (app.state.enemies.length > 4 ? DT.config.ui.crowdSpeed : 1));
     }
     if (app.state !== s) return;      // 도중에 새 게임 시작
     DT.combat.endEnemyTurn(s);
@@ -328,6 +329,7 @@ const app = (DT.app = { lobbyTab: 'main', lsel: null, prep: null, prepSeed: null
         const ok = dp.purpose === 'upgrade' ? DT.run.upgradeCard(s, dp.uid)
           : dp.purpose === 'naturalize' ? DT.run.hideoutNaturalize(s, dp.uid)
           : dp.purpose === 'naturalize-market' ? DT.run.marketNaturalize(s, dp.uid)
+          : dp.purpose === 'naturalize-free' ? DT.run.freeNaturalize(s, dp.uid)
           : DT.run.removeCard(s, dp.uid);
         if (!ok) return flash(dp.purpose === 'remove' ? '골드가 부족하거나 제거할 수 없습니다' : '강화할 수 없는 카드입니다');
         return afterChoice(true);
@@ -356,6 +358,7 @@ const app = (DT.app = { lobbyTab: 'main', lsel: null, prep: null, prepSeed: null
       case 'relic-sel': app.pick = data.id; return render();
       case 'pick-relic': return afterChoice(DT.run.pickRelic(s, app.pick || (s.relicChoices.length === 1 ? s.relicChoices[0] : null)));
       case 'buy-relic': return DT.run.buyRelic(s) ? commit() : flash('골드가 부족합니다');
+      case 'next-dim': return afterChoice(DT.run.nextDimension(s));
       case 'event-close': return afterChoice(DT.run.closeEvent(s));
       case 'rift-take': return app.pick && afterChoice(DT.run.takeRift(s, app.pick));
       case 'rift-skip': return afterChoice(DT.run.skipRift(s));
