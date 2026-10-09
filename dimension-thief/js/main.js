@@ -45,7 +45,14 @@ const app = (DT.app = { lobbyTab: 'main', lsel: null, prep: null, prepSeed: null
         (e.keptItems || []).forEach((it) => DT.lobby.stashAdd(meta, it));   // 남은 아이템은 창고로
         DT.lobby.markShopStale(meta);                                       // 로비 귀환: 상점 무료 갱신
         meta.runs++;
-        if (e.how === 'clear') meta.clears++;
+        if (e.how === 'clear') {
+          meta.clears++;
+          // 승천: 지금 열린 최고 단계로 클리어하면 다음 단계가 열린다
+          if ((e.ascension || 0) >= (meta.ascension || 0) && (meta.ascension || 0) < DT.config.ascension.levels.length) {
+            meta.ascension = (e.ascension || 0) + 1;
+            if (s.runEnd) s.runEnd.ascUnlocked = meta.ascension;
+          }
+        }
         meta.bestFloor = Math.max(meta.bestFloor, e.floor);
       }
     });
@@ -80,7 +87,10 @@ const app = (DT.app = { lobbyTab: 'main', lsel: null, prep: null, prepSeed: null
     app.lobbyTab = tab;
     app.lsel = null;
     if (tab === 'shop') { const m = DT.save.loadMeta(); DT.lobby.ensureShop(m); DT.save.saveMeta(m); }
-    if (tab === 'prep' && !app.prep) app.prep = { picks: [], equip: {}, bag: [], slot: null };
+    if (tab === 'prep' && !app.prep) {
+      const meta = DT.save.loadMeta();
+      app.prep = { picks: [], equip: {}, bag: [], slot: null, codexCard: null, codexOpen: false, ascension: DT.lobby.ascensionMax(meta) };
+    }
     render();
   }
 
@@ -269,6 +279,17 @@ const app = (DT.app = { lobbyTab: 'main', lsel: null, prep: null, prepSeed: null
         else return flash('가방이 가득 찼습니다');
         return render();
       }
+      // 출발 준비: 도감 카드·승천·시드
+      case 'prep-codex-open': app.prep.codexOpen = !app.prep.codexOpen; return render();
+      case 'prep-codex': app.prep.codexCard = app.prep.codexCard === data.id ? null : data.id; app.prep.codexOpen = false; return render();
+      case 'prep-asc': app.prep.ascension = +data.lv; return render();
+      case 'seed-set': {
+        const v = (document.getElementById('seedinput') || {}).value || '';
+        const seed = v.trim().toUpperCase().replace(/[^A-Z0-9가-힣_-]/g, '').slice(0, 16);
+        app.prepSeed = seed || null;
+        return seed ? (render(), flash(`시드 ${seed}로 출발합니다`)) : flash('시드를 입력하세요 (영문·숫자)');
+      }
+      case 'seed-clear': app.prepSeed = null; app.urlSeed = null; return render();
       case 'prep-go': {
         if (!app.prep.picks.length) return flash('동료를 1명 이상 고르세요');
         const meta = DT.save.loadMeta();
@@ -399,11 +420,13 @@ const app = (DT.app = { lobbyTab: 'main', lsel: null, prep: null, prepSeed: null
     blockZoom();
     DT.cards.validate();
     document.addEventListener('click', (e) => {
+      if (e.target.closest('input')) return;          // 시드 입력칸
       const t = e.target.closest('[data-act]');
       if (t && t.disabled) return;
       onAction(t ? t.dataset.act : 'bg', t ? t.dataset : {});
     });
     window.addEventListener('resize', () => DT.ui.layoutHand());
+    document.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.id === 'seedinput') { e.target.blur(); onAction('seed-set', {}); } });
 
     // 항상 로비에서 시작. 진행 중인 판이 있으면 로비에서 이어하기.
     app.urlSeed = new URLSearchParams(location.search).get('seed');

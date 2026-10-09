@@ -77,6 +77,7 @@ window.DT = window.DT || {};
     $('#topbar').innerHTML = `
       <div class="tb-left"><span class="dimname">${dim.name}</span>
         <span class="turn">${s.floor}층 · 턴 ${s.turn}</span>
+        ${s.ascension ? `<span class="ascbadge" data-act="info" data-msg="승천 ${s.ascension}: ${DT.config.ascension.levels.slice(0, s.ascension).map((l) => l.desc).join(' · ')}">🔥A${s.ascension}</span>` : ''}
         <span class="wanted" data-act="info" data-msg="수배도: 강탈·영입할 때마다 +1. 높을수록 전투 골드가 늘고, 일반 전투가 수배 추격대(정예)로 바뀔 확률이 오른다. 은신처 잠복으로 −2.">🚨 수배도 ${s.wanted}</span>
         ${instBadge(s)}${relicBar(s)}</div>
       <div class="tb-mid">${phase}</div>
@@ -681,10 +682,11 @@ window.DT = window.DT || {};
       mapEscape: '<h1 class="heist">🏃 무사히 도주</h1>', combatEscape: '<h1 class="heist">🏃 전투 중 도주</h1>' }[r.how];
     const st = s.stats;
     return {
-      key: 'runEnd:' + s.seed + ':' + r.how,
+      key: 'runEnd:' + s.seed + ':' + r.how + ':' + (r.ascUnlocked || 0),
       html: `<div class="panel">
         ${title}
-        <p>${DT.run.depthLabel(r.depth || r.floor)}까지 진행</p>
+        <p>${DT.run.depthLabel(r.depth || r.floor)}까지 진행 · 시드 <b>${s.seed}</b>${s.ascension ? ` · 🔥 승천 ${s.ascension}` : ''}</p>
+        ${r.ascUnlocked ? `<p class="heist">🔥 승천 ${r.ascUnlocked}단계가 열렸다! 출발 준비에서 고를 수 있다</p>` : ''}
         <div class="coinbox">이번 판 코인 <b>🪙 ${r.runCoins}</b> × ${Math.round(r.keep * 100)}% = <b class="banked">🪙 ${r.banked}</b> 보존</div>
         <p>보유 코인 <b>🪙 ${meta.coins}</b></p>
         ${r.items ? `<div class="enditems">
@@ -700,13 +702,13 @@ window.DT = window.DT || {};
   }
 
   // ── 로비 ──
-  const TABS = [['main', '🏠 로비'], ['shop', '🏪 상점'], ['stash', '📦 창고'], ['merchant', '🧔 상인'], ['forge', '⚒️ 대장간']];
+  const TABS = [['main', '🏠 로비'], ['shop', '🏪 상점'], ['stash', '📦 창고'], ['merchant', '🧔 상인'], ['forge', '⚒️ 대장간'], ['codex', '📖 도감']];
 
   function lobbyContent(app) {
     const meta = DT.save.loadMeta();
     const tab = app.lobbyTab || 'main';
-    const body = { main: lobbyMain, shop: lobbyShop, stash: lobbyStash, merchant: lobbyMerchant, forge: lobbyForge, prep: lobbyPrep }[tab](app, meta);
-    const key = 'lobby:' + tab + ':' + JSON.stringify([meta.coins, meta.upgrades, meta.unlocked, meta.stash, meta.shop && meta.shop.slots, app.lsel, app.prep]) + ':' + (app.state ? app.state.floor : '-');
+    const body = { main: lobbyMain, shop: lobbyShop, stash: lobbyStash, merchant: lobbyMerchant, forge: lobbyForge, prep: lobbyPrep, codex: lobbyCodex }[tab](app, meta);
+    const key = 'lobby:' + tab + ':' + JSON.stringify([meta.coins, meta.upgrades, meta.unlocked, meta.stash, meta.shop && meta.shop.slots, app.lsel, app.prep, app.prepSeed, app.urlSeed]) + ':' + (app.state ? app.state.floor : '-');
     return {
       key,
       html: `<div class="panel full lobby">
@@ -754,11 +756,13 @@ window.DT = window.DT || {};
           ? `<button class="btn big primary go" data-act="go">▶ 이어하기<small>${DT.data.dimensions[s.dimension].name} ${s.floor ? s.floor + '층' : '출발 전'} · 🪙 ${s.runCoins}</small></button>
              <button class="btn small" data-act="abandon">이 판 포기하기</button>`
           : `<button class="btn big primary go" data-act="go">▶ 출발 준비<small>${app.urlSeed ? `시드 ${app.urlSeed}` : '동료·장비·가방을 챙겨 중세 왕국으로'}</small></button>`}
+        ${thiefLevelBox(meta)}
         <div class="records">
           <h3>기록</h3>
           <div>판 ${meta.runs} · 클리어 ${meta.clears} · 최고 ${DT.run.depthLabel(meta.bestFloor)}</div>
           <div>승리한 전투 ${meta.combatsWon}</div>
           <div>슬쩍 ${meta.steals} · 강탈 ${meta.heists} · 복제 ${meta.copies}</div>
+          <div>📖 도감 ${DT.lobby.codexAll().filter((id) => DT.lobby.codexHas(meta, id)).length}/${DT.lobby.codexAll().length} · 🔥 승천 ${DT.lobby.ascensionMax(meta)}단계까지 열림</div>
           <div>📦 창고 ${meta.stash.length}/${DT.lobby.stashCap()}</div>
         </div>
       </section>
@@ -768,6 +772,38 @@ window.DT = window.DT || {};
         <h3>동료</h3>
         <div class="comprow">${comps}</div>
       </section>
+    </div>`;
+  }
+
+  function thiefLevelBox(meta) {
+    const t = DT.lobby.thiefLevel(meta);
+    const T = DT.config.thiefLevel;
+    const prev = T[t.level - 1].at;
+    const pct = t.next === null ? 100 : Math.round(((t.heists - prev) / (t.next - prev)) * 100);
+    const extra = DT.lobby.pilferExtra(meta).map((e) => DT.effects.handlers[e.type].describe(e)).join(', ');
+    return `<div class="records thieflv">
+      <h3>🦹 도둑 레벨 ${t.level}<small> / ${t.max}</small></h3>
+      <div class="lvbar"><div style="width:${pct}%"></div></div>
+      <div>누적 강탈 ${t.heists}${t.next !== null ? ` · 다음 레벨 ${t.next}: ${t.nextDesc}` : ' · 최고 레벨'}</div>
+      <div class="muted">슬쩍하기 추가 효과: ${extra || '없음'} <small>(손재주 강화 포함)</small></div>
+    </div>`;
+  }
+
+  function lobbyCodex(app, meta) {
+    const all = DT.lobby.codexAll();
+    const dims = ['medieval', 'cyber', 'abyss', 'hell'];
+    const groups = dims.map((d) => {
+      const list = all.filter((id) => DT.cards.def(id).origin === d);
+      const got = list.filter((id) => DT.lobby.codexHas(meta, id));
+      const dim = DT.data.dimensions[d];
+      return `<h3 style="color:${dim.color}">${dim.name} <small>${got.length}/${list.length}</small></h3>
+        <div class="codexgrid">${list.map((id) => DT.lobby.codexHas(meta, id)
+          ? cardHTML({ uid: '', id, origin: d }, { small: true })
+          : `<div class="card small back codex-unknown"><div class="back-mark">?</div></div>`).join('')}</div>`;
+    }).join('');
+    return `<div class="facility codex">
+      <p>적에게서 <b>슬쩍하거나 강탈한</b> 카드가 기록된다. 출발 준비에서 기록된 카드 1장을 골라 들고 시작할 수 있다(사용 불가 카드 제외).</p>
+      ${groups}
     </div>`;
   }
 
@@ -888,11 +924,38 @@ window.DT = window.DT || {};
       <section>
         <h3>가방에 챙기기 ${p.bag.length}/${DT.config.items.bag} <small>소모품 등. 사망하면 가방·장비는 잃습니다</small></h3>
         <div class="itemgrid">${bagCands.map((it) => itemTile(it, { sel: p.bag.includes(it.uid), attrs: `data-act="prep-bag" data-uid="${it.uid}"` })).join('') || '<p class="muted">창고가 비어 있습니다</p>'}</div>
-        <div class="row"><button class="btn big primary go" data-act="prep-go" ${p.picks.length ? '' : 'disabled'}>▶ 출발${app.prepSeed ? ` <small>시드 ${app.prepSeed}</small>` : ''}</button></div>
+        ${prepExtras(app, meta)}
+        <div class="row"><button class="btn big primary go" data-act="prep-go" ${p.picks.length ? '' : 'disabled'}>▶ 출발${app.prepSeed || app.urlSeed ? ` <small>시드 ${app.prepSeed || app.urlSeed}</small>` : ''}</button></div>
       </section>
     </div>`;
   }
 
+
+  // 출발 준비: 도감 카드 · 승천 · 시드
+  function prepExtras(app, meta) {
+    const p = app.prep;
+    const carry = DT.lobby.codexCarry(meta);
+    const sel = p.codexCard && DT.cards.def(p.codexCard);
+    const codex = `<h3>📖 도감 카드 <small>훔친 적 있는 카드 1장을 덱에 넣고 출발</small></h3>
+      <div class="selbtns"><button class="btn small ${sel ? 'primary' : ''}" data-act="prep-codex-open" ${carry.length ? '' : 'disabled'}>
+        ${sel ? `${sel.icon || ''} ${sel.name}` : carry.length ? `고르기 (${carry.length}장)` : '아직 훔친 카드가 없습니다'}</button>
+        ${sel ? `<button class="btn small" data-act="prep-codex" data-id="${p.codexCard}">빼기</button>` : ''}</div>
+      ${p.codexOpen ? `<div class="codexpick">${carry.map((id) => cardHTML({ uid: '', id, origin: DT.cards.def(id).origin },
+        { small: true, selected: p.codexCard === id, attrs: `data-act="prep-codex" data-id="${id}"` })).join('')}</div>` : ''}`;
+    const max = DT.lobby.ascensionMax(meta);
+    const A = DT.config.ascension;
+    const asc = max ? `<h3>🔥 승천 <small>단계마다 코인 +${Math.round(A.coinBonus * 100)}% · 효과는 누적</small></h3>
+      <div class="selbtns">${Array.from({ length: max + 1 }, (_, i) => `<button class="btn small ${p.ascension === i ? 'primary' : ''}" data-act="prep-asc" data-lv="${i}">${i ? 'A' + i : '없음'}</button>`).join('')}</div>
+      ${p.ascension ? `<div class="muted ascdesc">${A.levels.slice(0, p.ascension).map((l, i) => `A${i + 1} ${l.desc}`).join(' · ')}</div>` : ''}`
+      : `<h3>🔥 승천 <small>지옥까지 클리어하면 열린다</small></h3>`;
+    const seed = app.prepSeed || app.urlSeed;
+    const seedBox = `<h3>🎲 시드 <small>같은 시드 + 같은 준비 = 같은 판</small></h3>
+      <div class="seedrow"><input id="seedinput" type="text" inputmode="latin" autocomplete="off" autocapitalize="characters" maxlength="16"
+        placeholder="비우면 무작위" value="${seed || ''}">
+        <button class="btn small primary" data-act="seed-set">적용</button>
+        ${seed ? '<button class="btn small" data-act="seed-clear">무작위로</button>' : ''}</div>`;
+    return `<div class="prepextra">${codex}${asc}${seedBox}</div>`;
+  }
 
   function renderOverlay(app) {
     const ov = $('#overlay');

@@ -122,6 +122,28 @@ DT.config = {
 
   ui: { enemyTurnStartDelay: 500, enemyActDelay: 1000, allyActDelay: 850, crowdSpeed: 0.55 },
 
+  // 도둑 레벨(J단계): 누적 강탈(영입 포함) 수가 at 이상이면 그 레벨. 레벨마다 슬쩍하기에 extra 효과 누적(로비 '손재주'와 합산)
+  thiefLevel: [
+    { at: 0,  extra: [], desc: '기본' },
+    { at: 5,  extra: [{ type: 'damage', value: 2 }], desc: '슬쩍하기 피해 +2' },
+    { at: 15, extra: [{ type: 'block', value: 3 }], desc: '슬쩍하기 방어도 +3' },
+    { at: 30, extra: [{ type: 'damage', value: 3 }], desc: '슬쩍하기 피해 +3' },
+    { at: 50, extra: [{ type: 'draw', value: 1 }], desc: '슬쩍하기 카드 +1장' },
+  ],
+
+  // 승천(J단계): 클리어하면 다음 단계가 열린다. 고른 단계까지의 효과가 모두 쌓인다. 단계마다 코인 +coinBonus
+  ascension: {
+    coinBonus: 0.1,
+    levels: [
+      { desc: '정예 노드가 더 자주 나온다', eliteWeight: 6 },
+      { desc: '은신처 휴식 회복 30% → 20%', restHeal: -0.1 },
+      { desc: '적 체력 +10%', enemyHp: 0.1 },
+      { desc: '차원 불안정 한도 −1', instability: -1 },
+      { desc: '보스 체력 +15%', bossHp: 0.15 },
+      { desc: '적이 힘 1을 갖고 전투 시작', enemyStrength: 1 },
+    ],
+  },
+
   // 지금까지 만들어진 진행 단계(DESIGN.md 12장). 아직 없는 단계의 로비 강화는 잠긴다.
-  builtStages: 'ABCDEFGHI',
+  builtStages: 'ABCDEFGHIJ',
 };

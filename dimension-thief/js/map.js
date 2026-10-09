@@ -52,7 +52,7 @@ DT.map = {
         else if (f === F - 2) n.type = 'hideout';
         else {
           const noRift = !DT.data.dimensions[state.dimension].next;   // 마지막 차원엔 균열 없음
-          const pool = Object.entries(M.weights).filter(([t]) => !(M.minFloor[t] && n.floor < M.minFloor[t]) && !(noRift && t === 'rift'));
+          const pool = Object.entries(M.weights).map(([t, w]) => [t, t === 'elite' ? w + DT.run.asc(state, 'eliteWeight') : w]).filter(([t]) => !(M.minFloor[t] && n.floor < M.minFloor[t]) && !(noRift && t === 'rift'));
           for (let tries = 0; tries < 4; tries++) {
             n.type = DT.map.weighted(state, pool);
             // 같은 특수 노드가 연달아 나오지 않게
