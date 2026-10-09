@@ -263,7 +263,8 @@ window.DT = window.DT || {};
     const deck = fromEnemy ? d.companionDeck : d.deck;
     const counts = {};
     deck.forEach((id) => { counts[id] = (counts[id] || 0) + 1; });
-    return `<div class="compcard ${app.pick === kind ? 'selected' : ''}" data-act="pick" data-id="${kind}">
+    const selected = fromEnemy ? app.pick === kind : app.picks.includes(kind);
+    return `<div class="compcard ${selected ? 'selected' : ''}" data-act="${fromEnemy ? 'pick' : 'pick-comp'}" data-id="${kind}">
       <div class="cc-icon">${d.icon}</div>
       <div class="cc-name">${d.name}</div>
       <div class="cc-role">${DT.party.roleIcon(d.role)} ${DT.party.roleName(d.role)} · 체력 ${d.hp} · ${d.row === 'back' ? '뒷줄' : '앞줄'}</div>
@@ -287,6 +288,7 @@ window.DT = window.DT || {};
           <button class="btn big" data-act="close-overlay">닫기</button></div>`,
       };
     }
+    if (app.view === 'lobby' || !s) return lobbyContent(app);
     if (app.deckPick) return deckPickContent(app);
     if (s.screen === 'map') return mapContent(app);
     if (s.screen === 'hideout') return hideoutContent(app);
@@ -294,13 +296,14 @@ window.DT = window.DT || {};
     if (s.screen === 'event') return eventContent(app);
     if (s.screen === 'runEnd') return runEndContent(app);
     if (s.screen === 'pickCompanion') {
+      const n = s.companionPicks || 1;
       return {
         key: 'start:' + s.seed,
         html: `<div class="panel wide">
-          <h1>🦹 함께 갈 동료를 고르세요</h1>
+          <h1>🦹 함께 갈 동료 ${n > 1 ? `${n}명을` : '를'} 고르세요</h1>
           <p>동료는 AI로 자동 행동합니다. 강탈로 적을 쓰러뜨리면 그 적을 동료로 영입할 수도 있어요. (최대 ${DT.config.party.companionSlots}명)</p>
           <div class="pickrow">${s.starterOptions.map((k) => companionCard(k, DT.data.companions[k], app, false)).join('')}</div>
-          <div class="row"><button class="btn big primary" data-act="start-run" ${app.pick ? '' : 'disabled'}>이 동료와 출발</button></div>
+          <div class="row"><button class="btn big primary" data-act="start-run" ${app.picks.length ? '' : 'disabled'}>${app.picks.length ? `${app.picks.map((k) => DT.data.companions[k].name).join(' · ')}와 출발` : '동료를 탭하세요'}</button></div>
         </div>`,
       };
     }
@@ -503,8 +506,73 @@ window.DT = window.DT || {};
         <p class="stats">처치 ${st.kills} · 슬쩍 ${st.steals} · 강탈 ${st.heists} · 영입 ${st.recruits || 0} · 복제 ${st.copies} · 덱 ${s.player.masterDeck.length}장</p>
         <div class="row">
           <button class="btn big" data-act="retry">같은 시드로 다시</button>
-          <button class="btn big primary" data-act="new-seed">새 판 시작</button>
+          <button class="btn big primary" data-act="to-lobby">🏠 로비로 귀환</button>
         </div></div>`,
+    };
+  }
+
+  // ── 로비 ──
+  function lobbyContent(app) {
+    const meta = DT.save.loadMeta();
+    const s = app.state;
+    const active = s && s.screen !== 'runEnd';
+    const pips = (lv, max) => '●'.repeat(lv) + '○'.repeat(max - lv);
+    const ups = Object.entries(DT.data.upgrades).map(([id, u]) => {
+      const lv = DT.lobby.level(meta, id);
+      const max = u.costs.length;
+      const cost = DT.lobby.nextCost(meta, id);
+      const locked = DT.lobby.locked(id);
+      let btn;
+      if (locked) btn = `<button class="btn small" disabled>🔒 ${u.lockedUntil}단계에서 열림</button>`;
+      else if (cost === null) btn = '<button class="btn small" disabled>최대</button>';
+      else btn = `<button class="btn small ${meta.coins >= cost ? 'primary' : ''}" data-act="buy-upgrade" data-id="${id}" ${meta.coins >= cost ? '' : 'disabled'}>🪙 ${cost}</button>`;
+      return `<div class="uptile ${locked ? 'locked' : ''}">
+        <div class="ut-head"><span class="ut-icon">${u.icon}</span><b>${u.name}</b><span class="pips">${pips(lv, max)}</span></div>
+        <div class="ut-now">${lv ? u.levels[lv - 1] : '없음'}</div>
+        <div class="ut-next">${cost !== null && !locked ? `다음: ${u.levels[lv]}` : ''}</div>
+        ${btn}
+      </div>`;
+    }).join('');
+    const comps = Object.entries(DT.data.companions).map(([k, d]) => {
+      const open = DT.lobby.companionUnlocked(meta, k);
+      return `<div class="comptile ${open ? '' : 'locked'}">
+        <span class="ct-icon">${d.icon}</span><b>${d.name}</b><small>${DT.party.roleIcon(d.role)} ${DT.party.roleName(d.role)}</small>
+        ${open ? '<small class="ok">사용 가능</small>' : `<button class="btn small ${meta.coins >= d.unlockCost ? 'primary' : ''}" data-act="unlock" data-id="${k}" ${meta.coins >= d.unlockCost ? '' : 'disabled'}>🪙 ${d.unlockCost} 해금</button>`}
+      </div>`;
+    }).join('');
+    const facilities = [['🏪', '상점'], ['📦', '창고'], ['🎒', '출발 준비'], ['🧔', '상인'], ['⚒️', '대장간']]
+      .map(([i, n]) => `<div class="factile locked"><span>${i}</span><b>${n}</b><small>🔒 F단계</small></div>`).join('');
+    return {
+      key: 'lobby:' + meta.coins + ':' + JSON.stringify(meta.upgrades) + ':' + (meta.unlocked || []).join(',') + ':' + (active ? s.floor : '-'),
+      html: `<div class="panel full lobby">
+        <div class="lobbyhead">
+          <h1>🦹 차원 도둑 <small>은신처 로비</small></h1>
+          <div class="coins">🪙 <b>${meta.coins}</b> 코인</div>
+        </div>
+        <div class="lobbygrid">
+          <section class="lb-left">
+            ${active
+              ? `<button class="btn big primary go" data-act="go">▶ 이어하기<small>${DT.data.dimensions[s.dimension].name} ${s.floor ? s.floor + '층' : '출발 전'} · 🪙 ${s.runCoins}</small></button>
+                 <button class="btn small" data-act="abandon">이 판 포기하기</button>`
+              : `<button class="btn big primary go" data-act="go">▶ 출발<small>${app.urlSeed ? `시드 ${app.urlSeed}` : '중세 왕국으로'}</small></button>`}
+            <div class="records">
+              <h3>기록</h3>
+              <div>판 ${meta.runs} · 클리어 ${meta.clears} · 최고 ${meta.bestFloor}층</div>
+              <div>승리한 전투 ${meta.combatsWon}</div>
+              <div>슬쩍 ${meta.steals} · 강탈 ${meta.heists} · 복제 ${meta.copies}</div>
+              <div>도감 ${Object.keys(meta.codex || {}).length}장</div>
+            </div>
+          </section>
+          <section class="lb-right">
+            <h3>영구 강화</h3>
+            <div class="upgrid">${ups}</div>
+            <h3>동료</h3>
+            <div class="comprow">${comps}</div>
+            <h3>시설</h3>
+            <div class="facrow">${facilities}</div>
+          </section>
+        </div>
+      </div>`,
     };
   }
 
@@ -520,7 +588,13 @@ window.DT = window.DT || {};
     if (ov.dataset.key === c.key) {
       // 같은 화면이면 선택 표시만 갱신 (등장 애니메이션 재생 방지)
       ov.querySelectorAll('[data-act="pick"]').forEach((el) => el.classList.toggle('selected', el.dataset.id === app.pick));
-      ov.querySelectorAll('[data-act="heist-take"],[data-act="reward-take"],[data-act="start-run"]').forEach((b) => { b.disabled = !app.pick; });
+      ov.querySelectorAll('[data-act="heist-take"],[data-act="reward-take"]').forEach((b) => { b.disabled = !app.pick; });
+      ov.querySelectorAll('[data-act="pick-comp"]').forEach((el) => el.classList.toggle('selected', app.picks.includes(el.dataset.id)));
+      const go = ov.querySelector('[data-act="start-run"]');
+      if (go) {
+        go.disabled = !app.picks.length;
+        go.textContent = app.picks.length ? `${app.picks.map((k) => DT.data.companions[k].name).join(' · ')}와 출발` : '동료를 탭하세요';
+      }
       return;
     }
     ov.dataset.key = c.key;
@@ -531,6 +605,11 @@ window.DT = window.DT || {};
   }
 
   UI.render = function (app) {
+    if (app.view === 'lobby' || !app.state) {
+      UI.applyTheme('thief');
+      renderOverlay(app);
+      return;
+    }
     UI.applyTheme(app.state.dimension);
     renderTop(app);
     renderAllies(app);

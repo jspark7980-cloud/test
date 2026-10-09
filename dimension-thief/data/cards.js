@@ -158,4 +158,20 @@ DT.data.cards = {
                effects: [{ type: 'heal', value: 12 }] },
   tk_tax:    { name: '세금 징수', type: 'attack', cost: 1, origin: 'medieval', icon: '💰',
                effects: [{ type: 'damage', value: 6 }, { type: 'status', status: 'weak', value: 2 }] },
+
+  // ── 동료 전용 (해금 동료) ──
+  cp_snare:     { name: '올가미',    type: 'attack', cost: 1, origin: 'thief', icon: '🪢',
+                  effects: [{ type: 'damage', value: 4 }, { type: 'status', status: 'vulnerable', value: 2 }] },
+  cp_venom:     { name: '독침 사격', type: 'attack', cost: 1, origin: 'thief', icon: '🐝',
+                  effects: [{ type: 'damage', value: 3 }, { type: 'status', status: 'poison', value: 4 }] },
+  cp_quickshot: { name: '속사',      type: 'attack', cost: 1, origin: 'thief', icon: '🏹',
+                  effects: [{ type: 'damage', value: 4, times: 2 }] },
+  cp_ballad:    { name: '치유의 발라드', type: 'skill', cost: 1, origin: 'thief', icon: '🎶',
+                  effects: [{ type: 'heal', value: 6 }, { type: 'block', value: 3 }] },
+  cp_anthem:    { name: '행진곡',    type: 'skill',  cost: 1, origin: 'thief', icon: '🥁',
+                  effects: [{ type: 'status', status: 'strength', value: 2, to: 'ally' }] },
+  cp_lullaby:   { name: '자장가',    type: 'skill',  cost: 1, origin: 'thief', icon: '🌙',
+                  effects: [{ type: 'block', value: 8 }] },
+  cp_mock:      { name: '조롱의 노래', type: 'attack', cost: 1, origin: 'thief', icon: '🎭',
+                  effects: [{ type: 'damage', value: 3 }, { type: 'status', status: 'weak', value: 2 }] },
 };

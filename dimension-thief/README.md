@@ -9,6 +9,7 @@
 - v3 설계 A단계: 밸런스 조정(짧고 굵은 전투), 강탈 규칙 변경, 수치 `data/config.js`, 시뮬레이터
 - v3 설계 B단계: 파티(도둑+동료 2), 앞줄·뒷줄, 동료 AI(탱커·힐러·딜러), 지휘 카드 4종, 강탈 시 동료 영입
 - v3 설계 C단계: 1차원 12층 갈림길 맵(전투·정예·이벤트·암시장·은신처·보스), 골드·코인, 도주, 카드 강화, 정예 근위대장, 보스 폭군 왕(왕관)
+- v3 설계 D단계: 메인 로비, 영구 강화(최대 체력·시작 골드·손재주·동료 둘과 출발), 동료 해금(밀렵꾼·음유시인)
 - 설계 전체는 `DESIGN.md`, 아이템은 `ITEMS.md`
 
 ## 밸런스 시뮬레이션
@@ -27,7 +28,8 @@ node dimension-thief/tools/sim.js 100 solo   # 동료 없이
 - `data/companions.js` 시작 동료, `data/enemies.js` 의 `role`·`companionDeck` 은 영입용
 - `js/reward.js` 보상 후보 · `map.js` 맵 생성 · `run.js` 판 진행(맵·노드·골드·코인·도주·판 종료)
 - `data/events.js` 이벤트, `data/encounters.js` 일반·정예·보스 구성
-- `js/save.js` localStorage · `ui.js` 화면 · `main.js` 입력/적 턴 진행
+- `js/lobby.js` 로비 영구 강화·동료 해금, `data/upgrades.js` 강화 목록
+- `js/save.js` localStorage(판 데이터 + 영구 데이터: 코인·강화·해금) · `ui.js` 화면 · `main.js` 입력/자동 진행
 
 ## 새 카드 추가
 `data/cards.js` 에 항목 추가:

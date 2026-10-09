@@ -9,18 +9,23 @@ window.DT = window.DT || {};
   const log = (s, m) => DT.state.log(s, m);
   const cfg = () => DT.config;
 
-  R.start = function (seed) {
+  // meta: 로비 영구 데이터(강화·해금). 없으면 강화 없이 시작
+  R.start = function (seed, meta) {
     const s = DT.state.createRun(seed);
     s.screen = 'pickCompanion';
-    s.starterOptions = Object.keys(DT.data.companions);
+    DT.lobby.applyToRun(s, meta || { coins: 0, upgrades: {}, unlocked: [] });
     return s;
   };
 
-  R.pickCompanion = function (state, kind) {
-    if (state.screen !== 'pickCompanion' || !state.starterOptions.includes(kind)) return false;
-    DT.party.add(state, kind, false);
+  // kinds: 고른 동료 id (문자열 하나 또는 배열, 최대 companionPicks 명)
+  R.pickCompanion = function (state, kinds) {
+    kinds = [].concat(kinds);
+    const ok = state.screen === 'pickCompanion' && kinds.length >= 1 && kinds.length <= state.companionPicks
+      && new Set(kinds).size === kinds.length && kinds.every((k) => state.starterOptions.includes(k));
+    if (!ok) return false;
+    kinds.forEach((k) => DT.party.add(state, k, false));
     state.starterOptions = null;
-    state.gold = cfg().gold.start;
+    state.gold = cfg().gold.start + (state.goldBonus || 0);
     state.map = DT.map.generate(state);
     state.pos = null;
     state.screen = 'map';

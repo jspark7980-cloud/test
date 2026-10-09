@@ -336,3 +336,29 @@ button { font: inherit; color: inherit; }
 .loot { font-size: 17px; color: #ffd166 !important; }
 .rankbadge { font-size: 11px; font-weight: 800; padding: 1px 6px; border-radius: 6px; margin-left: 4px; }
 .rankbadge.elite { background: #e0455a; color: #fff; } .rankbadge.boss { background: #ffd166; color: #1a1205; }
+
+/* ── D단계: 로비 ── */
+.panel.full.lobby { overflow-y: auto; gap: 10px; }
+.lobbyhead { display: flex; align-items: center; justify-content: space-between; }
+.lobbyhead h1 { margin: 0; font-size: 28px; } .lobbyhead h1 small { font-size: 15px; color: var(--muted); font-weight: 400; margin-left: 6px; }
+.coins { font-size: 20px; padding: 8px 16px; border-radius: 14px; background: rgba(255, 209, 102, 0.14); }
+.coins b { color: #ffd166; font-size: 24px; }
+.lobbygrid { display: grid; grid-template-columns: minmax(220px, 0.32fr) 1fr; gap: 20px; min-height: 0; }
+.lb-left { display: flex; flex-direction: column; gap: 12px; }
+.btn.go { min-height: 110px; font-size: 28px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+.btn.go small { font-size: 14px; font-weight: 600; opacity: 0.8; }
+.records { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; font-size: 14px; line-height: 1.7; color: var(--muted); }
+.records h3, .lb-right h3 { margin: 4px 0 6px; font-size: 15px; color: var(--text); }
+.upgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.uptile { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
+.uptile.locked { opacity: 0.55; }
+.ut-head { display: flex; align-items: center; gap: 6px; } .ut-icon { font-size: 20px; }
+.pips { margin-left: auto; color: #ffd166; letter-spacing: 1px; font-size: 13px; }
+.ut-now { font-size: 13px; } .ut-next { font-size: 12px; color: var(--muted); min-height: 16px; }
+.uptile .btn { margin-top: 2px; }
+.comprow, .facrow { display: flex; gap: 10px; flex-wrap: wrap; }
+.comptile, .factile { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 120px; }
+.comptile.locked { border-style: dashed; }
+.ct-icon, .factile span { font-size: 28px; }
+.comptile small, .factile small { color: var(--muted); font-size: 12px; } .comptile .ok { color: #7ef0a8; }
+.factile.locked { opacity: 0.5; }
