@@ -481,3 +481,36 @@ span.g-common, span.g-rare, span.g-hero, span.g-legend { color: var(--g); font-w
 .ascbadge { font-size: 14px; padding: 4px 10px; border-radius: 10px; background: rgba(255, 90, 60, 0.25); color: #ffb3a0; font-weight: 800; }
 .seedrow input { -webkit-user-select: text; user-select: text; }
 .codexgrid { padding: 10px 0 0 10px; }
+
+/* ── v4 1단계: 연출 ── */
+.float.big { animation: floatbig 1.4s cubic-bezier(.2,1.6,.4,1) forwards; color: #ff3046; -webkit-text-stroke: 2px #2a0008; }
+@keyframes floatbig {
+  0% { opacity: 0; transform: translate(-50%, 0) scale(0.3); }
+  15% { opacity: 1; transform: translate(-50%, -20px) scale(1.35); }
+  35% { transform: translate(-50%, -30px) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -90px) scale(1); }
+}
+#app.shake { animation: screenshake 0.38s; }
+@keyframes screenshake {
+  15% { transform: translate(calc(var(--shake) * -1), calc(var(--shake) * 0.5)); }
+  35% { transform: translate(var(--shake), calc(var(--shake) * -0.6)); }
+  55% { transform: translate(calc(var(--shake) * -0.6), calc(var(--shake) * 0.3)); }
+  75% { transform: translate(calc(var(--shake) * 0.3), 0); }
+}
+#hurtflash { position: fixed; inset: 0; pointer-events: none; z-index: 40; opacity: 0;
+  box-shadow: inset 0 0 120px 30px rgba(255, 30, 50, var(--a, 0.5)); background: rgba(255, 0, 30, calc(var(--a, 0.5) * 0.25)); }
+#hurtflash.on { animation: hurtflash 0.45s ease-out; }
+@keyframes hurtflash { 0% { opacity: 1; } 100% { opacity: 0; } }
+.flycard { position: fixed; z-index: 45; pointer-events: none; transform: translate(-50%, -50%); }
+.flycard .card { --card-w: 120px; box-shadow: 0 0 24px #ffd166; }
+.shard { position: fixed; width: 9px; height: 9px; border-radius: 2px; pointer-events: none; z-index: 44;
+  transform: translate(-50%, -50%); animation: shard 0.9s cubic-bezier(.1,.8,.3,1) forwards; }
+@keyframes shard { to { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(220deg) scale(0.2); opacity: 0; } }
+body.slowmo #field { animation: slowmo var(--slowmo, 0.45s) ease-out; }
+body.slowmo .shard { animation-duration: 1.6s; }
+@keyframes slowmo { 0% { filter: saturate(0.2) brightness(1.4); transform: scale(1.025); } 100% { filter: none; transform: none; } }
+.unit.dead .portrait { transition: filter 0.4s, transform 0.4s; }
+/* 설정 */
+.settings .toggle { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 12px 4px; border-bottom: 1px solid var(--line); font-size: 18px; }
+.settings .toggle:last-of-type { border-bottom: none; }
+.gear { font-size: 20px; }

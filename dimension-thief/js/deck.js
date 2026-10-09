@@ -25,6 +25,7 @@ DT.deck = {
         drawn++;
       }
     }
+    if (drawn && actor.id === 'player') DT.state.emit(state, { type: 'draw', n: drawn });   // 뽑기 효과음
     return drawn;
   },
 

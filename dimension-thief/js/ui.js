@@ -85,6 +85,7 @@ window.DT = window.DT || {};
         <span class="money" data-act="info" data-msg="골드: 이번 판에서만 쓰는 돈(암시장·이벤트). 코인: 판이 끝나면 비율대로 남는 영구 화폐.">💰 ${s.gold} · 🪙 ${s.runCoins}</span>
         <button class="btn small" data-act="pile" data-pile="masterDeck">내 덱 ${s.player.masterDeck.length}</button>
         <button class="btn small" data-act="bag">🎒 ${s.bag.length}/${DT.config.items.bag}</button>
+        <button class="btn small gear" data-act="settings-open" aria-label="설정">⚙️</button>
         ${escapeBtn(s)}</div>`;
   }
 
@@ -304,6 +305,20 @@ window.DT = window.DT || {};
 
   function overlayContent(app) {
     const s = app.state;
+    if (app.settingsOpen) {
+      const S = DT.settings;
+      const row = (key, label, sub) => `<div class="toggle"><div><b>${label}</b><br><small class="muted">${sub}</small></div>
+        <button class="btn ${S[key] !== false ? 'primary' : ''}" data-act="setting" data-key="${key}">${S[key] !== false ? '켜짐' : '꺼짐'}</button></div>`;
+      return {
+        key: 'settings:' + JSON.stringify(S),
+        html: `<div class="panel settings">
+          <h1>⚙️ 설정</h1>
+          ${row('sound', '🔊 효과음', '타격·방어·훔치기·코인·뽑기 소리')}
+          ${row('shake', '📳 화면 흔들림', '피격 시 화면·캐릭터 흔들림 (붉은 깜빡임은 유지)')}
+          <div class="row"><button class="btn big" data-act="settings-close">닫기</button></div>
+        </div>`,
+      };
+    }
     if (app.pileView) {
       const p = s.player;
       const names = { drawPile: '뽑을 덱 (순서 비공개)', discardPile: '버린 더미', exhaustPile: '소멸', masterDeck: '내 덱 (영구)' };
@@ -714,7 +729,7 @@ window.DT = window.DT || {};
       html: `<div class="panel full lobby">
         <div class="lobbyhead">
           <h1>🦹 차원 도둑 <small>은신처 로비</small></h1>
-          <div class="coins">🪙 <b>${meta.coins}</b> 코인</div>
+          <div class="coins">🪙 <b>${meta.coins}</b> 코인 <button class="btn small gear" data-act="settings-open" aria-label="설정">⚙️</button></div>
         </div>
         <div class="ltabs">${TABS.map(([k, n]) => `<button class="btn small ${tab === k ? 'primary' : ''}" data-act="ltab" data-tab="${k}">${n}</button>`).join('')}
           ${tab === 'prep' ? '<button class="btn small primary">🎒 출발 준비</button>' : ''}</div>
@@ -1002,28 +1017,8 @@ window.DT = window.DT || {};
     renderOverlay(app);
   };
 
-  // ── 연출 ──
-  function floatAt(id, text, cls, i) {
-    const el = document.querySelector(`[data-actor="${id}"] .portrait`);
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    const f = document.createElement('div');
-    f.className = 'float ' + cls;
-    f.textContent = text;
-    f.style.left = r.left + r.width / 2 + ((i % 3) - 1) * 26 + 'px';
-    f.style.top = r.top + r.height * 0.2 + 'px';
-    f.style.animationDelay = (i % 8) * 90 + 'ms';
-    $('#fx').appendChild(f);
-    setTimeout(() => f.remove(), 1400 + (i % 8) * 90);
-  }
-
-  function shake(id) {
-    const el = document.querySelector(`[data-actor="${id}"]`);
-    if (!el) return;
-    el.classList.remove('hit');
-    void el.offsetWidth;
-    el.classList.add('hit');
-  }
+  // ── 연출 (js/fx.js · js/sound.js) ──
+  const floatAt = (id, text, cls, i) => DT.fx.float(id, text, cls, (i % 8) * 90);
 
   let bannerTimer = null;
   function banner(html, cls) {
@@ -1038,19 +1033,42 @@ window.DT = window.DT || {};
 
   UI.playEvents = function (app, events) {
     const s = app.state;
+    const FX = DT.fx, SND = DT.sound, C = DT.config.fx;
+    let drew = false;
     events.forEach((ev, i) => {
+      const d = (i % 8) * 90;          // 같은 묶음의 연출은 조금씩 늦게
       if (ev.type === 'damage') {
-        if (ev.blocked) floatAt(ev.target, `🛡-${ev.blocked}`, 'blocked', i);
-        if (ev.amount > 0) { floatAt(ev.target, `-${ev.amount}`, 'dmg', i); shake(ev.target); }
+        if (ev.blocked) { floatAt(ev.target, `🛡-${ev.blocked}`, 'blocked', i); SND.play('block', 0, d / 1000); }
+        if (ev.amount > 0) {
+          const t = actor(s, ev.target);
+          const power = Math.min(1, ev.amount / Math.max(1, t ? t.maxHp * 0.4 : 20));
+          FX.float(ev.target, `-${ev.amount}`, 'dmg', d, FX.dmgSize(ev.amount), ev.amount >= C.bigHit);
+          FX.shakeActor(ev.target, d);
+          SND.play('hit', power, d / 1000);
+          if (ev.target === 'player') { FX.shakeScreen(power, d); FX.flash(power, d); }
+          else if (DT.state.isAlly(ev.target)) FX.flash(power * 0.4, d);
+        }
       } else if (ev.type === 'block') {
         floatAt(ev.target, `+${ev.amount}🛡`, 'blk', i);
+        SND.play('block', 0, d / 1000);
       } else if (ev.type === 'heal' && ev.amount > 0) {
-        floatAt(ev.target, `+${ev.amount}`, 'heal', i);
+        FX.float(ev.target, `+${ev.amount}`, 'heal', d, Math.round(FX.dmgSize(ev.amount) * 0.85));
+        SND.play('heal', 0, d / 1000);
+      } else if (ev.type === 'death') {
+        FX.kill(ev.target, DT.state.isAlly(ev.target) ? '#ff5d6c' : ev.executable ? '#ffd166' : '#d6a4ff', d);
+        SND.play('kill', 0, d / 1000);
+        if (ev.executable) floatAt(ev.target, '💰 강탈!', 'heist', i);
+      } else if (ev.type === 'draw') {
+        if (!drew) SND.play('draw', 0, d / 1000);
+        drew = true;
+      } else if (ev.type === 'victory' || ev.type === 'coin') {
+        SND.play('coin', 0, 0.3);
+      } else if (ev.type === 'heist') {
+        SND.play('steal');
+        FX.cardFly(cardHTML(plainCard(ev.cardId)), { x: innerWidth / 2, y: innerHeight / 2 }, FX.posOf('[data-pile="masterDeck"]'), 0);
       } else if (ev.type === 'status') {
         const d = DT.data.statuses[ev.status] || { name: ev.status, icon: '' };
         floatAt(ev.target, `${d.icon}${d.name} ${ev.amount > 0 ? '+' : ''}${ev.amount}`, 'stat', i);
-      } else if (ev.type === 'death' && ev.executable) {
-        floatAt(ev.target, '💰 강탈!', 'heist', i);
       } else if (ev.type === 'cover') {
         floatAt(ev.target, '🫡 엄호!', 'stat', i);
       } else if (ev.type === 'move') {
@@ -1063,8 +1081,15 @@ window.DT = window.DT || {};
         const ally = DT.state.isAlly(ev.actor);
         const tgt = ev.target ? actor(s, ev.target) : null;
         banner(`<div class="b-who">${a ? a.name : ''}의 행동${tgt ? ` → ${tgt.name}` : ''}</div>${cardHTML(ev.card, { view: { state: s, srcId: ev.actor, tgtId: ev.target || null } })}`, ally ? 'ally' : 'enemy');
-      } else if (ev.type === 'steal' && ev.by === 'player') {
-        banner(`<div class="b-who">슬쩍 성공!</div>${cardHTML(Object.assign(plainCard(ev.cardId), { temp: true }))}`, 'steal');
+      } else if (ev.type === 'steal' && DT.state.isAlly(ev.by)) {
+        // 카드가 적에게서 내 손패로 날아온다
+        SND.play('steal', 0, d / 1000);
+        FX.cardFly(cardHTML(Object.assign(plainCard(ev.cardId), { temp: true })), FX.posOf(ev.from), FX.posOf('#hand'), d);
+        if (ev.by === 'player') banner(`<div class="b-who">슬쩍 성공!</div>${cardHTML(Object.assign(plainCard(ev.cardId), { temp: true }))}`, 'steal');
+      } else if (ev.type === 'steal') {
+        // 적이 내 카드를 빼앗아 간다(마왕)
+        SND.play('steal', 0, d / 1000);
+        FX.cardFly(cardHTML(plainCard(ev.cardId)), FX.posOf('#hand'), FX.posOf(ev.by), d);
       } else if (ev.type === 'copy' && ev.by === 'player') {
         banner(`<div class="b-who">복제!</div>${cardHTML(plainCard(ev.cardId))}`, 'steal');
       } else if (ev.type === 'passive') {

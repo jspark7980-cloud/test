@@ -120,6 +120,9 @@ DT.config = {
   merchant: { otherRatio: 0.3 },              // 전리품이 아닌 아이템은 상점가의 30%에 판매
   forge: { max: 3, costMult: [0.5, 1, 1.5], perPlus: 0.5 },   // +1당 수치형 효과 +50%
 
+  // 연출(v4 1단계): 피해 숫자 크기 = min(max, min + 피해 × per), bigHit 이상이면 튀어나옴
+  fx: { dmgSizeMin: 24, dmgSizeMax: 76, dmgSizePer: 1.6, bigHit: 20, shakeMax: 14, cardFlyMs: 650, particles: 14, slowmoMs: 450 },
+
   ui: { enemyTurnStartDelay: 500, enemyActDelay: 1000, allyActDelay: 850, crowdSpeed: 0.55 },
 
   // 도둑 레벨(J단계): 누적 강탈(영입 포함) 수가 at 이상이면 그 레벨. 레벨마다 슬쩍하기에 extra 효과 누적(로비 '손재주'와 합산)

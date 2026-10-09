@@ -78,6 +78,7 @@ const app = (DT.app = { lobbyTab: 'main', lsel: null, prep: null, prepSeed: null
     const meta = DT.save.loadMeta();
     if (!fn(meta)) return flash(failMsg || '코인이 부족합니다');
     DT.save.saveMeta(meta);
+    DT.sound.play('coin');
     render();
   }
 
@@ -399,6 +400,17 @@ const app = (DT.app = { lobbyTab: 'main', lsel: null, prep: null, prepSeed: null
       case 'new-seed': return newRun();
       case 'to-lobby': return toLobby();
       case 'info': return flash(data.msg);
+      // 설정(효과음·화면 흔들림) — 영구 데이터에 저장
+      case 'settings-open': app.settingsOpen = true; return render();
+      case 'settings-close': app.settingsOpen = false; return render();
+      case 'setting': {
+        const meta = DT.save.loadMeta();
+        meta.settings = Object.assign({}, DT.settings, { [data.key]: DT.settings[data.key] === false });
+        DT.settings = meta.settings;
+        DT.save.saveMeta(meta);
+        if (data.key === 'sound' && DT.settings.sound) DT.sound.play('coin');
+        return render();
+      }
       case 'status': {
         const d = DT.data.statuses[data.key];
         return d && flash(`${d.icon} ${d.name} ${data.val}: ${d.desc}`);
@@ -418,6 +430,10 @@ const app = (DT.app = { lobbyTab: 'main', lsel: null, prep: null, prepSeed: null
 
   function boot() {
     blockZoom();
+    DT.settings = Object.assign({ sound: true, shake: true }, DT.save.loadMeta().settings || {});
+    // 아이패드 사파리: 첫 탭에 오디오를 깨운다
+    const wake = () => DT.sound.unlock();
+    ['touchend', 'click'].forEach((t) => document.addEventListener(t, wake, { once: true }));
     DT.cards.validate();
     document.addEventListener('click', (e) => {
       if (e.target.closest('input')) return;          // 시드 입력칸
