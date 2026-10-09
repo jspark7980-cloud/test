@@ -3,7 +3,7 @@ window.DT = window.DT || {};
 
 (function () {
   // view: 'lobby' | 'run'
-const app = (DT.app = { view: 'lobby', state: null, sel: null, mode: null, busy: false, flash: '', pileView: null, pick: null, picks: [], replaceFor: null, deckPick: null, urlSeed: null });
+const app = (DT.app = { bagView: false, bagSel: null, bagRev: 0, view: 'lobby', state: null, sel: null, mode: null, busy: false, flash: '', pileView: null, pick: null, picks: [], replaceFor: null, deckPick: null, urlSeed: null });
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   let flashTimer = null;
 
@@ -42,6 +42,7 @@ const app = (DT.app = { view: 'lobby', state: null, sel: null, mode: null, busy:
       if (e.type === 'victory') meta.combatsWon++;
       if (e.type === 'runEnd') {
         meta.coins += e.banked;           // 판 종료: 보존된 코인을 영구 저장
+        meta.stash = (meta.stash || []).concat(e.keptItems || []);   // 남은 아이템은 창고로
         meta.runs++;
         if (e.how === 'clear') meta.clears++;
         meta.bestFloor = Math.max(meta.bestFloor, e.floor);
@@ -168,6 +169,14 @@ const app = (DT.app = { view: 'lobby', state: null, sel: null, mode: null, busy:
     if (app.state.phase === 'ally') runAutoPhases();
   }
 
+  // 가방 조작 결과: 오류면 알림, 아니면 저장·다시 그리기
+  function bagDo(err, clearSel) {
+    if (err) return flash(err);
+    if (clearSel) app.bagSel = null;
+    app.bagRev++;
+    commit();
+  }
+
   // ── 보상 입력 ──
   function pick(id) {
     app.pick = app.pick === id ? null : id;
@@ -253,6 +262,27 @@ const app = (DT.app = { view: 'lobby', state: null, sel: null, mode: null, busy:
         const ok = dp.purpose === 'upgrade' ? DT.run.upgradeCard(s, dp.uid) : DT.run.removeCard(s, dp.uid);
         if (!ok) return flash(dp.purpose === 'remove' ? '골드가 부족하거나 제거할 수 없습니다' : '강화할 수 없는 카드입니다');
         return afterChoice(true);
+      }
+      // 가방
+      case 'bag': app.bagView = true; app.bagSel = null; app.bagRev++; return render();
+      case 'bag-close': app.bagView = false; app.bagSel = null; return render();
+      case 'bag-sel': app.bagSel = app.bagSel === data.uid ? null : data.uid; app.bagRev++; return render();
+      case 'equip': return bagDo(DT.items.equip(s, data.uid, data.to), true);
+      case 'unequip': return bagDo(DT.items.unequip(s, data.id, data.slot), false);
+      case 'pocket': return bagDo(DT.items.toPocket(s, data.uid), false);
+      case 'unpocket': return bagDo(DT.items.fromPocket(s, data.uid), false);
+      case 'discard':
+        if (!window.confirm('이 아이템을 버릴까요?')) return;
+        return bagDo(DT.items.discard(s, data.uid), true);
+      case 'use-item': {
+        const err = DT.items.use(s, data.uid, data.to);
+        if (!err && s.screen === 'runEnd') app.bagView = false;
+        return bagDo(err, true);
+      }
+      case 'buy-item': {
+        const err = DT.run.buyItem(s, +data.i);
+        if (err) return flash(err);
+        return commit();
       }
       case 'event-opt': {
         if (!DT.run.canChooseEvent(s, +data.i)) return flash('조건이 맞지 않습니다');

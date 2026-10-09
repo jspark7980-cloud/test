@@ -26,7 +26,7 @@ window.DT = window.DT || {};
       o.small ? 'small' : '', o.selected ? 'selected' : '', o.disabled ? 'disabled' : '',
       o.glow ? 'glow' : '', card.temp ? 'temp' : '', card.up ? 'upgraded' : ''].join(' ');
     return `<div class="${cls}" style="--origin:${dim.color || '#888'}" ${o.attrs || ''}>
-      <div class="c-cost">${DT.cards.costOf(card)}</div>
+      <div class="c-cost ${o.cost !== undefined && o.cost < DT.cards.costOf(card) ? 'cheap' : ''}">${o.cost !== undefined ? o.cost : DT.cards.costOf(card)}</div>
       <div class="c-name">${DT.cards.nameOf(card)}</div>
       <div class="c-art">${def.icon || DT.cards.typeIcon[def.type] || '✦'}</div>
       <div class="c-desc"><div>${DT.cards.describe(card, o.view)}</div></div>
@@ -81,6 +81,7 @@ window.DT = window.DT || {};
       <div class="tb-right">
         <span class="money" data-act="info" data-msg="골드: 이번 판에서만 쓰는 돈(암시장·이벤트). 코인: 판이 끝나면 비율대로 남는 영구 화폐.">💰 ${s.gold} · 🪙 ${s.runCoins}</span>
         <button class="btn small" data-act="pile" data-pile="masterDeck">내 덱 ${s.player.masterDeck.length}</button>
+        <button class="btn small" data-act="bag">🎒 ${s.bag.length}/${DT.config.items.bag}</button>
         ${escapeBtn(s)}</div>`;
   }
 
@@ -125,6 +126,7 @@ window.DT = window.DT || {};
           ${s.orders.cover === a.id ? '<div class="orderbadge">🫡 엄호 중</div>' : ''}
           <div class="portrait">${a.icon}${blockHTML(a)}</div>
           <div class="aname">${a.name}${isComp ? ` <span class="role">${DT.party.roleIcon(a.role)}</span>` : ''}</div>
+          ${equipIcons(a)}
           ${barHTML(a)}
           <div class="sts">${statusesHTML(a)}</div>
         </div>
@@ -140,7 +142,7 @@ window.DT = window.DT || {};
     const selDef = sel && DT.cards.def(sel.id);
     const targeting = selDef && DT.cards.needsTarget(selDef);
     const stealing = selDef && DT.cards.choiceOf(selDef) === 'revealed';
-    const threshold = DT.config.heist.threshold;
+    const threshold = DT.combat.heistThreshold(s);
     const taunter = DT.party.living(s).find((a) => (a.statuses.taunt || 0) > 0);
     const ordered = [...s.enemies.filter((e) => e.row !== 'back'), ...s.enemies.filter((e) => e.row === 'back')];
     $('#enemies').innerHTML = ordered.map((e) => {
@@ -158,7 +160,7 @@ window.DT = window.DT || {};
       }
       const last = e.lastPlayed ? `직전: ${DT.cards.def(e.lastPlayed).name}` : '직전: 없음';
       const heistNow = !e.dead && e.heistReady;
-      const heistNext = !e.dead && !e.heistReady && DT.combat.belowHeistLine(e);
+      const heistNext = !e.dead && !e.heistReady && DT.combat.belowHeistLine(e, s);
       const heistBadge = heistNow ? '<div class="heistbadge">💰 지금 처치하면 강탈</div>'
         : heistNext ? '<div class="heistbadge next">⏳ 다음 턴 강탈 가능</div>' : '';
       let preview = '';
@@ -191,7 +193,7 @@ window.DT = window.DT || {};
     const canAct = s.screen === 'combat' && s.phase === 'player' && !app.busy && !s.result;
     const hand = $('#hand');
     hand.innerHTML = p.hand.map((c) => cardHTML(c, {
-      view,
+      view, cost: DT.combat.costFor(s, c),
       selected: app.sel === c.uid,
       disabled: !canAct || !DT.combat.canPlay(s, c.uid).ok,
       attrs: `data-act="hand" data-uid="${c.uid}"`,
@@ -289,6 +291,7 @@ window.DT = window.DT || {};
       };
     }
     if (app.view === 'lobby' || !s) return lobbyContent(app);
+    if (app.bagView) return bagContent(app);
     if (app.deckPick) return deckPickContent(app);
     if (s.screen === 'map') return mapContent(app);
     if (s.screen === 'hideout') return hideoutContent(app);
@@ -344,7 +347,9 @@ window.DT = window.DT || {};
         key: 'reward:' + s.floor + ':' + s.reward.options.join(','),
         html: `<div class="panel wide">
           <h1 class="win">${s.reward.kind === 'event' ? '카드 획득' : s.reward.kind === 'boss' ? '👑 보스 격파!' : `${s.floor}층 승리!`}</h1>
-          ${s.reward.kind !== 'event' && s.lastLoot ? `<p class="loot">💰 골드 +${s.lastLoot.gold} · 🪙 코인 +${s.lastLoot.coins}</p>` : ''}
+          ${s.reward.kind !== 'event' && s.lastLoot ? `<p class="loot">💰 골드 +${s.lastLoot.gold} · 🪙 코인 +${s.lastLoot.coins}</p>
+            ${(s.lastLoot.items || []).length ? `<div class="lootitems">🎒 획득 ${s.lastLoot.items.map((it) => itemTile(it, { compact: true })).join('')}</div>` : ''}
+            ${(s.lastLoot.lostItems || []).length ? `<p class="warnline">가방이 가득 차서 두고 온 아이템: ${s.lastLoot.lostItems.map((it) => DT.items.def(it.id).name).join(', ')}</p>` : ''}` : ''}
           <p>카드 1장을 골라 덱에 추가하거나 건너뛴다.</p>
           ${pickRow(s.reward.options, app)}
           <div class="row">
@@ -354,6 +359,81 @@ window.DT = window.DT || {};
       };
     }
     return null;
+  }
+
+  // ── 아이템 ──
+  function itemTile(it, o) {
+    o = o || {};
+    const d = DT.items.def(it.id);
+    const sub = d.kind === 'equip' ? DT.items.slotName[d.slot] : d.kind === 'consumable' ? '소모품' : '전리품';
+    if (o.compact) return `<span class="ichip g-${d.grade} ${o.lost ? 'lost' : ''}" title="${d.name}: ${d.desc}">${d.icon} ${d.name}</span>`;
+    return `<div class="itile g-${d.grade} ${o.sel ? 'sel' : ''}" ${o.attrs || ''}>
+      <span class="ii">${d.icon}</span><span class="in">${d.name}${it.plus ? ' +' + it.plus : ''}</span>
+      <span class="ig">${DT.items.gradeName[d.grade]} · ${sub}</span></div>`;
+  }
+  UI.itemTile = itemTile;
+
+  function equipIcons(a) {
+    if (!a.equip) return '';
+    const icons = DT.items.SLOTS.map((k) => a.equip[k]).filter(Boolean).map((it) => DT.items.def(it.id).icon);
+    return icons.length ? `<div class="eqicons">${icons.join('')}</div>` : '';
+  }
+
+  function bagContent(app) {
+    const s = app.state;
+    const inCombat = s.screen === 'combat';
+    const sel = app.bagSel && [...s.bag, ...s.pocket].find((it) => it.uid === app.bagSel);
+    const inPocket = sel && s.pocket.some((it) => it.uid === sel.uid);
+    const allies = DT.party.living(s);
+    const slots = allies.map((a) => `<div class="eqrow">
+      <div class="eqwho">${a.icon} <b>${a.name}</b> <small>${a.hp}/${a.maxHp}</small></div>
+      ${DT.items.SLOTS.map((k) => {
+        const it = a.equip && a.equip[k];
+        return it ? `<div class="eqslot filled" ${inCombat ? '' : `data-act="unequip" data-id="${a.id}" data-slot="${k}"`}>${itemTile(it, { compact: true })}</div>`
+          : `<div class="eqslot">${DT.items.slotName[k]}</div>`;
+      }).join('')}
+    </div>`).join('');
+    const grid = (list, cap) => {
+      let h = list.map((it) => itemTile(it, { sel: app.bagSel === it.uid, attrs: `data-act="bag-sel" data-uid="${it.uid}"` })).join('');
+      for (let k = list.length; k < cap; k++) h += '<div class="itile empty"></div>';
+      return h;
+    };
+    let actions = '<p class="muted">아이템을 탭하세요</p>';
+    if (sel) {
+      const d = DT.items.def(sel.id);
+      const btns = [];
+      if (d.kind === 'equip' && !inCombat) {
+        allies.forEach((a) => btns.push(`<button class="btn small primary" data-act="equip" data-uid="${sel.uid}" data-to="${a.id}">${a.icon} ${a.name}에게 장착</button>`));
+      }
+      if (d.kind === 'consumable') {
+        const why = DT.items.canUse(s, sel.uid);
+        if (why) btns.push(`<button class="btn small" disabled>${why}</button>`);
+        else if (d.use.target === 'none') btns.push(`<button class="btn small primary" data-act="use-item" data-uid="${sel.uid}">사용</button>`);
+        else DT.items.targets(s, sel.uid).forEach((t) => btns.push(`<button class="btn small primary" data-act="use-item" data-uid="${sel.uid}" data-to="${t.id}">${t.icon} ${t.name}에게 사용</button>`));
+      }
+      if (!inCombat) {
+        btns.push(inPocket ? `<button class="btn small" data-act="unpocket" data-uid="${sel.uid}">가방으로</button>`
+          : `<button class="btn small" data-act="pocket" data-uid="${sel.uid}">👝 안전 주머니로</button>`);
+        btns.push(`<button class="btn small danger" data-act="discard" data-uid="${sel.uid}">버리기</button>`);
+      }
+      actions = `<div class="seldesc"><b>${d.icon} ${d.name}</b> <span class="g-${d.grade}">${DT.items.gradeName[d.grade]}</span> — ${d.desc}</div>
+        <div class="selbtns">${btns.join('')}</div>`;
+    }
+    return {
+      key: 'bag:' + app.bagRev,
+      html: `<div class="panel full bagview">
+        <div class="maphead"><h2>🎒 가방 ${inCombat ? '<small>(전투 중: 소모품만 사용 가능)</small>' : ''}</h2>
+          <button class="btn big" data-act="bag-close">닫기</button></div>
+        <div class="baggrid">
+          <section><h3>장비 ${inCombat ? '' : '<small>장착한 칸을 탭하면 가방으로</small>'}</h3>${slots}</section>
+          <section>
+            <h3>가방 ${s.bag.length}/${DT.config.items.bag}</h3><div class="itemgrid">${grid(s.bag, DT.config.items.bag)}</div>
+            <h3>👝 안전 주머니 ${s.pocket.length}/${DT.items.pocketCap(s)} <small>죽어도 남는다</small></h3><div class="itemgrid">${grid(s.pocket, DT.items.pocketCap(s))}</div>
+            <div class="bagactions">${actions}</div>
+          </section>
+        </div>
+      </div>`,
+    };
   }
 
   // ── 맵 ──
@@ -400,6 +480,7 @@ window.DT = window.DT || {};
             <span class="money">💰 ${s.gold} · 🪙 ${s.runCoins}</span>
             <span class="wanted" data-act="info" data-msg="수배도가 높을수록 일반 전투가 수배 추격대(정예)로 바뀔 확률이 오른다. 은신처에서 잠복하면 감소.">🚨 수배도 ${s.wanted}${ambush ? ` · 추격대 ${ambush}%` : ''}</span>
             <button class="btn small" data-act="pile" data-pile="masterDeck">내 덱 ${s.player.masterDeck.length}</button>
+            <button class="btn small" data-act="bag">🎒 가방 ${s.bag.length}/${DT.config.items.bag}</button>
             ${escapeBtn(s)}
           </div>
         </div>
@@ -438,11 +519,13 @@ window.DT = window.DT || {};
       <button class="btn price" data-act="buy" data-i="${i}" ${it.sold || s.gold < it.price ? 'disabled' : ''}>${it.sold ? '판매 완료' : `💰 ${it.price}`}</button>
     </div>`).join('');
     return {
-      key: 'market:' + s.pos + ':' + s.gold + ':' + m.cards.map((c) => (c.sold ? 1 : 0)).join('') + (m.removed ? 'r' : ''),
+      key: 'market:' + s.pos + ':' + s.gold + ':' + m.cards.map((c) => (c.sold ? 1 : 0)).join('') + (m.items || []).map((c) => (c.sold ? 1 : 0)).join('') + (m.removed ? 'r' : ''),
       html: `<div class="panel wide">
         <h1>🛒 암시장</h1>
         <p>💰 골드 <b>${s.gold}</b></p>
         <div class="pickrow">${offers}</div>
+        ${(m.items || []).length ? `<div class="itemoffers">${m.items.map((e, i) => `<div class="offer ${e.sold ? 'sold' : ''}">${itemTile(e.item)}
+          <button class="btn price" data-act="buy-item" data-i="${i}" ${e.sold || s.gold < e.price ? 'disabled' : ''}>${e.sold ? '판매 완료' : `💰 ${e.price}`}</button></div>`).join('')}</div>` : ''}
         <div class="choices">
           <button class="btn choice" data-act="deck-pick" data-purpose="remove" ${m.removed || s.gold < m.removePrice ? 'disabled' : ''}>🗑️ <b>카드 제거</b><small>${m.removed ? '이번 방문에서 사용함' : `💰 ${m.removePrice}`}</small></button>
           <button class="btn choice" disabled>🌀 <b>귀화</b><small>G단계에서 열림</small></button>
@@ -494,6 +577,7 @@ window.DT = window.DT || {};
     const r = s.runEnd;
     const meta = DT.save.loadMeta();
     const title = { clear: '<h1 class="win">🏆 차원 클리어!</h1>', death: '<h1 class="lose">💀 붙잡혔다…</h1>',
+      scroll: '<h1 class="heist">📃 귀환 두루마리로 귀환</h1>',
       mapEscape: '<h1 class="heist">🏃 무사히 도주</h1>', combatEscape: '<h1 class="heist">🏃 전투 중 도주</h1>' }[r.how];
     const st = s.stats;
     return {
@@ -502,7 +586,11 @@ window.DT = window.DT || {};
         ${title}
         <p>${r.floor}층까지 진행</p>
         <div class="coinbox">이번 판 코인 <b>🪙 ${r.runCoins}</b> × ${Math.round(r.keep * 100)}% = <b class="banked">🪙 ${r.banked}</b> 보존</div>
-        <p>보유 코인 <b>🪙 ${meta.coins}</b> <small>(로비 강화는 D단계에서 열림)</small></p>
+        <p>보유 코인 <b>🪙 ${meta.coins}</b></p>
+        ${r.items ? `<div class="enditems">
+          ${r.items.kept.length ? `<div>📦 창고로 <b>${r.items.kept.length}</b>개 ${r.items.kept.map((it) => itemTile(it, { compact: true })).join('')}</div>` : '<div>📦 남은 아이템 없음</div>'}
+          ${r.items.lost.length ? `<div class="warnline">❌ 잃어버림 ${r.items.lost.length}개 ${r.items.lost.map((it) => itemTile(it, { compact: true, lost: true })).join('')}</div>` : ''}
+        </div>` : ''}
         <p class="stats">처치 ${st.kills} · 슬쩍 ${st.steals} · 강탈 ${st.heists} · 영입 ${st.recruits || 0} · 복제 ${st.copies} · 덱 ${s.player.masterDeck.length}장</p>
         <div class="row">
           <button class="btn big" data-act="retry">같은 시드로 다시</button>
@@ -540,8 +628,10 @@ window.DT = window.DT || {};
         ${open ? '<small class="ok">사용 가능</small>' : `<button class="btn small ${meta.coins >= d.unlockCost ? 'primary' : ''}" data-act="unlock" data-id="${k}" ${meta.coins >= d.unlockCost ? '' : 'disabled'}>🪙 ${d.unlockCost} 해금</button>`}
       </div>`;
     }).join('');
-    const facilities = [['🏪', '상점'], ['📦', '창고'], ['🎒', '출발 준비'], ['🧔', '상인'], ['⚒️', '대장간']]
-      .map(([i, n]) => `<div class="factile locked"><span>${i}</span><b>${n}</b><small>🔒 F단계</small></div>`).join('');
+    const stash = meta.stash || [];
+    const facilities = [['🏪', '상점'], ['📦', `창고 ${stash.length}`], ['🎒', '출발 준비'], ['🧔', '상인'], ['⚒️', '대장간']]
+      .map(([i, n]) => `<div class="factile locked"><span>${i}</span><b>${n}</b><small>🔒 F단계</small></div>`).join('')
+      + (stash.length ? `<div class="stashpeek">${stash.slice(0, 24).map((it) => itemTile(it, { compact: true })).join('')}${stash.length > 24 ? ` …+${stash.length - 24}` : ''}</div>` : '');
     return {
       key: 'lobby:' + meta.coins + ':' + JSON.stringify(meta.upgrades) + ':' + (meta.unlocked || []).join(',') + ':' + (active ? s.floor : '-'),
       html: `<div class="panel full lobby">

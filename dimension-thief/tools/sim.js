@@ -160,7 +160,7 @@ function choosePath(s, R) {
   };
   return opts.map((n) => ({ n, v: score(n) + R() })).sort((a, b) => b.v - a.v)[0].n.id;
 }
-const runs = { clear: 0, death: 0, deathFloors: [], turns: 0, fights: 0, coins: 0, wanted: 0, compsAtEnd: 0 };
+const runs = { clear: 0, death: 0, deathFloors: [], turns: 0, fights: 0, coins: 0, wanted: 0, compsAtEnd: 0, kept: 0, lost: 0 };
 for (let i = 0; i < N; i++) {
   let rs = (i * 2654435761) >>> 0;
   const R = () => { rs = (rs + 0x6D2B79F5) >>> 0; let t = rs; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
@@ -171,7 +171,19 @@ for (let i = 0; i < N; i++) {
     if (s.screen === 'pickCompanion') {
       DT.run.pickCompanion(s, s.starterOptions[i % s.starterOptions.length]);
       if (SOLO) s.allies = [];
-    } else if (s.screen === 'map') DT.run.enterNode(s, choosePath(s, R));
+    } else if (s.screen === 'map') {
+      // 장비는 빈 칸에 장착(도둑 먼저), 체력이 낮으면 회복 물약
+      for (const it of s.bag.slice()) {
+        const d = DT.items.def(it.id);
+        if (d.kind === 'equip') {
+          const who = DT.party.living(s).find((a) => !a.equip[d.slot]);
+          if (who) DT.items.equip(s, it.uid, who.id);
+        } else if (d.kind === 'consumable' && /potion/.test(it.id) && s.player.hp < s.player.maxHp * 0.5) {
+          DT.items.use(s, it.uid, 'player');
+        }
+      }
+      DT.run.enterNode(s, choosePath(s, R));
+    }
     else if (s.screen === 'combat') { runs.turns += fight(s); runs.fights++; DT.run.resolve(s); }
     else if (s.screen === 'heist') {
       const g = s.heist.groups.find((x) => x.role);
@@ -200,6 +212,8 @@ for (let i = 0; i < N; i++) {
   runs.coins += s.runEnd.banked;
   runs.wanted += s.wanted;
   runs.compsAtEnd += s.allies.length;
+  runs.kept += s.runEnd.items.kept.length;
+  runs.lost += s.runEnd.items.lost.length;
 }
 
 // ── 출력 ──
@@ -219,4 +233,5 @@ const df = {};
 runs.deathFloors.forEach((f) => { df[f] = (df[f] || 0) + 1; });
 console.log(`\n1차원 한 판 ${N}회 (맵·은신처·암시장·이벤트 포함, 시작 동료 순환${SOLO ? ', 동료 없음' : ''})`);
 console.log(`  클리어 ${pct(runs.clear, N)} · 전투당 평균 ${avg(runs.turns, runs.fights)}턴 · 보존 코인 평균 ${avg(runs.coins, N)} · 끝날 때 수배도 평균 ${avg(runs.wanted, N)} · 남은 동료 평균 ${avg(runs.compsAtEnd, N)}`);
+console.log(`  판당 아이템: 창고로 ${avg(runs.kept, N)}개, 분실 ${avg(runs.lost, N)}개`);
 console.log('  사망한 층:', Object.entries(df).map(([f, n]) => `${f}층×${n}`).join(' ') || '없음');

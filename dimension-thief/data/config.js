@@ -40,8 +40,8 @@ DT.config = {
   // 판 밖의 화폐(코인): 승리 시 base + 층 × perFloor, 정예·보스 배수
   coins: {
     base: 8, perFloor: 2, eliteMult: 2, bossMult: 5,
-    // 판 종료 방식별 보존 비율
-    keep: { mapEscape: 1, combatEscape: 0.7, death: 0.3, clear: 1 },
+    // 판 종료 방식별 보존 비율 (scroll: 귀환 두루마리)
+    keep: { mapEscape: 1, combatEscape: 0.7, death: 0.3, clear: 1, scroll: 1 },
   },
 
   // 은신처
@@ -57,8 +57,31 @@ DT.config = {
   // 카드 강화(은신처): 숫자 효과에 더하는 값. 카드에 upgrade 가 정의돼 있으면 그쪽 우선.
   upgrade: { damage: 3, block: 3, heal: 3, status: 1, draw: 1, energy: 0, loseHp: 0 },
 
+  // 아이템
+  items: {
+    bag: 8,                  // 가방 칸
+    pocketBase: 1,           // 안전 주머니 기본 칸(로비 강화로 +1씩)
+    // 전투 후 드롭: 일반 전투는 chance 확률로 소모품/전리품 1개, 정예는 장비 1 + 추가, 보스는 장비 1 + 전리품 1
+    drop: {
+      normal: { chance: 0.25, kinds: { consumable: 60, loot: 40 } },
+      elite:  { equip: 1, extraChance: 0.4, kinds: { consumable: 70, loot: 30 } },
+      boss:   { equip: 1, loot: 1 },
+    },
+    // 등급 확률(가중치). deepFloor 층부터 deepShift 만큼 위 등급으로 이동
+    grades: {
+      normal: { common: 70, rare: 24, hero: 5, legend: 1 },
+      elite:  { common: 40, rare: 38, hero: 18, legend: 4 },
+      boss:   { common: 15, rare: 40, hero: 33, legend: 12 },
+    },
+    deepFloor: 7, deepShift: { common: -15, rare: 7, hero: 6, legend: 2 },
+    // 판매가(코인, F단계 상인) / 암시장 소모품 가격(골드)
+    sellPrice: { common: 15, rare: 50, hero: 120, legend: 300 },
+    marketConsumables: 2,
+    marketPrice: { common: 30, rare: 55, hero: 90, legend: 150 },
+  },
+
   ui: { enemyTurnStartDelay: 500, enemyActDelay: 1000, allyActDelay: 850 },
 
   // 지금까지 만들어진 진행 단계(DESIGN.md 12장). 아직 없는 단계의 로비 강화는 잠긴다.
-  builtStages: 'ABCD',
+  builtStages: 'ABCDE',
 };

@@ -98,10 +98,12 @@ window.DT = window.DT || {};
     const gold = DT.rng.int(state, range[0], range[1]) + state.wanted * G.perWanted;
     const C = cfg().coins;
     const mult = kind === 'boss' ? C.bossMult : kind === 'elite' ? C.eliteMult : 1;
-    const coins = Math.round((C.base + state.floor * C.perFloor) * mult);
+    const itemMult = (1 + DT.items.partyFx(state, 'coinMult')) * (DT.items.partyFx(state, 'greed') ? 2 : 1);
+    const coins = Math.round((C.base + state.floor * C.perFloor) * mult * itemMult);
     state.gold += gold;
     state.runCoins += coins;
-    state.lastLoot = { gold, coins };
+    const drops = DT.items.dropsFor(state, kind);
+    state.lastLoot = { gold, coins, items: drops.got, lostItems: drops.lost };
 
     const seen = new Set();
     const groups = state.enemies.filter((e) => e.executed && !seen.has(e.kind) && seen.add(e.kind)).map((e) => ({
@@ -115,6 +117,13 @@ window.DT = window.DT || {};
     return true;
   };
 
+  // 수배도 상승(수배 전단: 오를 때마다 골드)
+  R.raiseWanted = function (state, n) {
+    state.wanted += n;
+    const g = DT.items.partyFx(state, 'wantedGold');
+    if (g) { state.gold += g * n; log(state, `수배 전단: 골드 +${g * n}`); }
+  };
+
   // ── 강탈 ──
   // 강탈 가능한 적이 여럿이면 그중 한 적의 카드 1장을 고른다(전투당 maxPerCombat 회)
   R.takeHeist = function (state, cardId) {
@@ -124,7 +133,7 @@ window.DT = window.DT || {};
     if (gi < 0) return false;
     const g = h.groups.splice(gi, 1)[0];
     state.player.masterDeck.push(DT.state.makeCard(state, cardId));
-    state.wanted++;
+    R.raiseWanted(state, 1);
     state.stats.heists++;
     log(state, `강탈! [${DT.cards.def(cardId).name}]이(가) 덱에 영구히 추가됐다. 수배도 +1`);
     DT.state.emit(state, { type: 'heist', cardId, from: g.kind });
@@ -143,7 +152,7 @@ window.DT = window.DT || {};
     const c = DT.party.add(state, kind, true, replaceId);
     if (!c) return { ok: false, needReplace: true };
     h.groups.splice(gi, 1);
-    state.wanted++;
+    R.raiseWanted(state, 1);
     state.stats.heists++;
     state.stats.recruits = (state.stats.recruits || 0) + 1;
     DT.state.emit(state, { type: 'recruit', kind, id: c.id });
@@ -220,6 +229,7 @@ window.DT = window.DT || {};
       cards: pool.map((id) => ({ id, price: M.price[DT.cards.def(id).rarity] || 60, sold: false })),
       removePrice: M.removeBase + state.removeCount * M.removeStep,
       removed: false,
+      items: DT.items.marketStock(state),
     };
     state.screen = 'market';
   };
@@ -233,6 +243,18 @@ window.DT = window.DT || {};
     state.player.masterDeck.push(DT.state.makeCard(state, item.id));
     log(state, `암시장에서 [${DT.cards.def(item.id).name}] 구입 (−${item.price} 골드)`);
     return true;
+  };
+
+  R.buyItem = function (state, i) {
+    const m = state.market;
+    const e = m && m.items && m.items[i];
+    if (state.screen !== 'market' || !e || e.sold || state.gold < e.price) return '골드가 부족합니다';
+    if (DT.items.bagFree(state) <= 0) return '가방이 가득 찼습니다';
+    state.gold -= e.price;
+    e.sold = true;
+    DT.items.addToBag(state, e.item);
+    log(state, `암시장에서 ${DT.items.def(e.item.id).name} 구입 (−${e.price} 골드)`);
+    return null;
   };
 
   R.removeCard = function (state, uid) {
@@ -276,7 +298,7 @@ window.DT = window.DT || {};
 
   const EVENT_EFFECTS = {
     gold(state, e) { state.gold = Math.max(0, state.gold + e.value); },
-    wanted(state, e) { state.wanted = Math.max(0, state.wanted + e.value); },
+    wanted(state, e) { if (e.value > 0) R.raiseWanted(state, e.value); else state.wanted = Math.max(0, state.wanted + e.value); },
     heal(state, e) { DT.party.living(state).forEach((a) => { a.hp = Math.min(a.maxHp, a.hp + e.value); }); },
     hurt(state, e) { state.player.hp = Math.max(1, state.player.hp - e.value); },
     companionHurt(state, e) { DT.party.companions(state).forEach((a) => { a.hp = Math.max(1, a.hp - e.value); }); },
@@ -315,15 +337,16 @@ window.DT = window.DT || {};
     return true;
   };
 
-  // how: 'mapEscape' | 'combatEscape' | 'death' | 'clear'
+  // how: 'mapEscape' | 'combatEscape' | 'death' | 'clear' | 'scroll'(귀환 두루마리)
   R.endRun = function (state, how) {
     const keep = cfg().coins.keep[how];
     const banked = Math.floor(state.runCoins * keep);
-    state.runEnd = { how, runCoins: state.runCoins, banked, keep, floor: state.floor };
+    const items = DT.items.settle(state, how);
+    state.runEnd = { how, runCoins: state.runCoins, banked, keep, floor: state.floor, items };
     state.screen = 'runEnd';
     state.phase = 'over';
-    const words = { mapEscape: '맵에서 도주', combatEscape: '전투 중 도주', death: '사망', clear: '차원 클리어' };
-    log(state, `판 종료: ${words[how]} · 코인 ${banked} 보존`);
-    DT.state.emit(state, { type: 'runEnd', how, banked, floor: state.floor });
+    const words = { mapEscape: '맵에서 도주', combatEscape: '전투 중 도주', death: '사망', clear: '차원 클리어', scroll: '귀환 두루마리' };
+    log(state, `판 종료: ${words[how]} · 코인 ${banked} 보존 · 아이템 ${items.kept.length}개 보존, ${items.lost.length}개 분실`);
+    DT.state.emit(state, { type: 'runEnd', how, banked, floor: state.floor, keptItems: items.kept });
   };
 })();

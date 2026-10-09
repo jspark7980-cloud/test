@@ -64,10 +64,19 @@ window.DT = window.DT || {};
         if (d && d.damageDealtMult && v > 0) dmg *= d.damageDealtMult;
       }
     }
+    // 장비: 공격 피해 +, 동료 공격 피해 +(파티), 다른 차원 적 피해 배율
+    if (src && DT.items) {
+      dmg += DT.items.fx(src, 'dmgAdd');
+      if (/^a\d/.test(srcId)) dmg += DT.items.partyFx(state, 'companionDmg');
+    }
     if (tgt) {
       for (const [k, v] of Object.entries(tgt.statuses)) {
         const d = defs[k];
         if (d && d.damageTakenMult && v > 0) dmg *= d.damageTakenMult;
+      }
+      if (DT.items) {
+        if (src && tgt.origin && tgt.origin !== state.dimension) dmg *= 1 + DT.items.fx(src, 'foreignDmgMult');
+        dmg *= 1 + DT.items.fx(tgt, 'damageTakenMult');
       }
     }
     return Math.max(0, Math.floor(dmg));
@@ -93,9 +102,21 @@ window.DT = window.DT || {};
     const blocked = opts.ignoreBlock ? 0 : Math.min(tgt.block, amount);
     tgt.block -= blocked;
     const loss = amount - blocked;
-    const hpBefore = tgt.hp;
     tgt.hp = Math.max(0, tgt.hp - loss);
+    // 불사의 외투: 전투당 1회 치명 피해를 체력 1로
+    if (tgt.hp <= 0 && DT.items && DT.items.fx(tgt, 'cheatDeath') && !tgt.cheatedDeath) {
+      tgt.hp = 1;
+      tgt.cheatedDeath = true;
+      DT.state.log(state, `${tgt.name}: 불사의 외투가 죽음을 막았다!`);
+      DT.state.emit(state, { type: 'passive', target: tgtId, text: '🔥 버팀!' });
+    }
     DT.state.emit(state, { type: 'damage', target: tgtId, amount: loss, blocked });
+    // 거울 갑옷: 받은 체력 피해 일부를 공격자에게
+    const reflect = DT.items ? DT.items.fx(tgt, 'reflect') : 0;
+    if (reflect && loss > 0 && opts.source && opts.source !== tgtId && !opts.reflected) {
+      const back = Math.floor(loss * reflect);
+      if (back > 0) E.applyDamage(state, opts.source, back, { reflected: true, ignoreBlock: true });
+    }
     if (tgt.hp <= 0) {
       tgt.dead = true;
       // 강탈: 내 턴 시작 시 체력이 기준 이하였던 적을 처치 (combat.startPlayerTurn 에서 표시)
@@ -103,6 +124,10 @@ window.DT = window.DT || {};
       if (executed) tgt.executed = true;
       DT.state.emit(state, { type: 'death', target: tgtId, executable: executed });
       DT.state.log(state, `${tgt.name} 쓰러짐!${executed ? ' (강탈 가능)' : ''}`);
+      // 그림자 비수: 도둑이 처치하면 에너지 +1
+      if (opts.source === 'player' && !DT.state.isAlly(tgtId) && DT.items && DT.items.fx(state.player, 'killEnergy')) {
+        state.player.energy += DT.items.fx(state.player, 'killEnergy');
+      }
     }
     DT.combat.checkEnd(state);
     return loss;
@@ -188,6 +213,9 @@ window.DT = window.DT || {};
         for (let i = 0; i < (eff.times || 1); i++) {
           if (!living(ctx.state, id) || ctx.state.result) break;
           E.dealDamage(ctx.state, ctx.srcId, id, val(eff));
+          // 독 바른 칼: 공격할 때마다 독
+          const pois = DT.items ? DT.items.fx(actor(ctx.state, ctx.srcId), 'poisonOnAttack') : 0;
+          if (pois && living(ctx.state, id)) E.applyStatus(ctx.state, id, 'poison', pois);
         }
       }
     },
@@ -196,7 +224,11 @@ window.DT = window.DT || {};
   E.register('block', {
     defaultTo: 'ally',
     describe: (eff) => `방어도 <b>${val(eff)}</b>`,
-    apply(ctx, eff) { ctx.targetsOf(eff).forEach((id) => E.gainBlock(ctx.state, id, val(eff))); },
+    apply(ctx, eff) {
+      // 사슬 갑옷: 카드로 얻는 방어도 +
+      const bonus = ctx.card && DT.items ? DT.items.fx(actor(ctx.state, ctx.srcId), 'blockCardBonus') : 0;
+      ctx.targetsOf(eff).forEach((id) => E.gainBlock(ctx.state, id, val(eff) + bonus));
+    },
   });
 
   E.register('heal', {
@@ -267,11 +299,15 @@ window.DT = window.DT || {};
       delete picked.revealed;
       picked.temp = true;               // 전투 종료 시 사라짐
       picked.stolenFrom = victimId;
+      if (DT.items && DT.items.fx(thief, 'stolenFree')) picked.free = true;   // 만능 열쇠검
       if (thief.hand.length < (thief.maxHand || 10)) thief.hand.push(picked);
       else thief.discardPile.push(picked);
       if (ctx.srcId === 'player') state.stats.steals++;
       DT.state.log(state, `${thief.name}이(가) ${victim.name}의 [${DT.cards.def(picked.id).name}]을(를) 슬쩍했다!`);
       DT.state.emit(state, { type: 'steal', by: ctx.srcId, from: victimId, cardId: picked.id });
+      // 소매치기 칼: 슬쩍한 대상에게 피해
+      const sd = DT.items ? DT.items.fx(thief, 'onStealDamage') : 0;
+      if (sd && living(state, victimId)) E.applyDamage(state, victimId, sd, { source: ctx.srcId });
     },
   });
 
@@ -299,7 +335,11 @@ window.DT = window.DT || {};
       DT.state.log(ctx.state, `${src.name}이(가) ${t.name}의 [${def.name}]을(를) 복제했다!`);
       if (ctx.srcId === 'player') ctx.state.stats.copies++;
       DT.state.emit(ctx.state, { type: 'copy', by: ctx.srcId, from: t.id, cardId: t.lastPlayed });
-      E.resolveEffects(makeCtx(ctx.state, ctx.srcId, t.id, ctx.card, null, ctx.allyId), def.effects);
+      // 이중 그림자: 복제 2회
+      const times = 1 + (DT.items ? DT.items.fx(src, 'copyTwice') : 0);
+      for (let k = 0; k < times && !ctx.state.result && !t.dead; k++) {
+        E.resolveEffects(makeCtx(ctx.state, ctx.srcId, t.id, ctx.card, null, ctx.allyId), def.effects);
+      }
     },
   });
 
