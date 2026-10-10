@@ -12,9 +12,13 @@ ML.Battle = function (opts) {
   this.over = false;
   this.winner = null;          // 0 = 내 편, 1 = 상대
   this.field = { rain: 0 };
+  this.wild = !!opts.wild;        // 야생: 포획·도망 가능
+  this.captured = null;
+  this.escaped = false;
+  this.potions = [0, opts.foePotions || 0];
   var self = this;
   this.sides = [opts.mine, opts.foe].map(function (mons, i) {
-    return { idx: i, units: mons.map(function (m) { return self.makeUnit(m, i); }), active: 0 };
+    return { idx: i, units: mons.map(function (m) { return self.makeUnit(m, i); }), active: Math.max(0, mons.findIndex(function (m) { return m.hp > 0; })) };
   });
   this.appeared = [{}, {}];      // 한 번이라도 나온 몬스터(uid) — 경험치 분배용
   this.defeated = [];            // { side, mon, appeared: [uid…] } 쓰러진 순서
@@ -165,8 +169,17 @@ B.turn = function (actions) {
     var a = actions[i];
     if (a && a.type === 'switch' && self.bench(i).indexOf(a.to) >= 0) self.doSwitch(i, a.to);
   });
-  // 2) 기술: 시간 감각 → 속도 순, 같으면 무작위
-  var order = [0, 1].filter(function (i) { return !actions[i] || actions[i].type !== 'switch'; })
+  // 2) 도망·아이템·포획(내 편 먼저)
+  for (var k = 0; k < 2 && !this.over; k++) {
+    var a = actions[k];
+    if (!a) continue;
+    if (a.type === 'run') this.tryRun(k);
+    else if (a.type === 'item') this.useItem(k, a.item, a.uid);
+    else if (a.type === 'capture') this.tryCapture(a.item);
+  }
+  if (this.over) return;
+  // 3) 기술: 시간 감각 → 속도 순, 같으면 무작위
+  var order = [0, 1].filter(function (i) { return actions[i] && actions[i].type === 'move'; })
     .map(function (i) { return { u: self.active(i), r: rng() }; });
   order.sort(function (a, b) {
     var fa = ML.hasTraitFx(a.u.mon, 'firstStrike') ? 1 : 0, fb = ML.hasTraitFx(b.u.mon, 'firstStrike') ? 1 : 0;
@@ -204,6 +217,64 @@ B.act = function (u, foe, action) {
   var moveId = action && action.move;
   if (!moveId || u.sealed[moveId]) { this.say(nm + '은(는) 아무것도 하지 못했다.', ''); return; }
   this.useMove(u, foe, moveId);
+};
+
+// ── 도망·아이템·포획 ─────────────────────────────
+B.tryRun = function (side) {
+  var c = ML.config.run, u = this.active(side), foe = this.active(1 - side);
+  if (!this.wild) { this.say('트레이너와의 승부에서는 도망칠 수 없다!', ''); return; }
+  var p = Math.max(c.min, Math.min(c.max, c.base * this.effSpeed(u) / Math.max(1, this.effSpeed(foe))));
+  if (this.rng.chance(p)) { this.say('무사히 도망쳤다!', 'field'); this.over = true; this.escaped = true; this.winner = null; }
+  else this.say('도망칠 수 없었다!', 'miss');
+};
+
+B.findUnit = function (side, uid) {
+  return this.sides[side].units.filter(function (u) { return u.mon.uid === uid; })[0];
+};
+
+B.useItem = function (side, itemId, uid) {
+  var it = ML.items[itemId], u = uid ? this.findUnit(side, uid) : this.active(side);
+  if (!it || !u) return;
+  if (side === 1) this.potions[1]--;
+  this.say((side === 0 ? '' : '상대 트레이너가 ') + it.name + '을(를) 사용했다!', 'item');
+  var fx = it.fx || {}, boost = 1 + ML.traitSum(u.mon, 'itemHeal');
+  if (fx.heal || fx.healPct) {
+    var amt = Math.round((fx.heal || u.stats.hp * fx.healPct) * boost);
+    if (u.mon.hp >= u.stats.hp) this.say('하지만 효과가 없었다.', '');
+    else this.heal(u, amt, '체력을 회복했다');
+  }
+  if (fx.cure) {
+    if (u.mon.status) { this.say(this.name(u) + '의 ' + ML.STATUS_NAMES[u.mon.status] + '이(가) 나았다!', 'status'); u.mon.status = null; }
+    else this.say('하지만 효과가 없었다.', '');
+  }
+};
+
+ML.captureChance = function (mon, maxHp, itemId) {
+  var c = ML.config.capture, sp = ML.species[mon.species], it = ML.items[itemId];
+  var base = sp.stage ? c.base[sp.stage] : c.base[sp.rarity] || c.base[3];
+  var p = base * (1 + c.lowHpBonus * (1 - mon.hp / maxHp));
+  if (mon.status) p *= c.status[mon.status] || 1;
+  if (it.el) p *= sp.els.indexOf(it.el) >= 0 ? c.specialSame : c.specialOther;
+  else p *= it.rate;
+  return Math.min(c.max, p);
+};
+
+B.tryCapture = function (itemId) {
+  var foe = this.active(1), it = ML.items[itemId];
+  if (!this.wild) { this.say('트레이너의 몬스터는 잡을 수 없다!', ''); return; }
+  this.say(it.name + '을(를) 던졌다!', 'item');
+  var p = ML.captureChance(foe.mon, foe.stats.hp, itemId), r = this.rng(), ok = r < p;
+  // 흔들림 횟수: 성공이면 3번, 실패면 아슬아슬할수록 많이
+  var shakes = ok ? 3 : Math.max(0, Math.min(2, Math.floor(3 * p / r)));
+  this.log.push({ capture: true, shakes: shakes, ok: ok, pct: Math.round(p * 100) });
+  if (ok) {
+    this.say('잡았다! ' + ML.species[foe.mon.species].name + '을(를) 포획했다!', 'capture');
+    this.captured = foe.mon;
+    this.defeated.push({ side: 1, mon: foe.mon, appeared: Object.keys(this.appeared[0]) });   // 포획해도 경험치는 받는다
+    this.over = true; this.winner = 0;
+  } else {
+    this.say(['아깝다! 바로 빠져나왔다!', '아깝다! 조금만 더…!', '아아, 거의 잡았는데!'][shakes], 'miss');
+  }
 };
 
 B.useMove = function (u, foe, moveId, mimicked) {

@@ -7,6 +7,8 @@ ML.ai = {
   chooseAction: function (battle, side) {
     var c = ML.config.ai, rng = battle.rng;
     var u = battle.active(side), foe = battle.active(1 - side), bench = battle.bench(side);
+    // 트레이너: 체력 30% 이하면 고급 회복약(가진 만큼)
+    if (battle.potions[side] > 0 && u.mon.hp / u.stats.hp <= c.potionBelow) return { type: 'item', item: 'superpotion', uid: u.mon.uid };
     if (bench.length) {
       var now = ML.ai.trade(battle, u, foe);
       if (now <= c.switchIfBelow) {

@@ -69,13 +69,38 @@ ML.config = {
   // 적 AI
   // 교환 효율 = (내 최고 공격이 깎는 상대 체력 비율) ÷ (상대 최고 공격이 깎는 내 체력 비율)
   // 효율이 switchIfBelow 이하면 "크게 불리" → 효율이 switchGain배 이상인 대기 몬스터가 있으면 switchChance 확률로 교체
-  ai: { switchIfBelow: 0.8, switchGain: 2, switchChance: 0.8 },
+  ai: { switchIfBelow: 0.8, switchGain: 2, switchChance: 0.8, potionBelow: 0.3 },
 
   // 경험치: 쓰러뜨린 몬스터 레벨 × 종별 기본값, 그 전투에 나온 내 몬스터가 똑같이 나눔
   exp: {
     base: { 1: 6, 2: 9, 3: 12, rare: 12, fusion: 14, legend: 20, hidden: 20 },
     nextBase: 12, nextPerLevel: 6,     // 다음 레벨 필요 = 12 + 레벨 × 6
   },
+
+  // 포획: 확률 = 종 기본율 × (1 + 2 × (1 − 남은 체력 비율)) × 상태 배율 × 도구 배율, 최대 95%
+  capture: {
+    base: { 1: 0.40, 2: 0.25, 3: 0.12, rare: 0.10, fusion: 0.08, legend: 0.04, hidden: 0.02 },
+    lowHpBonus: 2,
+    status: { sleep: 2.0, para: 1.5, burn: 1.3, poison: 1.3 },
+    specialSame: 2.5, specialOther: 0.5,
+    max: 0.95,
+  },
+  shinyChance: 1 / 150,
+
+  // 도망: 확률 = base × 내 속도 ÷ 상대 속도 (min~max)
+  run: { base: 0.7, min: 0.3, max: 0.95 },
+
+  // 탐색 한 번: 야생 조우 / 물건 발견 / 아무것도 없음 (가중치)
+  search: { wild: 75, item: 15, nothing: 10, rareChance: 0.05,
+            finds: [['potion', 40], ['ball', 40], ['gold', 20]], goldMin: 20, goldMax: 50 },
+  clearSearches: 3,        // 장소에서 탐색 3회(또는 트레이너 승리)하면 이웃 장소가 열린다
+
+  // 골드
+  startGold: 300,
+  startItems: { ball: 5, potion: 3 },
+  wildGold: 2,             // 야생 승리: 레벨 × 2
+  loseGoldPct: 0.2,        // 전멸 시 잃는 골드
+  partyMax: 3,
 
   // 시험 전투
   test: { defaultLevel: 10, expBoost: 10 },

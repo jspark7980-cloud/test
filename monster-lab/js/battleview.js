@@ -1,4 +1,4 @@
-// 전투 화면: 3대3, 기술·교체, 쓰러진 뒤 고르기, 결과(경험치·기술 배우기·진화)
+// 전투 화면: 3대3(야생은 1마리), 기술·교체·가방·포획·도망, 쓰러진 뒤 고르기, 결과(경험치·기술 배우기·진화)
 var ML = window.ML = window.ML || {};
 
 (function () {
@@ -9,13 +9,26 @@ var ML = window.ML = window.ML || {};
     isBusy: function () { return !!(V && V.busy); },
     stop: function () { V = null; },
 
-    // team: 내 몬스터 3마리(그대로 고쳐 씀) · foes: 상대 · opts: { rng, expBoost, onExit(), onRematch(), onSave() }
+    // team: 내 몬스터(그대로 고쳐 씀) · foes: 상대
+    // opts: { rng, kind: 'wild'|'trainer'|'test', trainer, bag(게임 가방 사용), expBoost,
+    //         onSave(), reward(result) → 결과 창에 붙일 HTML, onFinish(result) 또는 (시험) onExit/onRematch }
     start: function (team, foes, opts) {
-      var battle = new ML.Battle({ rng: opts.rng, mine: team, foe: foes });
-      V = { battle: battle, opts: opts, shown: 0, busy: false, disp: { hp: {}, active: [0, 0] } };
+      var battle = new ML.Battle({ rng: opts.rng, mine: team, foe: foes, wild: opts.kind === 'wild',
+        foePotions: opts.trainer && opts.trainer.potions || 0 });
+      V = { battle: battle, opts: opts, shown: 0, busy: false, disp: { hp: {}, active: [battle.sides[0].active, 0] } };
       battle.sides.forEach(function (s) { s.units.forEach(function (u) { V.disp.hp[u.mon.uid] = u.mon.hp; }); });
+      if (opts.kind === 'wild') battle.log.unshift({ msg: ML.josa('야생 ' + (foes[0].shiny ? '✨색다른 ' : '') + ML.species[foes[0].species].name + '이(가) 나타났다!'), kind: 'field' });
+      if (opts.trainer) battle.log.unshift({ msg: ML.josa(opts.trainer.name + '이(가) 승부를 걸어왔다!'), kind: 'field' });
       render();
       play(true);
+      if (opts.trainer) {
+        var t = opts.trainer;
+        var m = ui.modal('<div class="intro">' + '<div class="t-icon">' + t.icon + '</div><h3>' + t.name + (t.boss ? ' <span class="boss-tag">지역 보스</span>' : '') + '</h3>' +
+          '<p>“' + t.line + '”</p><div class="row" style="justify-content:center">' +
+          foes.map(function (f) { return '<div class="muted small" style="text-align:center">' + ML.art.svg(f.species, { size: 64, flip: true }) + 'Lv ' + f.level + '</div>'; }).join('') +
+          '</div><div class="row" style="justify-content:center;margin-top:10px"><button class="btn primary" id="t-go">승부!</button></div></div>', null, true);
+        m.querySelector('#t-go').onclick = function () { ui.closeModal(); };
+      }
     },
   };
 
@@ -64,8 +77,11 @@ var ML = window.ML = window.ML || {};
       '<div class="side">' + benchRow(0) + infoBox(me) + '<div class="sprite" id="sp0">' + ML.art.svg(me.mon.species, { size: 200, shiny: me.mon.shiny }) + '</div></div>' +
       '<div class="side">' + benchRow(1) + infoBox(foe) + '<div class="sprite" id="sp1">' + ML.art.svg(foe.mon.species, { size: 200, shiny: foe.mon.shiny, flip: true }) + '</div></div>' +
       '</div><div class="controls"><div class="moves">' + moves + '</div><div class="log" id="log"></div></div>' +
-      '<div class="row" style="justify-content:space-between"><span class="muted">턴 ' + b.turnNo + '</span>' +
-      '<div class="row"><button class="btn" id="sw"' + (canSwitch ? '' : ' disabled') + '>🔄 교체</button><button class="btn" id="quit">그만두기</button></div></div></div>';
+      '<div class="row" style="justify-content:space-between"><span class="muted">' + (V.opts.trainer ? V.opts.trainer.icon + ' ' + V.opts.trainer.name + ' · ' : V.opts.kind === 'wild' ? '🌿 야생 · ' : '') + '턴 ' + b.turnNo + '</span>' +
+      '<div class="row"><button class="btn" id="sw"' + (canSwitch ? '' : ' disabled') + '>🔄 교체</button>' +
+      (V.opts.bag ? '<button class="btn" id="bag"' + (canAct ? '' : ' disabled') + '>🎒 가방</button>' : '') +
+      (V.opts.kind === 'wild' ? '<button class="btn" id="run"' + (canAct ? '' : ' disabled') + '>🏃 도망</button>' : '') +
+      (V.opts.kind === 'test' ? '<button class="btn" id="quit">그만두기</button>' : '') + '</div></div></div>';
     var log = ui.$('#log');
     b.log.slice(0, V.shown).forEach(function (e) { if (e.msg) appendLog(log, e); });
     if (!log.children.length) log.innerHTML = '<p class="muted">기술을 고르거나 교체하세요. 교체도 1턴을 씁니다.</p>';
@@ -74,7 +90,9 @@ var ML = window.ML = window.ML || {};
       btn.onclick = function () { act({ type: 'move', move: btn.dataset.move || null }); };
     });
     ui.$('#sw').onclick = function () { pickSwitch(false); };
-    ui.$('#quit').onclick = function () { if (!V.busy) { V = null; ML.app.show('test'); } };
+    if (ui.$('#bag')) ui.$('#bag').onclick = openBag;
+    if (ui.$('#run')) ui.$('#run').onclick = function () { act({ type: 'run' }); };
+    if (ui.$('#quit')) ui.$('#quit').onclick = function () { if (!V.busy) { V = null; ML.app.show('lab'); } };
   }
 
   function appendLog(log, e) {
@@ -96,6 +114,42 @@ var ML = window.ML = window.ML || {};
     var b = V.battle;
     if (!b.over && b.needReplace[1]) b.replace(1, ML.ai.chooseReplacement(b, 1));
     play(false);
+  }
+
+  // 가방: 회복 아이템(대상 고르기), 포획구(야생만)
+  function openBag() {
+    var b = V.battle, items = ML.game.items, wild = V.opts.kind === 'wild';
+    var ids = Object.keys(items).filter(function (id) { var it = ML.items[id]; return it && items[id] > 0 && (it.kind === 'heal' || (it.kind === 'ball' && wild)); });
+    var foe = b.active(1);
+    var html = '<h3>🎒 가방 <span class="muted small">(사용하면 1턴)</span></h3>' + (ids.length ? '<div class="bag-grid">' + ids.map(function (id) {
+      var it = ML.items[id], extra = '';
+      if (it.kind === 'ball') extra = '<span class="hint good">예상 ' + Math.round(ML.captureChance(foe.mon, foe.stats.hp, id) * 100) + '%</span>';
+      return '<button class="bag-item" data-item="' + id + '"><span class="bi">' + it.icon + '</span><div><b>' + it.name + '</b> ×' + items[id] +
+        '<br><span class="muted small">' + it.desc + '</span><br>' + extra + '</div></button>';
+    }).join('') + '</div>' : '<p class="muted">쓸 수 있는 아이템이 없다.</p>') +
+      '<div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn" data-close>닫기</button></div>';
+    var m = ui.modal(html);
+    m.querySelectorAll('[data-item]').forEach(function (btn) {
+      btn.onclick = function () {
+        var id = btn.dataset.item, it = ML.items[id];
+        if (it.kind === 'ball') { ML.state.takeItem(id); ui.closeModal(); act({ type: 'capture', item: id }); return; }
+        pickTarget(id);
+      };
+    });
+  }
+
+  function pickTarget(itemId) {
+    var b = V.battle, it = ML.items[itemId];
+    var list = b.sides[0].units.filter(function (u) { return u.mon.hp > 0; }).map(function (u) {
+      return '<button class="sw-item" data-uid="' + u.mon.uid + '">' + ML.art.svg(u.mon.species, { size: 64, shiny: u.mon.shiny }) +
+        '<div><b>' + ML.species[u.mon.species].name + '</b> Lv ' + u.mon.level + '<br><span class="muted">' + u.mon.hp + ' / ' + u.stats.hp +
+        (u.mon.status ? ' · ' + ML.STATUS_NAMES[u.mon.status] : '') + '</span></div></button>';
+    }).join('');
+    var m = ui.modal('<h3>' + it.icon + ' ' + it.name + '을(를) 누구에게?</h3><div class="sw-list">' + list + '</div>' +
+      '<div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn" data-close>취소</button></div>');
+    m.querySelectorAll('[data-uid]').forEach(function (btn) {
+      btn.onclick = function () { ML.state.takeItem(itemId); ui.closeModal(); act({ type: 'item', item: itemId, uid: btn.dataset.uid }); };
+    });
   }
 
   // 교체 고르기. forced = 쓰러져서 반드시 골라야 함
@@ -128,7 +182,7 @@ var ML = window.ML = window.ML || {};
   function play(instant) {
     var v = V, b = v.battle;
     v.busy = true;
-    screen.querySelectorAll('.move, #sw').forEach(function (x) { x.disabled = true; });
+    screen.querySelectorAll('.move, #sw, #bag, #run').forEach(function (x) { x.disabled = true; });
     var step = function () {
       if (V !== v) return;
       if (v.shown >= b.log.length) {
@@ -160,6 +214,16 @@ var ML = window.ML = window.ML || {};
         if (sh && !instant) floatText(sh, '+' + e.amt, 'heal');
         delay = instant ? 0 : 260;
       }
+      if (e.capture) {
+        var sc = ui.$('#sp1');
+        if (sc && !instant) {
+          sc.classList.add('capturing');
+          sc.style.setProperty('--shakes', e.shakes);
+          floatText(sc, e.pct + '%', 'weak');
+          setTimeout(function () { sc.classList.remove('capturing'); sc.classList.add(e.ok ? 'caught' : 'broke'); }, 500 + e.shakes * 450);
+          delay = 700 + e.shakes * 450;
+        }
+      }
       if (e.faint !== undefined) { var sf = ui.$('#sp' + e.faint); if (sf) sf.classList.add('faint'); delay = instant ? 0 : 650; }
       setTimeout(step, delay);
     };
@@ -190,40 +254,47 @@ var ML = window.ML = window.ML || {};
 
   // ── 결과: 경험치 → 기술 배우기 → 진화 ──────────────
   function showResult() {
-    var b = V.battle, win = b.winner === 0, opts = V.opts;
+    var b = V.battle, opts = V.opts, win = b.winner === 0;
+    var result = { winner: b.winner, captured: b.captured, escaped: b.escaped, battle: b };
     var exp = ML.battleExp(b, opts.expBoost ? ML.config.test.expBoost : 1);
     var rows = [], queue = [];
     b.sides[0].units.forEach(function (u) {
-      var mon = u.mon, gain = exp[mon.uid] || 0, res = ML.gainExp(mon, gain);
+      var mon = u.mon, gain = exp[mon.uid] || 0;
+      if (!gain) return;
+      var res = ML.gainExp(mon, gain);
       rows.push({ mon: mon, res: res });
       res.pending.forEach(function (mv) { queue.push({ type: 'learn', mon: mon, move: mv }); });
       if (ML.evolveTarget(mon)) queue.push({ type: 'evolve', mon: mon });
     });
+    var extra = opts.reward ? opts.reward(result) : '';
     opts.onSave();
-    var html = '<h3>' + (win ? '🏆 승리!' : '💥 패배…') + '</h3><p class="muted">' + b.turnNo + '턴' + (opts.expBoost ? ' · 경험치 ×' + ML.config.test.expBoost + ' (시험용)' : '') + '</p>' +
-      '<div class="exp-list">' + rows.map(function (r) {
+    var title = b.escaped ? '🏃 도망쳤다' : b.captured ? '🎉 포획 성공!' : win ? '🏆 승리!' : '💥 패배…';
+    var tline = opts.trainer ? '<p>' + opts.trainer.icon + ' ' + opts.trainer.name + ': “' + (win ? opts.trainer.lose : '아직 멀었어!') + '”</p>' : '';
+    var html = '<h3>' + title + '</h3>' + tline + '<p class="muted">' + b.turnNo + '턴' + (opts.expBoost ? ' · 경험치 ×' + ML.config.test.expBoost + ' (시험용)' : '') + '</p>' + extra +
+      (rows.length ? '<div class="exp-list">' + rows.map(function (r) {
         var m = r.mon, need = ML.expToNext(m.level);
         return '<div class="exp-row">' + ML.art.svg(m.species, { size: 64, shiny: m.shiny }) + '<div style="flex:1"><b>' + ML.species[m.species].name + '</b> ' +
           (r.res.to > r.res.from ? '<span class="lvup">Lv ' + r.res.from + ' → ' + r.res.to + ' ▲</span>' : 'Lv ' + m.level) +
           '<span class="muted"> · 경험치 +' + r.res.gain + '</span>' +
           (r.res.learned.length ? '<div class="muted">새 기술: ' + r.res.learned.map(function (x) { return ML.moves[x].name; }).join(', ') + '</div>' : '') +
           '<div class="bar" style="margin-top:4px"><i style="width:' + (m.level >= ML.config.maxLevel ? 100 : m.exp / need * 100) + '%"></i></div></div></div>';
-      }).join('') + '</div>' +
+      }).join('') + '</div>' : '') +
       '<div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn primary" id="r-next">계속</button></div>';
     var md = ui.modal(html, null, true);
-    md.querySelector('#r-next').onclick = function () { ui.closeModal(); runQueue(queue); };
+    md.querySelector('#r-next').onclick = function () { ui.closeModal(); runQueue(queue, result); };
   }
 
-  function runQueue(queue) {
+  function runQueue(queue, result) {
     var opts = V.opts;
     if (!queue.length) {
       opts.onSave();
+      if (opts.onFinish) { V = null; opts.onFinish(result); return; }
       var m = ui.modal('<h3>전투 끝</h3><div class="row" style="justify-content:flex-end"><button class="btn" id="e-setup">팀 편성으로</button><button class="btn primary" id="e-again">같은 상대와 다시</button></div>', null, true);
       m.querySelector('#e-setup').onclick = function () { ui.closeModal(); V = null; opts.onExit(); };
       m.querySelector('#e-again').onclick = function () { ui.closeModal(); V = null; opts.onRematch(); };
       return;
     }
-    var job = queue.shift(), next = function () { ui.closeModal(); runQueue(queue); };
+    var job = queue.shift(), next = function () { ui.closeModal(); runQueue(queue, result); };
     if (job.type === 'learn') learnPrompt(job.mon, job.move, next);
     else evolveScene(job.mon, next);
   }
