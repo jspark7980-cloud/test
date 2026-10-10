@@ -426,6 +426,7 @@ B.endOfTurn = function () {
     var rg = ML.traitSum(u.mon, 'regen') + (self.ability(u) === 'mossRegen' ? c.ability.mossRegen : 0);
     if (rg && u.mon.hp > 0) self.heal(u, Math.max(1, Math.round(u.stats.hp * rg)), '재생으로 회복했다');
     for (var m in u.sealed) { if (--u.sealed[m] <= 0) delete u.sealed[m]; }
+    if (self.ability(u) === 'origin' && u.mon.hp > 0 && u.stages.atk < ML.config.stageMax) self.changeStage(u, 'atk', 1);
     if (self.ability(u) === 'dayNight' && u.mon.hp > 0) {
       u.form = u.form === 'day' ? 'night' : 'day';
       self.say(self.name(u) + '이(가) ' + (u.form === 'day' ? '낮' : '밤') + '의 모습으로 바뀌었다!', 'ability');

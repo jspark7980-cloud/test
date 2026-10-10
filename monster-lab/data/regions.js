@@ -1,5 +1,5 @@
 // 지역·장소·출현표·트레이너. 좌표는 지도 SVG(1000×600) 기준.
-// place.kind: gate(출입구) / search(탐색) / boss
+// place.kind: gate(출입구) / search(탐색) / boss / legend(보스를 이기면 열리는 전설 조우 장소)
 // wild: [종, 가중치, 최저 레벨, 최고 레벨] · rare: 낮은 확률 희귀종
 var ML = window.ML = window.ML || {};
 
@@ -42,8 +42,9 @@ ML.regions = {
       light: { name: '등대 언덕', kind: 'search', x: 640, y: 170, icon: '🗼', desc: '해안을 비추는 낡은 등대. 등대지기가 길을 막는다.', trainer: 'keeper',
                wild: [['thunderbird', 20, 18, 21], ['vinesquirrel', 20, 18, 21], ['blazerat', 20, 18, 21], ['nightcat', 20, 18, 21], ['charlizard', 20, 18, 21]] },
       boss:  { name: '폭풍 부두', kind: 'boss', x: 880, y: 300, icon: '👑', desc: '번개와 파도를 함께 다루는 선장이 기다린다.', trainer: 'boss2' },
+      eye:   { name: '폭풍의 눈', kind: 'legend', x: 880, y: 500, icon: '🌀', desc: '바다 한가운데, 폭풍이 멈춘 고요한 곳. 거대한 그림자가 헤엄친다.', legend: ['stormwhale', 30] },
     },
-    edges: [['gate', 'sand'], ['gate', 'bay'], ['sand', 'reef'], ['bay', 'light'], ['reef', 'light'], ['light', 'boss']],
+    edges: [['gate', 'sand'], ['gate', 'bay'], ['sand', 'reef'], ['bay', 'light'], ['reef', 'light'], ['light', 'boss'], ['boss', 'eye']],
   },
   3: {
     name: '안개 고목숲', color: '#9ad08a', bg: ['#1f2b22', '#121a15'], need: 2,
@@ -63,8 +64,9 @@ ML.regions = {
       ruin:  { name: '고목 폐허', kind: 'search', x: 640, y: 430, icon: '🏚️', desc: '거대한 나무뿌리가 옛 건물을 삼켰다.',
                wild: [['eldwarden', 20, 32, 34], ['ridgebear', 20, 32, 34], ['stormphoenix', 20, 32, 34], ['furnacerat', 20, 32, 34], ['gemsnail', 20, 30, 34]] },
       boss:  { name: '숲의 심장', kind: 'boss', x: 880, y: 290, icon: '👑', desc: '좋은 특성을 지닌 몬스터만 기르는 숲지기가 기다린다.', trainer: 'boss3' },
+      first: { name: '첫 나무', kind: 'legend', x: 880, y: 500, icon: '🌳', desc: '숲에서 가장 먼저 자란 나무. 땅이 숨을 쉬듯 울린다.', legend: ['worldtree', 40] },
     },
-    edges: [['gate', 'moss'], ['gate', 'cave'], ['moss', 'lake'], ['cave', 'ruin'], ['lake', 'ruin'], ['ruin', 'boss']],
+    edges: [['gate', 'moss'], ['gate', 'cave'], ['moss', 'lake'], ['cave', 'ruin'], ['lake', 'ruin'], ['ruin', 'boss'], ['boss', 'first']],
   },
   4: {
     name: '잿빛 화산령', color: '#ff8a5c', bg: ['#3a1c16', '#1a0d0b'], need: 3,
@@ -83,8 +85,9 @@ ML.regions = {
       crater: { name: '분화구 길', kind: 'search', x: 640, y: 180, icon: '⛰️', desc: '정상으로 이어지는 마지막 길. 사냥꾼이 막아선다.', trainer: 'hunter',
                 wild: [['tidalshell', 25, 42, 45], ['eldwarden', 25, 42, 45], ['stormphoenix', 25, 42, 45], ['ridgebear', 25, 42, 45]] },
       boss:   { name: '화산 정상', kind: 'boss', x: 880, y: 300, icon: '👑', desc: '합성으로만 얻는 몬스터를 다루는 용암 군주가 기다린다.', trainer: 'boss4' },
+      altar:  { name: '검은 태양 제단', kind: 'legend', x: 880, y: 500, icon: '🌑', desc: '낮에도 해가 검게 보이는 제단. 날개 소리가 들린다.', legend: ['eclipsedragon', 50] },
     },
-    edges: [['gate', 'ash'], ['gate', 'temple'], ['ash', 'lava'], ['temple', 'crater'], ['lava', 'crater'], ['crater', 'boss']],
+    edges: [['gate', 'ash'], ['gate', 'temple'], ['ash', 'lava'], ['temple', 'crater'], ['lava', 'crater'], ['crater', 'boss'], ['boss', 'altar']],
   },
 };
 

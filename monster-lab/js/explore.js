@@ -4,7 +4,7 @@ var ML = window.ML = window.ML || {};
 (function () {
   var ui = ML.ui, screen = document.getElementById('screen');
 
-  ML.explore = { render: render, search: search };
+  ML.explore = { render: render, search: search, ending: ending };
 
   function region() { return ML.regions[ML.game.region]; }
 
@@ -29,7 +29,7 @@ var ML = window.ML = window.ML || {};
       var cleared = ML.state.placeCleared(pid);
       o += '<g class="node' + (reach ? ' open' : ' locked') + (here ? ' here' : '') + '" data-place="' + pid + '">';
       if (here) o += '<circle cx="' + p.x + '" cy="' + p.y + '" r="54" fill="none" stroke="#ffd76b" stroke-width="5" class="pulse"/>';
-      o += '<circle cx="' + p.x + '" cy="' + p.y + '" r="42" fill="' + (reach ? (p.kind === 'boss' ? '#5a2330' : '#26324a') : '#2a2d36') + '" stroke="' + (reach ? (p.kind === 'boss' ? '#ff6b7a' : '#9cc6ff') : '#4a4f5c') + '" stroke-width="4"/>';
+      o += '<circle cx="' + p.x + '" cy="' + p.y + '" r="42" fill="' + (reach ? (p.kind === 'boss' ? '#5a2330' : p.kind === 'legend' ? '#3d2a5a' : '#26324a') : '#2a2d36') + '" stroke="' + (reach ? (p.kind === 'boss' ? '#ff6b7a' : p.kind === 'legend' ? '#ffd76b' : '#9cc6ff') : '#4a4f5c') + '" stroke-width="4"/>';
       o += '<text x="' + p.x + '" y="' + (p.y + 14) + '" text-anchor="middle" font-size="38">' + (reach ? p.icon : '🔒') + '</text>';
       o += '<text x="' + p.x + '" y="' + (p.y + 70) + '" text-anchor="middle" font-size="22" font-weight="800" fill="' + (reach ? '#eef1f7' : '#7a8296') + '" stroke="#0b0e16" stroke-width="5" paint-order="stroke">' + (reach ? p.name : '???') + '</text>';
       if (reach && cleared && p.kind !== 'boss') o += '<circle cx="' + (p.x + 32) + '" cy="' + (p.y - 32) + '" r="13" fill="#4cd38a"/><text x="' + (p.x + 32) + '" y="' + (p.y - 26) + '" text-anchor="middle" font-size="16" font-weight="900" fill="#0b1020">✓</text>';
@@ -65,7 +65,14 @@ var ML = window.ML = window.ML || {};
         panel += '<div class="trainer-box">' + tr.icon + ' <b>' + tr.name + '</b>' + (tr.boss ? ' <span class="boss-tag">지역 보스</span>' : '') +
           (beaten ? ' <span class="hint good">이김</span>' : '<div class="muted small">' + (tr.boss ? '이기면 지역 정복' : '이기면 다음 길이 열린다') + ' · 상대 ' + tr.team.length + '마리 (Lv ' + tr.team.map(function (t) { return t[1]; }).join('·') + ')</div>') + '</div>';
       }
+      if (p.legend) {
+        var lg = ML.species[p.legend[0]];
+        panel += pr.legendCaught ? '<div class="trainer-box">✨ 고요하다. ' + lg.name + '은(는) 이미 너와 함께한다.</div>'
+          : '<div class="trainer-box legend-box">' + (ML.game.dex.seen[p.legend[0]] ? ML.art.svg(p.legend[0], { size: 90 }) + '<b>' + lg.name + '</b> Lv ' + p.legend[1] : '<b>???</b> 무언가 엄청난 기운이 느껴진다…') +
+            '<div class="muted small">전설은 한 마리뿐이다. 잡으면 사라지고, 쓰러뜨리거나 도망치면 다시 도전할 수 있다.</div></div>';
+      }
       panel += '<div class="act-col">';
+      if (p.legend && !pr.legendCaught) panel += '<button class="btn big danger" id="legend">✨ 다가가기</button>';
       if (p.wild) panel += '<button class="btn primary big" id="search">🔍 탐색</button>';
       if (tr && !pr.beaten[p.trainer]) panel += '<button class="btn big' + (tr.boss ? ' danger' : '') + '" id="fight">' + (tr.boss ? '👑 보스 도전' : '⚔️ 트레이너와 승부') + '</button>';
       panel += '<button class="btn" id="home">🏠 연구소로 돌아가기</button></div>';
@@ -92,6 +99,7 @@ var ML = window.ML = window.ML || {};
     screen.querySelectorAll('[data-place]').forEach(function (n) { n.onclick = function () { travel(n.dataset.place); }; });
     screen.querySelectorAll('[data-go]').forEach(function (b) { b.onclick = function () { travel(b.dataset.go); }; });
     if (ui.$('#search')) ui.$('#search').onclick = search;
+    if (ui.$('#legend')) ui.$('#legend').onclick = meetLegend;
     if (ui.$('#fight')) ui.$('#fight').onclick = function () { fightTrainer(region().places[ML.game.at].trainer); };
     if (ui.$('#home')) ui.$('#home').onclick = function () { ML.game.at = 'hub'; ML.state.save(); ML.app.show('hub'); };
   }
@@ -150,6 +158,17 @@ var ML = window.ML = window.ML || {};
     render();
   }
 
+  // ── 전설 조우 ─────────────────────────────────────
+  function meetLegend() {
+    if (!needAlive()) return;
+    var p = region().places[ML.game.at], rng = ML.state.rng();
+    var mon = ML.createMonster(p.legend[0], p.legend[1], rng, { shiny: rng.chance(ML.config.shinyChance), traitTable: 'high' });
+    ML.state.markSeen(mon.species);
+    ML.state.saveRng(rng);
+    ML.state.save();
+    startBattle([mon], { kind: 'wild', rng: rng, legend: true });
+  }
+
   // ── 트레이너·보스 ─────────────────────────────────
   function fightTrainer(tid) {
     if (!needAlive()) return;
@@ -186,6 +205,7 @@ var ML = window.ML = window.ML || {};
       var where = ML.state.addMon(r.captured);
       if (r.captured.shiny) g.dex.shiny = Object.assign(g.dex.shiny || {}, (function (o) { o[r.captured.species] = true; return o; })({}));
       g.stats.caught++;
+      if (o.legend) { ML.state.prog().legendCaught = true; h += '<p class="lvup">✨ 전설의 몬스터를 손에 넣었다!</p>'; }
       h += '<p>' + ML.species[r.captured.species].name + '은(는) ' + (where === 'party' ? '파티에 들어갔다!' : '파티가 가득 차서 보관함으로 보냈다.') + '</p>';
     }
     if (r.winner === 0 && !r.captured) {
@@ -212,6 +232,10 @@ var ML = window.ML = window.ML || {};
     if (!r.escaped) ML.fusion.tick();      // 휴식·알 카운트(도망친 전투는 세지 않음)
     if (r.winner === 1) { ML.state.healAll(); g.at = 'hub'; }
     ML.state.save();
+    if (r.winner === 0 && o.trainer && o.trainer.boss && !ML.regions[g.region + 1]) {
+      g.ended = true; ML.state.save();
+      return ending();
+    }
     if (r.winner === 0 && o.trainer && o.trainer.boss) {
       var next = ML.regions[g.region + 1];
       var m = ui.modal('<div class="intro"><div class="t-icon">🏅</div><h3>' + region().name + ' 정복!</h3><p>' + o.trainer.name + '을(를) 이겼다.</p>' +
@@ -220,5 +244,23 @@ var ML = window.ML = window.ML || {};
       return;
     }
     ML.app.show(r.winner === 1 ? 'hub' : 'map');
+  }
+  // ── 엔딩: 4지역 보스를 이긴 뒤 ────────────────────
+  function ending() {
+    var g = ML.game, ids = Object.keys(ML.species);
+    var caught = ids.filter(function (id) { return g.dex.caught[id]; }).length;
+    var mons = g.party.concat(g.box), top = mons.reduce(function (a, m) { return m.level > a.level ? m : a; }, mons[0]);
+    var mins = Math.round((g.playMs || 0) / 60000);
+    ML.app.battleMode();
+    screen.innerHTML = '<div class="ending"><div class="end-sky">' + g.party.map(function (m) { return ML.art.svg(m.species, { size: 170, shiny: m.shiny }); }).join('') + '</div>' +
+      '<h1>🏆 네 지역을 모두 정복했다!</h1><p class="muted">햇살 들판에서 시작한 여행이 잿빛 화산령 정상에서 끝났다. 연구소의 기록이 한 권 완성되었다.</p>' +
+      '<div class="end-stats">' + [
+        ['잡은 종', caught + ' / ' + ids.length], ['만난 종', Object.keys(g.dex.seen).length], ['합성', (g.stats.fusions || 0) + '번'],
+        ['전투', g.stats.battles + '번'], ['포획', g.stats.caught + '마리'], ['최고 레벨', top ? ML.species[top.species].name + ' Lv ' + top.level : '-'],
+        ['색다른 개체', Object.keys(g.dex.shiny || {}).length + '종'], ['플레이 시간', mins >= 60 ? Math.floor(mins / 60) + '시간 ' + (mins % 60) + '분' : mins + '분'],
+      ].map(function (r) { return '<div><span class="muted small">' + r[0] + '</span><b>' + r[1] + '</b></div>'; }).join('') + '</div>' +
+      '<p class="muted">아직 끝이 아니다. 각 지역 보스 옆의 전설 장소, 그리고 전설 두 마리를 합성하면 태어난다는 숨겨진 몬스터가 기다린다.</p>' +
+      '<button class="btn primary big" id="end-go">계속 여행하기</button></div>';
+    ui.$('#end-go').onclick = function () { ML.app.show('map'); };
   }
 })();

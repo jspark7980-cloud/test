@@ -24,11 +24,12 @@ var ML = window.ML = window.ML || {};
       ['fusion', '🧬', '합성소', open2 ? '몬스터 2마리 + 합성석 → 알' : '1지역 보스를 이기면 열린다', !open2],
       ['hatch', '🥚', '부화장', open2 ? '알 ' + g.eggs.length + ' / ' + ML.config.fusion.maxEggs + (g.eggs.some(function (e) { return !e.left; }) ? ' · 부화 준비!' : '') : '1지역 보스를 이기면 열린다', !open2],
     ];
-    screen.innerHTML = '<div class="hub"><div class="hub-head"><h2>🏠 연구소</h2><button class="btn primary big" id="go-map">🗺️ 지도로 나가기</button></div>' +
+    screen.innerHTML = '<div class="hub"><div class="hub-head"><h2>🏠 연구소</h2><div class="row">' + (g.ended ? '<button class="btn" id="end-again">🏆 엔딩 다시 보기</button>' : '') + '<button class="btn primary big" id="go-map">🗺️ 지도로 나가기</button></div></div>' +
       '<div class="fac-grid">' + fac.map(function (f) {
         return '<button class="fac' + (f[4] ? ' locked' : '') + '" data-fac="' + f[0] + '"><span class="fi">' + (f[4] ? '🔒' : f[1]) + '</span><b>' + f[2] + '</b><span class="muted small">' + f[3] + '</span></button>';
       }).join('') + '</div></div>';
     ui.$('#go-map').onclick = function () { ML.app.show('map'); };
+    if (ui.$('#end-again')) ui.$('#end-again').onclick = function () { ML.explore.ending(); };
     screen.querySelectorAll('[data-fac]').forEach(function (b) {
       b.onclick = function () {
         var f = b.dataset.fac;
@@ -78,9 +79,13 @@ var ML = window.ML = window.ML || {};
   }
 
   // ── 보관함 ────────────────────────────────────────
-  var boxSort = 'got';
+  var boxSort = 'got', boxTrait = '', boxNoBad = false;
   function sortedBox() {
-    var list = ML.game.box.slice();
+    var list = ML.game.box.filter(function (m) {
+      if (boxTrait && m.traits.indexOf(boxTrait) < 0) return false;
+      if (boxNoBad && m.traits.some(function (t) { return ML.traits[t].grade === 'bad'; })) return false;
+      return true;
+    });
     var key = {
       got: null,
       el: function (m) { return ML.elements.order.indexOf(ML.species[m.species].els[0]) * 1000 - m.level; },
@@ -105,12 +110,23 @@ var ML = window.ML = window.ML || {};
       '<div class="section-t">파티 (' + g.party.length + ' / ' + ML.config.partyMax + ') — 몬스터를 누르면 옮기거나 순서를 바꿀 수 있다</div>' +
       '<div class="tile-grid">' + g.party.map(function (m) { return monTile(m, 'party'); }).join('') + '</div>' +
       '<div class="section-t row" style="justify-content:space-between">보관함 (' + g.box.length + '마리)' +
-      '<select id="sort"><option value="got">잡은 순서</option><option value="el">속성</option><option value="sp">종</option><option value="lv">레벨</option></select></div>' +
-      (g.box.length ? '<div class="tile-grid">' + sortedBox().map(function (m) { return monTile(m, 'box'); }).join('') + '</div>' : '<p class="muted">비어 있다. 파티가 가득 찬 상태에서 잡으면 여기로 온다.</p>') +
-      '<p class="muted small">특성으로 찾기(필터)는 6단계에서 추가된다.</p>';
+      '<div class="row"><select id="tfilter"><option value="">특성: 전체</option>' + ['legend', 'gold', 'silver', 'bronze', 'bad'].map(function (gr) {
+        return '<optgroup label="' + ML.traitGrades[gr].name + '">' + Object.keys(ML.traits).filter(function (t) { return ML.traits[t].grade === gr; }).map(function (t) {
+          return '<option value="' + t + '">' + ML.traits[t].name + '</option>';
+        }).join('') + '</optgroup>';
+      }).join('') + '</select><button class="btn sm' + (boxNoBad ? ' primary' : '') + '" id="nobad">나쁜 특성 없는 것만</button>' +
+      '<select id="sort"><option value="got">잡은 순서</option><option value="el">속성</option><option value="sp">종</option><option value="lv">레벨</option></select></div></div>' +
+      (function () {
+        if (!g.box.length) return '<p class="muted">비어 있다. 파티가 가득 찬 상태에서 잡으면 여기로 온다.</p>';
+        var list = sortedBox();
+        return list.length ? '<div class="tile-grid">' + list.map(function (m) { return monTile(m, 'box'); }).join('') + '</div>' : '<p class="muted">조건에 맞는 몬스터가 없다.</p>';
+      })();
     ui.$('#to-hub').onclick = render;
     ui.$('#sort').value = boxSort;
     ui.$('#sort').onchange = function () { boxSort = this.value; renderBox(); };
+    ui.$('#tfilter').value = boxTrait;
+    ui.$('#tfilter').onchange = function () { boxTrait = this.value; renderBox(); };
+    ui.$('#nobad').onclick = function () { boxNoBad = !boxNoBad; renderBox(); };
     screen.querySelectorAll('[data-mon]').forEach(function (b) {
       b.onclick = function () { boxActions(b.dataset.mon, b.dataset.where); };
     });

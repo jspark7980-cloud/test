@@ -47,7 +47,7 @@ ML.abilities = {
   dayNight: {"key": "dayNight", "name": "낮·밤 전환", "desc": "매 턴 끝 낮↔밤. 낮: 불꽃 기술 +30% / 밤: 그림자 기술 +30%·속도 +20%"},
   rain: {"key": "rain", "name": "비 내리기", "desc": "등장 시 비 5턴: 물결·번개 기술 +30%"},
   revive: {"key": "revive", "name": "1회 부활", "desc": "전투당 1회, 쓰러지면 체력 40%로 부활"},
-  originTBD: {"key": null, "name": "근원", "desc": "고유 능력은 6단계에서 정한다"},
+  originTBD: {"key": "origin", "name": "근원의 힘", "desc": "상성이 없다(주고받는 피해 모두 ×1). 턴이 끝날 때마다 공격 +1(최대 +3)"},
 };
 
 ML.species = {

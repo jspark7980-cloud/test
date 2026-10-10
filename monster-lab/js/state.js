@@ -39,6 +39,10 @@ ML.state = {
   },
 
   save: function () {
+    // 플레이 시간: 저장 사이 간격을 더한다(5분 넘게 비면 자리를 비운 것으로 보고 5분만)
+    var now = Date.now(), last = ML.state._last || now;
+    ML.game.playMs = (ML.game.playMs || 0) + Math.min(now - last, 5 * 60000);
+    ML.state._last = now;
     var saved = ML.save.load() || {};
     saved.game = ML.game;
     ML.save.write(saved);
@@ -88,6 +92,7 @@ ML.state = {
   // 장소를 "통과"했는가: 트레이너가 있으면 이겨야 하고, 없으면 탐색 3회
   placeCleared: function (pid) {
     var reg = ML.regions[ML.game.region], p = reg.places[pid], pr = ML.state.prog();
+    if (p.kind === 'legend') return true;
     if (p.trainer) return !!pr.beaten[p.trainer];
     return (pr.searches[pid] || 0) >= ML.config.clearSearches;
   },
