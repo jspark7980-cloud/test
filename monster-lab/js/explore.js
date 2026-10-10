@@ -154,7 +154,7 @@ var ML = window.ML = window.ML || {};
     g.stats.battles++;
     ML.battleView.start(g.party, foes, {
       rng: o.rng, kind: o.kind, trainer: o.trainer, bag: true,
-      onSave: function () { ML.state.saveRng(o.rng); ML.state.save(); },
+      onSave: function () { ML.state.saveRng(o.rng); ML.state.save(); ML.app.status(); },
       reward: function (r) { return reward(r, foes, o); },
       onFinish: function (r) { finish(r, o); },
     });
@@ -194,7 +194,7 @@ var ML = window.ML = window.ML || {};
     if (r.winner === 0 && o.trainer && o.trainer.boss) {
       var next = ML.regions[g.region + 1];
       var m = ui.modal('<div class="intro"><div class="t-icon">🏅</div><h3>' + region().name + ' 정복!</h3><p>' + o.trainer.name + '을(를) 이겼다.</p>' +
-        '<p class="muted">' + (next ? '다음 지역 「' + next.name + '」은(는) ' + (next.locked || '곧') + '.' : '') + '</p>' +
+        '<p class="muted">' + (next ? '다음 지역인 ' + next.name + '은(는) ' + (next.locked || '곧 열립니다') + '.' : '') + '</p>' +
         '<div class="row" style="justify-content:center"><button class="btn primary" data-close>좋아!</button></div></div>', function () { ML.app.show('map'); }, true);
       return;
     }
