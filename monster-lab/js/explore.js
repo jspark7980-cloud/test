@@ -67,12 +67,12 @@ var ML = window.ML = window.ML || {};
       }
       if (p.legend) {
         var lg = ML.species[p.legend[0]];
-        panel += pr.legendCaught ? '<div class="trainer-box">✨ 고요하다. ' + lg.name + '은(는) 이미 너와 함께한다.</div>'
-          : '<div class="trainer-box legend-box">' + (ML.game.dex.seen[p.legend[0]] ? ML.art.svg(p.legend[0], { size: 90 }) + '<b>' + lg.name + '</b> Lv ' + p.legend[1] : '<b>???</b> 무언가 엄청난 기운이 느껴진다…') +
-            '<div class="muted small">전설은 한 마리뿐이다. 잡으면 사라지고, 쓰러뜨리거나 도망치면 다시 도전할 수 있다.</div></div>';
+        var got = +pr.legendCaught || 0;      // 예전 저장(true)도 1마리로 센다
+        panel += '<div class="trainer-box legend-box">' + (ML.game.dex.seen[p.legend[0]] ? ML.art.svg(p.legend[0], { size: 90 }) + '<b>' + lg.name + '</b> Lv ' + p.legend[1] : '<b>???</b> 무언가 엄청난 기운이 느껴진다…') +
+          '<div class="muted small">' + (got ? '지금까지 ' + got + '마리 잡았다. 다가가면 또 만날 수 있다(특성·개체값은 매번 다르다).' : '쓰러뜨리거나 도망쳐도 다시 도전할 수 있다. 잡은 뒤에도 또 만날 수 있다.') + '</div></div>';
       }
       panel += '<div class="act-col">';
-      if (p.legend && !pr.legendCaught) panel += '<button class="btn big danger" id="legend">✨ 다가가기</button>';
+      if (p.legend) panel += '<button class="btn big danger" id="legend">✨ 다가가기</button>';
       if (p.wild) panel += '<button class="btn primary big" id="search">🔍 탐색</button>';
       if (tr && !pr.beaten[p.trainer]) panel += '<button class="btn big' + (tr.boss ? ' danger' : '') + '" id="fight">' + (tr.boss ? '👑 보스 도전' : '⚔️ 트레이너와 승부') + '</button>';
       panel += '<button class="btn" id="home">🏠 연구소로 돌아가기</button></div>';
@@ -227,7 +227,7 @@ var ML = window.ML = window.ML || {};
       var where = ML.state.addMon(r.captured);
       if (r.captured.shiny) g.dex.shiny = Object.assign(g.dex.shiny || {}, (function (o) { o[r.captured.species] = true; return o; })({}));
       g.stats.caught++;
-      if (o.legend) { ML.state.prog().legendCaught = true; h += '<p class="lvup">✨ 전설의 몬스터를 손에 넣었다!</p>'; }
+      if (o.legend) { var pg = ML.state.prog(); pg.legendCaught = (+pg.legendCaught || 0) + 1; h += '<p class="lvup">✨ 전설의 몬스터를 손에 넣었다! (' + pg.legendCaught + '마리째)</p>'; }
       h += '<p>' + ML.species[r.captured.species].name + '은(는) ' + (where === 'party' ? '파티에 들어갔다!' : '파티가 가득 차서 보관함으로 보냈다.') + '</p>';
     }
     if (r.winner === 0 && !r.captured) {
