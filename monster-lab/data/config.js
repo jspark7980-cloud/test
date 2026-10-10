@@ -12,7 +12,7 @@ ML.config = {
   traitStabBonus: 0.1,     // 특성 "속성 강화"
 
   // 능력치
-  maxLevel: 50,
+  maxLevel: 100,            // (요청으로 50 → 100)
   statPerLevel: 0.06,      // 능력치 = 종족값 × (1 + 레벨 × 0.06) × 개체값
   hpPerLevel: 3,           // 체력만 + 레벨 × 3
   ivRange: 0.1,            // 개체값 0.9 ~ 1.1
