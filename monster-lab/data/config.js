@@ -77,6 +77,7 @@ ML.config = {
   // shareAll: true면 파티 전원이 전부 받는다(나누지 않음). false면 그 전투에 나온 몬스터끼리 나눈다.
   exp: {
     shareAll: true,
+    rate: 0.5,                         // 받는 경험치 배율(전원 지급이라 절반)
     base: { 1: 6, 2: 9, 3: 12, rare: 12, fusion: 14, legend: 20, hidden: 20 },
     nextBase: 12, nextPerLevel: 6,     // 다음 레벨 필요 = 12 + 레벨 × 6
   },

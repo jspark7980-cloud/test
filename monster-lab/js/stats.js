@@ -146,7 +146,7 @@ ML.battleExp = function (battle, boost) {
     if (d.side !== 1) return;
     var who = all ? mine : d.appeared;
     if (!who.length) return;
-    var share = ML.expYield(d.mon) / (all ? 1 : who.length);
+    var share = ML.expYield(d.mon) * (ML.config.exp.rate || 1) / (all ? 1 : who.length);
     who.forEach(function (uid) { out[uid] = (out[uid] || 0) + share; });
   });
   battle.sides[0].units.forEach(function (u) {
