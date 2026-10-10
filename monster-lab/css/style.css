@@ -311,3 +311,10 @@ select, input { font: inherit; }
 .types ul { margin: 8px 0 0; padding-left: 20px; line-height: 1.6; font-size: 14px; }
 @media (max-width: 760px) { .types { grid-template-columns: 1fr; } }
 .lead-foe { display: flex; gap: 12px; align-items: center; background: var(--panel2); border-radius: 14px; padding: 6px 12px; margin: 8px 0; } .lead-foe .mon-svg { margin: 0; }
+
+/* 개체값(최대치 대비 %) */
+.iv-tag { font-weight: 800; padding: 1px 8px; border-radius: 8px; background: var(--panel2); }
+.iv-tag.iv-s, .bar i.iv-s { color: #ffd76b; } .bar i.iv-s { background: #ffd76b; }
+.iv-tag.iv-a { color: var(--good); } .bar i.iv-a { background: var(--good); }
+.iv-tag.iv-b { color: #9cc6ff; } .bar i.iv-b { background: #7aa8ff; }
+.iv-tag.iv-c { color: var(--bad); } .bar i.iv-c { background: var(--bad); }

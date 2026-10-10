@@ -101,6 +101,7 @@ var ML = window.ML = window.ML || {};
     return '<button class="mon-tile' + (m.hp <= 0 ? ' down' : '') + '" data-mon="' + m.uid + '" data-where="' + where + '">' +
       ML.art.svg(m.species, { size: 74, shiny: m.shiny }) + '<b>' + (m.shiny ? '✨' : '') + ML.species[m.species].name + '</b><span class="small">Lv ' + m.level + '</span>' +
       '<div class="mini"><i style="width:' + (m.hp / st.hp * 100) + '%"></i></div>' + (m.rest > 0 ? '<span class="hint bad small">휴식 ' + m.rest + '</span>' : '') +
+      '<span class="small iv-tag ' + ML.ivGrade(ML.ivTotalPct(m))[1] + '">개체 ' + ML.ivTotalPct(m) + '%</span>' +
       '<div class="tile-traits">' + m.traits.map(function (t) { var gr = ML.traits[t].grade; return '<i class="tdot ' + gr + '" style="--c:' + (ML.traitGrades[gr].color === 'rainbow' ? '#fff' : ML.traitGrades[gr].color) + '"></i>'; }).join('') + '</div></button>';
   }
 
@@ -190,6 +191,14 @@ var ML = window.ML = window.ML || {};
     var h = '<div class="detail"><div>' + ML.art.svg(m.species, { size: 220, shiny: m.shiny }) + '</div><div>' +
       '<h3>' + (m.shiny ? '✨' : '') + sp.name + ' <span class="muted">Lv ' + m.level + '</span></h3><div class="row">' + ui.elChips(sp.els) + '<span class="muted">' + ui.stageLabel(sp) + ' · 합성 값 ' + sp.fusionValue + '</span></div>' +
       '<div class="section-t">체력 ' + m.hp + ' / ' + st.hp + (m.status ? ' · ' + ML.STATUS_NAMES[m.status] : '') + '</div>' +
+      (function () {
+        var tot = ML.ivTotalPct(m), tg = ML.ivGrade(tot);
+        return '<div class="section-t">개체값 <span class="iv-tag ' + tg[1] + '">종합 ' + tot + '% · ' + tg[0] + '</span> <span class="muted small">(최대치 대비: 0% = 능력치 −10%, 100% = 능력치 +10%)</span></div>' +
+          [['hp', '체력'], ['atk', '공격'], ['def', '방어'], ['spd', '속도']].map(function (k) {
+            var p = ML.ivPct(m.ivs[k[0]]), gr = ML.ivGrade(p);
+            return '<div class="stat"><span>' + k[1] + '</span><div class="bar"><i class="' + gr[1] + '" style="width:' + Math.max(3, p) + '%"></i></div><b>' + p + '%</b></div>';
+          }).join('');
+      })() +
       '<div class="small muted">공격 ' + st.atk + ' · 방어 ' + st.def + ' · 속도 ' + st.spd + '</div>' +
       '<div class="small muted">경험치 ' + m.exp + ' / ' + need + (ev ? ' · Lv' + ev[1] + '에 ' + ML.species[ev[0]].name + '(으)로 진화' : '') + '</div>' +
       '<div class="section-t">고유 능력 — ' + ab.name + '</div><div class="muted small">' + ab.desc + '</div>' +

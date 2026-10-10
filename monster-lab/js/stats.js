@@ -154,3 +154,14 @@ ML.battleExp = function (battle, boost) {
   });
   return out;
 };
+
+// 개체값을 최대치 대비 %로: 0.9(최저) → 0%, 1.1(최고) → 100%
+ML.ivPct = function (v) {
+  var r = ML.config.ivRange;
+  return Math.round(Math.max(0, Math.min(1, (v - (1 - r)) / (2 * r))) * 100);
+};
+ML.ivTotalPct = function (mon) {
+  var k = ['hp', 'atk', 'def', 'spd'];
+  return Math.round(k.reduce(function (s, x) { return s + ML.ivPct(mon.ivs[x]); }, 0) / k.length);
+};
+ML.ivGrade = function (p) { return p >= 90 ? ['최고', 'iv-s'] : p >= 70 ? ['좋음', 'iv-a'] : p >= 40 ? ['보통', 'iv-b'] : ['낮음', 'iv-c']; };
