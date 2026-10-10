@@ -1,5 +1,6 @@
 // 몬스터 그림: SVG 도형 부품 조합. 진화할수록 부품이 늘고 커진다.
 // ML.art.svg(speciesId, { shiny, size }) → SVG 문자열
+// 전설·숨겨진 몬스터는 js/art-legend.js의 전용 그림(ML.art.custom)을 쓴다.
 var ML = window.ML = window.ML || {};
 
 (function () {
@@ -211,7 +212,9 @@ var ML = window.ML = window.ML || {};
       var clipId = 'mlc' + (uid++);
       var tf = 'translate(100 172) scale(' + scale + ') translate(-100 -172)';
       if (opts.flip) tf = 'translate(200 0) scale(-1 1) ' + tf;
-      var g = '';
+      var g = '', custom = ML.art.custom && ML.art.custom[speciesId];
+      if (custom) { scale = 1; tf = opts.flip ? 'translate(200 0) scale(-1 1)' : ''; g = custom(p, 'lg' + (uid++)); }
+      else {
       g += aura(a.aura, p);
       g += wings(a.wings, b, p);
       g += tail(a.tail, b, p);
@@ -224,6 +227,7 @@ var ML = window.ML = window.ML || {};
       g += horns(a.horns, b, p, sp.stage);
       g += claws(a.claws, b, p);
       g += eyes(a.eyes || 'big', b, p);
+      }
       var size = opts.size || 120;
       return '<svg class="mon-svg" viewBox="0 0 200 200" width="' + size + '" height="' + size + '" xmlns="http://www.w3.org/2000/svg">' +
         '<defs><filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>' +
