@@ -331,3 +331,6 @@ select, input { font: inherit; }
 .spar-card .fi { font-size: 40px; }
 .spar-card b { font-size: 19px; }
 @media (max-width: 900px) { .spar-grid, .spar-head { grid-template-columns: 1fr 1fr; } }
+.trait-pick { display: flex; flex-direction: column; gap: 8px; }
+.trait-pick .tp { flex-direction: row; align-items: center; gap: 10px; background: var(--panel2); border-radius: 12px; padding: 10px; }
+.tr-card { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; min-height: 70px; }

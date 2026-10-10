@@ -260,7 +260,7 @@ var ML = window.ML = window.ML || {};
   // ── 가방 탭 ───────────────────────────────────────
   function renderBag() {
     var g = ML.game, ids = Object.keys(g.items).filter(function (id) { return ML.items[id] && g.items[id] > 0; });
-    var kinds = [['heal', '회복'], ['iv', '육성'], ['ball', '포획 도구'], ['fusion', '합성']];
+    var kinds = [['heal', '회복'], ['iv', '육성'], ['trait', '육성(특성)'], ['ball', '포획 도구'], ['fusion', '합성']];
     screen.innerHTML = '<div class="sub-head"><h2>🎒 가방</h2><span class="gold">💰 ' + g.gold + '</span></div>' +
       kinds.map(function (k) {
         var list = ids.filter(function (id) { return ML.items[id].kind === k[0]; });
@@ -268,11 +268,11 @@ var ML = window.ML = window.ML || {};
         return '<div class="section-t">' + k[1] + '</div><div class="bag-grid">' + list.map(function (id) {
           var it = ML.items[id];
           return '<button class="bag-item" data-item="' + id + '"><span class="bi">' + it.icon + '</span><div><b>' + it.name + '</b> ×' + g.items[id] +
-            '<br><span class="muted small">' + it.desc + (it.kind === 'heal' ? ' · 눌러서 사용' : it.kind === 'ball' ? ' · 야생 전투에서 사용' : it.kind === 'iv' ? ' · 눌러서 사용' : '') + '</span></div></button>';
+            '<br><span class="muted small">' + it.desc + (it.kind === 'heal' ? ' · 눌러서 사용' : it.kind === 'ball' ? ' · 야생 전투에서 사용' : (it.kind === 'iv' || it.kind === 'trait') ? ' · 눌러서 사용' : '') + '</span></div></button>';
         }).join('') + '</div>';
       }).join('') + (ids.length ? '' : '<p class="muted">가방이 비어 있다. 연구소 상점에서 살 수 있다.</p>');
     screen.querySelectorAll('[data-item]').forEach(function (b) {
-      b.onclick = function () { var k = ML.items[b.dataset.item].kind; if (k === 'heal') useOutside(b.dataset.item); else if (k === 'iv') useIvPill(b.dataset.item); };
+      b.onclick = function () { var k = ML.items[b.dataset.item].kind; if (k === 'heal') useOutside(b.dataset.item); else if (k === 'iv') useIvPill(b.dataset.item); else if (k === 'trait') useTraitCharm(b.dataset.item); };
     });
   }
 
@@ -299,9 +299,12 @@ var ML = window.ML = window.ML || {};
           return '<div class="stat"><span>' + k[1] + '</span><div class="bar"><i class="' + ML.ivGrade(p)[1] + '" style="width:' + Math.max(3, p) + '%"></i></div><b>' + st[k[0]] + '</b></div>';
         }).join('') + '</div>';
     };
+    var left = ML.state.item(id);
     var md = ui.modal('<h3>🎲 ' + ML.species[mon.species].name + ' 개체값 재추첨</h3><div class="iv-compare"><div><div class="section-t">원래</div>' + row(old) +
       '<button class="btn" id="keep-old">원래 값 유지</button></div><div><div class="section-t">새로 뽑은 값</div>' + row(nu) +
-      '<button class="btn primary" id="take-new">새 값으로 바꾸기</button></div></div>', null, true);
+      '<button class="btn primary" id="take-new">새 값으로 바꾸기</button></div></div>' +
+      '<div class="row" style="justify-content:center;margin-top:10px"><button class="btn" id="again"' + (left ? '' : ' disabled') + '>🎲 다시 돌리기 (재추첨약 1개 더 · 남은 ' + left + '개)</button></div>' +
+      '<p class="muted small" style="text-align:center">다시 돌리면 "새로 뽑은 값"이 바뀌고, "원래" 값은 그대로 남는다.</p>', null, true);
     var done = function (ivs) {
       var before = ML.calcStats(mon).hp;
       mon.ivs = ivs;
@@ -310,6 +313,45 @@ var ML = window.ML = window.ML || {};
     };
     md.querySelector('#keep-old').onclick = function () { done(old); ui.toast('원래 개체값을 유지했다.'); };
     md.querySelector('#take-new').onclick = function () { done(nu); ui.toast('새 개체값으로 바뀌었다!'); };
+    md.querySelector('#again').onclick = function () { mon.ivs = old; rerollIv(id, mon); };
+  }
+
+  // 특성 재추첨 부적: 몬스터 → 특성 1개 고르기 → 그 칸만 새로 뽑아 비교
+  function useTraitCharm(id) {
+    var g = ML.game, all = g.party.concat(g.box);
+    var m = ui.modal('<h3>🔮 누구의 특성을 바꿀까?</h3><div class="tile-grid">' + all.map(function (p) { return monTile(p, 'pick'); }).join('') +
+      '</div><div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn" data-close>취소</button></div>');
+    m.querySelectorAll('[data-mon]').forEach(function (b) {
+      b.onclick = function () { pickTraitSlot(id, all.filter(function (p) { return p.uid === b.dataset.mon; })[0]); };
+    });
+  }
+
+  function pickTraitSlot(id, mon) {
+    var m = ui.modal('<h3>🔮 ' + ML.species[mon.species].name + ' — 바꿀 특성 1개를 고르세요</h3><div class="trait-pick">' + mon.traits.map(function (t, i) {
+      return '<button class="lm-btn tp" data-slot="' + i + '">' + ui.traitChip(t) + ' <span class="muted small">' + ML.traits[t].desc + '</span></button>';
+    }).join('') + '</div><div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn" data-close>취소</button></div>');
+    m.querySelectorAll('[data-slot]').forEach(function (b) {
+      b.onclick = function (e) { e.stopPropagation(); rerollTrait(id, mon, +b.dataset.slot); };
+    });
+  }
+
+  function rerollTrait(id, mon, slot) {
+    if (!ML.state.takeItem(id)) return;
+    var r = ML.species[mon.species].rarity, legendary = r === 'legend' || r === 'hidden';
+    var rng = ML.state.rng(), old = mon.traits[slot];
+    // 나머지 특성·지금 특성과 겹치지 않게, 전설·숨겨진 몬스터는 나쁨 없이
+    var nu = ML.rollTraits(rng, legendary ? 'legendary' : ML.config.traitCharmTable, 1, mon.traits, legendary)[0] || old;
+    ML.state.saveRng(rng); ML.state.save();
+    var left = ML.state.item(id);
+    var card = function (t) { return '<div class="tr-card">' + ui.traitChip(t) + '<div class="muted small">[' + ML.traitGrades[ML.traits[t].grade].name + '] ' + ML.traits[t].desc + '</div></div>'; };
+    var md = ui.modal('<h3>🔮 ' + ML.species[mon.species].name + ' 특성 재추첨</h3><div class="iv-compare"><div><div class="section-t">원래</div>' + card(old) +
+      '<button class="btn" id="keep-old">원래 특성 유지</button></div><div><div class="section-t">새로 뽑은 특성</div>' + card(nu) +
+      '<button class="btn primary" id="take-new">새 특성으로 바꾸기</button></div></div>' +
+      '<div class="row" style="justify-content:center;margin-top:10px"><button class="btn" id="again"' + (left ? '' : ' disabled') + '>🔮 다시 돌리기 (부적 1개 더 · 남은 ' + left + '개)</button></div>', null, true);
+    var done = function (t) { mon.traits[slot] = t; ML.state.save(); ui.closeModal(); renderBag(); };
+    md.querySelector('#keep-old').onclick = function () { done(old); ui.toast('원래 특성을 유지했다.'); };
+    md.querySelector('#take-new').onclick = function () { done(nu); ui.toast(ML.traits[nu].name + '(으)로 바뀌었다!'); };
+    md.querySelector('#again').onclick = function () { rerollTrait(id, mon, slot); };
   }
 
   // 전투 밖에서 회복 아이템 쓰기(기절한 몬스터에게는 못 씀)

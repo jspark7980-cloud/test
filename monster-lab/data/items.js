@@ -16,6 +16,7 @@ ML.items = {
   cure:         { name: '만능 해독제', icon: '💊', kind: 'heal', price: 25, fx: { cure: true },   desc: '상태 이상 해제' },
 
   ivpill:       { name: '개체 재추첨약', icon: '🎲', kind: 'iv', price: 300, desc: '몬스터 1마리의 개체값 4개를 새로 뽑는다. 결과를 보고 새 값과 원래 값 중 고를 수 있다' },
+  traitcharm:   { name: '특성 재추첨 부적', icon: '🔮', kind: 'trait', price: 400, desc: '몬스터의 특성 1개를 골라 새로 뽑는다. 원래 특성과 새 특성 중 고를 수 있다' },
   fusionstone:  { name: '합성석',      icon: '💠', kind: 'fusion', price: 150, desc: '합성에 1개 쓴다' },
   charm:        { name: '계승 부적',   icon: '🧿', kind: 'fusion', price: 200, unlock: 2, desc: '합성: 부모 특성을 더 많이 물려받는다' },
   catalyst:     { name: '돌연변이 촉매', icon: '🧫', kind: 'fusion', price: 250, unlock: 2, desc: '합성: 돌연변이 5% → 15%' },
@@ -24,4 +25,4 @@ ML.items = {
 
 // 상점 진열 순서. unlock: 그 지역이 열려야 판다(보조 아이템은 2지역부터)
 ML.shopList = ['ball', 'greatball', 'ball_fire', 'ball_water', 'ball_leaf', 'ball_rock', 'ball_thunder', 'ball_shadow',
-  'potion', 'superpotion', 'cure', 'ivpill', 'fusionstone', 'charm', 'catalyst', 'purewater'];
+  'potion', 'superpotion', 'cure', 'ivpill', 'traitcharm', 'fusionstone', 'charm', 'catalyst', 'purewater'];

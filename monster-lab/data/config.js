@@ -69,6 +69,9 @@ ML.config = {
     },
   },
 
+  // 특성 재추첨 부적이 쓰는 등급표(전설·숨겨진 몬스터는 'legendary')
+  traitCharmTable: 'high',
+
   // 적 AI
   // 교환 효율 = (내 최고 공격이 깎는 상대 체력 비율) ÷ (상대 최고 공격이 깎는 내 체력 비율)
   // 효율이 switchIfBelow 이하면 "크게 불리" → 효율이 switchGain배 이상인 대기 몬스터가 있으면 switchChance 확률로 교체
