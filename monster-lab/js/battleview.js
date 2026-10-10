@@ -43,7 +43,7 @@ var ML = window.ML = window.ML || {};
     return '<div class="bench">' + s.units.map(function (u, i) {
       var hp = V.disp.hp[u.mon.uid], pct = Math.max(0, hp / u.stats.hp * 100);
       return '<div class="b-slot' + (i === V.disp.active[side] ? ' on' : '') + (hp <= 0 ? ' down' : '') + '">' +
-        ML.art.svg(u.mon.species, { size: 40, shiny: u.mon.shiny, flip: side === 1 }) +
+        ML.art.svg(u.mon.species, { size: 40, shiny: u.mon.shiny, flip: side === 1, mega: u.mega }) +
         '<div class="mini"><i style="width:' + pct + '%"></i></div></div>';
     }).join('') + '</div>';
   }
@@ -56,10 +56,10 @@ var ML = window.ML = window.ML || {};
     for (var k in u.stages) if (u.stages[k]) badges += '<span class="badge ' + (u.stages[k] > 0 ? 'up' : 'down') + '">' + ML.STAT_NAMES[k] + ' ' + (u.stages[k] > 0 ? '+' : '') + u.stages[k] + '</span>';
     for (var m in u.sealed) badges += '<span class="badge down">봉인: ' + ML.moves[m].name + ' ' + u.sealed[m] + '</span>';
     if (ML.abilities[sp.ability].key === 'dayNight') badges += '<span class="badge">' + (u.form === 'day' ? '☀️ 낮' : '🌙 밤') + '</span>';
-    return '<div class="info" data-uid="' + u.mon.uid + '"><div class="top"><span class="nm">' + (u.mon.shiny ? '✨' : '') + sp.name + '</span><span>Lv ' + u.mon.level + '</span></div>' +
+    return '<div class="info" data-uid="' + u.mon.uid + '"><div class="top"><span class="nm">' + (u.mon.shiny ? '✨' : '') + (u.mega ? ML.megas[u.mon.species].name : sp.name) + '</span><span>Lv ' + u.mon.level + '</span></div>' +
       '<div class="row" style="gap:6px;margin-top:2px">' + ui.elChips(sp.els) + '</div>' +
       '<div class="hp"><i class="' + cls + '" style="width:' + pct + '%"></i></div>' +
-      '<div class="hpnum"><span>' + ML.abilities[sp.ability].name + '</span><span>' + hp + ' / ' + u.stats.hp + '</span></div>' +
+      '<div class="hpnum"><span>' + ML.abilities[sp.ability].name + (u.mega ? ' + ' + ML.megas[u.mon.species].ability : '') + '</span><span>' + hp + ' / ' + u.stats.hp + '</span></div>' +
       '<div class="badges">' + badges + '</div>' + ui.traitChips(u.mon.traits) + '</div>';
   }
 
@@ -77,13 +77,17 @@ var ML = window.ML = window.ML || {};
     }).join('');
     if (me.mon.moves.every(function (id) { return me.sealed[id]; })) moves += '<button class="move" data-move=""' + (canAct ? '' : ' disabled') + '>기다리기</button>';
     var canSwitch = canAct && b.bench(0).length > 0;
+    // 메가진화: 켜 두고 기술을 고르면 그 턴 시작에 변신
+    var megaBtn = '';
+    if (b.canMega(me)) megaBtn = '<button class="btn mega-btn' + (V.megaOn ? ' on' : '') + '" id="mega"' + (canAct ? '' : ' disabled') + '>💎 메가진화' + (V.megaOn ? ' ON' : '') + '</button>';
+    else V.megaOn = false;
     screen.innerHTML = '<div class="battle"><div class="field' + (b.field.rain ? ' rain' : '') + '">' +
       (b.field.rain ? '<div class="weather">🌧️ 비 ' + b.field.rain + '턴</div>' : '') +
-      '<div class="side">' + '<div class="sprite" id="sp0">' + ML.art.svg(me.mon.species, { size: 200, shiny: me.mon.shiny }) + '</div><div class="side-info">' + benchRow(0) + infoBox(me) + '</div></div>' +
-      '<div class="side foe">' + '<div class="side-info">' + benchRow(1) + infoBox(foe) + '</div><div class="sprite" id="sp1">' + ML.art.svg(foe.mon.species, { size: 200, shiny: foe.mon.shiny, flip: true }) + '</div></div>' +
+      '<div class="side">' + '<div class="sprite" id="sp0">' + ML.art.svg(me.mon.species, { size: 200, shiny: me.mon.shiny, mega: me.mega }) + '</div><div class="side-info">' + benchRow(0) + infoBox(me) + '</div></div>' +
+      '<div class="side foe">' + '<div class="side-info">' + benchRow(1) + infoBox(foe) + '</div><div class="sprite" id="sp1">' + ML.art.svg(foe.mon.species, { size: 200, shiny: foe.mon.shiny, flip: true, mega: foe.mega }) + '</div></div>' +
       '</div><div class="controls"><div class="moves">' + moves + '</div><div class="log" id="log"></div></div>' +
       '<div class="row" style="justify-content:space-between"><span class="muted">' + (V.opts.trainer ? V.opts.trainer.icon + ' ' + V.opts.trainer.name + ' · ' : V.opts.kind === 'wild' ? '🌿 야생 · ' : '') + '턴 ' + b.turnNo + '</span>' +
-      '<div class="row"><button class="btn" id="sw"' + (canSwitch ? '' : ' disabled') + '>🔄 교체</button>' +
+      '<div class="row">' + megaBtn + '<button class="btn" id="sw"' + (canSwitch ? '' : ' disabled') + '>🔄 교체</button>' +
       (V.opts.bag ? '<button class="btn" id="bag"' + (canAct ? '' : ' disabled') + '>🎒 가방</button>' : '') +
       (V.opts.kind === 'wild' ? '<button class="btn" id="run"' + (canAct ? '' : ' disabled') + '>🏃 도망</button>' : '') +
       (V.opts.kind === 'test' ? '<button class="btn" id="quit">그만두기</button>' : '') + '</div></div></div>';
@@ -92,10 +96,11 @@ var ML = window.ML = window.ML || {};
     if (!log.children.length) log.innerHTML = '<p class="muted">기술을 고르거나 교체하세요. 교체도 1턴을 씁니다.</p>';
     log.scrollTop = log.scrollHeight;
     screen.querySelectorAll('[data-move]').forEach(function (btn) {
-      btn.onclick = function () { act({ type: 'move', move: btn.dataset.move || null }); };
+      btn.onclick = function () { var mg = !!V.megaOn; V.megaOn = false; act({ type: 'move', move: btn.dataset.move || null, mega: mg }); };
     });
     ui.$('#sw').onclick = function () { pickSwitch(false); };
     if (ui.$('#bag')) ui.$('#bag').onclick = openBag;
+    if (ui.$('#mega')) ui.$('#mega').onclick = function () { V.megaOn = !V.megaOn; render(); if (V.megaOn) ui.toast('기술을 고르면 그 턴 시작에 메가진화한다!'); };
     if (ui.$('#run')) ui.$('#run').onclick = function () { act({ type: 'run' }); };
     if (ui.$('#quit')) ui.$('#quit').onclick = function () { if (!V.busy) { V = null; ML.app.show('lab'); } };
   }
@@ -187,7 +192,7 @@ var ML = window.ML = window.ML || {};
   function play(instant) {
     var v = V, b = v.battle;
     v.busy = true;
-    screen.querySelectorAll('.move, #sw, #bag, #run').forEach(function (x) { x.disabled = true; });
+    screen.querySelectorAll('.move, #sw, #bag, #run, #mega').forEach(function (x) { x.disabled = true; });
     var step = function () {
       if (V !== v) return;
       if (v.shown >= b.log.length) {
@@ -228,6 +233,12 @@ var ML = window.ML = window.ML || {};
           setTimeout(function () { sc.classList.remove('capturing'); sc.classList.add(e.ok ? 'caught' : 'broke'); }, 500 + e.shakes * 450);
           delay = 700 + e.shakes * 450;
         }
+      }
+      if (e.mega !== undefined && !instant) {
+        render();
+        var sm = ui.$('#sp' + e.mega);
+        if (sm) sm.classList.add('mega-flash');
+        delay = 1100;
       }
       if (e.faint !== undefined) { var sf = ui.$('#sp' + e.faint); if (sf) sf.classList.add('faint'); delay = instant ? 0 : 650; }
       setTimeout(step, delay);

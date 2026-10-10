@@ -171,14 +171,14 @@ var ML = window.ML = window.ML || {};
     ML.state.markSeen(mon.species);
     ML.state.saveRng(rng);
     ML.state.save();
-    startBattle([mon], { kind: 'wild', rng: rng, legend: true });
+    startBattle([mon], { kind: 'wild', rng: rng, legend: true, stone: p.stone });
   }
 
   // ── 트레이너·보스 ─────────────────────────────────
   function fightTrainer(tid) {
     if (!needAlive()) return;
     var tr = ML.trainers[tid], rng = ML.state.rng(), g = ML.game;
-    var foes = tr.team.map(function (t) { return ML.createMonster(t[0], t[1], rng, { traitTable: g.region >= 3 ? 'high' : 'low' }); });
+    var foes = tr.team.map(function (t) { var m = ML.createMonster(t[0], t[1], rng, { traitTable: g.region >= 3 ? 'high' : 'low' }); if (t[2]) m.held = t[2]; return m; });
     // "특성 보유 몬스터"를 쓰는 보스: 몬스터마다 금 이상 특성을 1개 보장
     if (tr.goodTraits) foes.forEach(function (m) {
       if (m.traits.some(function (t) { var gr = ML.traits[t].grade; return gr === 'gold' || gr === 'legend'; })) return;
@@ -236,6 +236,11 @@ var ML = window.ML = window.ML || {};
       if (o.legend) { var pg = ML.state.prog(); pg.legendCaught = (+pg.legendCaught || 0) + 1; h += '<p class="lvup">✨ 전설의 몬스터를 손에 넣었다! (' + pg.legendCaught + '마리째)</p>'; }
       h += '<p>' + ML.species[r.captured.species].name + '은(는) ' + (where === 'party' ? '파티에 들어갔다!' : '파티가 가득 차서 보관함으로 보냈다.') + '</p>';
     }
+    // 5~7지역 전설 장소: 처음 이기거나 잡으면 그 전설의 메가 결정
+    if (o.stone && (r.captured || r.winner === 0)) {
+      var ps = ML.state.prog();
+      if (!ps.stoneGot) { ps.stoneGot = true; ML.state.addItem(o.stone); h += '<p class="lvup">💎 ' + ML.items[o.stone].name + '을(를) 얻었다! 지니게 하면 전투에서 메가진화할 수 있다.</p>'; }
+    }
     if (r.winner === 0 && !r.captured) {
       g.stats.wins++;
       var gold = Math.round((o.trainer ? o.trainer.gold : foes[0].level * c.wildGold) * ML.state.goldMul());
@@ -268,13 +273,13 @@ var ML = window.ML = window.ML || {};
     if (r.winner === 0 && o.trainer && o.trainer.boss) {
       var next = ML.regions[g.region + 1];
       var m = ui.modal('<div class="intro"><div class="t-icon">🏅</div><h3>' + region().name + ' 정복!</h3><p>' + o.trainer.name + '을(를) 이겼다.</p>' +
-        '<p class="muted">' + (next ? (next.locked ? '다음 지역인 ' + next.name + '은(는) ' + next.locked + '.' : '지도에서 다음 지역 「' + next.name + '」에 갈 수 있다!' + (g.region === 1 ? ' 연구소에 합성소·부화장이 열렸다.' : '')) : '') + '</p>' +
+        '<p class="muted">' + (next ? (next.locked ? '다음 지역인 ' + next.name + '은(는) ' + next.locked + '.' : '지도에서 다음 지역 「' + next.name + '」에 갈 수 있다!' + (g.region === 1 ? ' 연구소에 합성소·부화장이 열렸다.' : g.region === 4 ? ' 이제부터 상점에서 메가 결정을 판다.' : '')) : '') + '</p>' +
         '<div class="row" style="justify-content:center"><button class="btn primary" data-close>좋아!</button></div></div>', function () { ML.app.show('map'); }, true);
       return;
     }
     ML.app.show(r.winner === 1 ? 'hub' : 'map');
   }
-  // ── 엔딩: 4지역 보스를 이긴 뒤 ────────────────────
+  // ── 엔딩: 마지막 지역(7) 보스를 이긴 뒤 ────────────────────
   function ending() {
     var g = ML.game, ids = Object.keys(ML.species);
     var caught = ids.filter(function (id) { return g.dex.caught[id]; }).length;
@@ -282,13 +287,13 @@ var ML = window.ML = window.ML || {};
     var mins = Math.round((g.playMs || 0) / 60000);
     ML.app.battleMode();
     screen.innerHTML = '<div class="ending"><div class="end-sky">' + g.party.map(function (m) { return ML.art.svg(m.species, { size: 170, shiny: m.shiny }); }).join('') + '</div>' +
-      '<h1>🏆 네 지역을 모두 정복했다!</h1><p class="muted">햇살 들판에서 시작한 여행이 잿빛 화산령 정상에서 끝났다. 연구소의 기록이 한 권 완성되었다.</p>' +
+      '<h1>🏆 일곱 지역을 모두 정복했다!</h1><p class="muted">햇살 들판에서 시작한 여행이 근원의 하늘섬, 첫 연구소에서 끝났다. 연구소의 기록이 한 권 완성되었다.</p>' +
       '<div class="end-stats">' + [
         ['잡은 종', caught + ' / ' + ids.length], ['만난 종', Object.keys(g.dex.seen).length], ['합성', (g.stats.fusions || 0) + '번'],
         ['전투', g.stats.battles + '번'], ['포획', g.stats.caught + '마리'], ['최고 레벨', top ? ML.species[top.species].name + ' Lv ' + top.level : '-'],
         ['색다른 개체', Object.keys(g.dex.shiny || {}).length + '종'], ['플레이 시간', mins >= 60 ? Math.floor(mins / 60) + '시간 ' + (mins % 60) + '분' : mins + '분'],
       ].map(function (r) { return '<div><span class="muted small">' + r[0] + '</span><b>' + r[1] + '</b></div>'; }).join('') + '</div>' +
-      '<p class="muted">아직 끝이 아니다. 각 지역 보스 옆의 전설 장소, 그리고 전설 두 마리를 합성하면 태어난다는 숨겨진 몬스터가 기다린다.</p>' +
+      '<p class="muted">아직 끝이 아니다. 각 지역의 전설 장소와 태초의 샘, 그리고 모든 메가 결정이 기다린다.</p>' +
       '<button class="btn primary big" id="end-go">계속 여행하기</button></div>';
     ui.$('#end-go').onclick = function () { ML.app.show('map'); };
   }

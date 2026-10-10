@@ -82,11 +82,12 @@ ML.heldFx = function (mon, key) {
 };
 
 // 능력치 = 종족값 × (1 + 레벨 × k) × 개체값 × (1 + 특성%). 체력은 + 레벨 × 2
-ML.calcStats = function (mon) {
+// mega: 메가진화 상태면 종족값에 메가 보너스를 더한다(체력 제외)
+ML.calcStats = function (mon, mega) {
   var c = ML.config, sp = ML.species[mon.species], lv = mon.level;
-  var mul = 1 + lv * c.statPerLevel, out = {};
+  var mul = 1 + lv * c.statPerLevel, out = {}, mb = mega && ML.megas[mon.species] ? ML.megas[mon.species].bonus : {};
   ['hp', 'atk', 'def', 'spd'].forEach(function (k) {
-    var v = sp.stats[k] * mul * mon.ivs[k];
+    var v = (sp.stats[k] + (k === 'hp' ? 0 : mb[k] || 0)) * mul * mon.ivs[k];
     if (k === 'hp') v += lv * c.hpPerLevel;
     else v *= 1 + ML.traitSum(mon, k) + ML.heldFx(mon, k);
     out[k] = Math.max(1, Math.round(v));

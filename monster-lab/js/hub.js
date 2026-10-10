@@ -213,6 +213,13 @@ var ML = window.ML = window.ML || {};
         if (!findMon(m.uid)) return '';
         var it = m.held && ML.items[m.held];
         return '<div class="section-t">지닌 물건</div><div class="trait-line">' + (it ? it.icon + ' <b>' + it.name + '</b> <span class="muted small">' + it.desc + '</span>' : '<span class="muted">없음</span>') +
+          (function () {
+            var mg = it && it.fx && it.fx.megaStone && ML.megas[it.fx.megaStone];
+            if (!mg) return '';
+            if (it.fx.megaStone !== m.species) return '<div class="hint bad small">이 몬스터에게는 맞지 않는 메가 결정이다.</div>';
+            var b = mg.bonus;
+            return '<div class="small" style="margin-top:4px">💎 전투에서 <b>' + mg.name + '</b>(으)로 메가진화 가능 · 공격 +' + b.atk + ' 방어 +' + b.def + ' 속도 +' + b.spd + '(종족값) · <b>' + mg.ability + '</b>: ' + mg.desc + '</div>';
+          })() +
           ' <button class="btn sm" data-held="give">' + (it ? '바꾸기' : '장착') + '</button>' + (it ? ' <button class="btn sm" data-held="take">해제</button>' : '') + '</div>';
       })() +
       '<div class="section-t">특성</div>' + m.traits.map(function (t) { return '<div class="trait-line">' + ui.traitChip(t) + ' <span class="muted small">' + ML.traits[t].desc + '</span></div>'; }).join('') +

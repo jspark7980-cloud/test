@@ -16,6 +16,7 @@ ML.Battle = function (opts) {
   this.captured = null;
   this.escaped = false;
   this.potions = [0, opts.foePotions || 0];
+  this.megaUsed = [false, false];   // 메가진화는 편마다 전투당 1번
   var self = this;
   this.sides = [opts.mine, opts.foe].map(function (mons, i) {
     var first = Math.max(0, mons.findIndex(function (m) { return m.hp > 0; }));
@@ -40,8 +41,25 @@ B.makeUnit = function (mon, side) {
 };
 
 B.name = function (u) {
-  return (u.side === 0 ? '' : '상대 ') + ML.species[u.mon.species].name;
+  return (u.side === 0 ? '' : '상대 ') + (u.mega ? ML.megas[u.mon.species].name : ML.species[u.mon.species].name);
 };
+
+// ── 메가진화 ─────────────────────────────────────────
+B.canMega = function (u) {
+  var it = u.mon.held && ML.items[u.mon.held];
+  return !!(!u.mega && !this.megaUsed[u.side] && u.mon.hp > 0 && it && it.fx && it.fx.megaStone === u.mon.species && ML.megas[u.mon.species]);
+};
+B.doMega = function (u) {
+  if (!this.canMega(u)) return false;
+  var before = ML.species[u.mon.species].name;
+  u.mega = true; this.megaUsed[u.side] = true;
+  u.stats = ML.calcStats(u.mon, true);
+  this.log.push({ mega: u.side, uid: u.mon.uid });
+  this.say((u.side === 0 ? '' : '상대 ') + before + '의 메가 결정이 빛난다… ' + ML.megas[u.mon.species].name + '(으)로 메가진화했다!', 'crit');
+  if (this.megaFx(u, 'rainForever')) { this.field.rain = ML.config.ability.rainTurns; this.say('끝없는 폭풍이 몰아친다!', 'field'); }
+  return true;
+};
+B.megaFx = function (u, key) { return (u.mega && ML.megas[u.mon.species].fx[key]) || 0; };
 B.say = function (msg, kind) { this.log.push({ msg: ML.josa(msg), kind: kind || '' }); };
 B.active = function (side) { var s = this.sides[side]; return s.units[s.active]; };
 B.ability = function (u) { var a = ML.abilities[ML.species[u.mon.species].ability]; return a && a.key; };
@@ -149,14 +167,17 @@ B.calcDamage = function (att, def, move, forecast) {
     if (att.form === 'night' && move.el === 'shadow') atkMod *= 1 + c.ability.dayNightBonus;
   }
   if (ML.heldFx(att.mon, 'elBoost') === move.el) atkMod *= 1 + c.held.elBoost;
+  var meb = this.megaFx(att, 'elBoost');
+  if (meb && meb[move.el]) atkMod *= 1 + meb[move.el];
   atkMod *= 1 + ML.heldFx(att.mon, 'dmgUp');
   dmg *= atkMod;
   if (this.ability(def) === 'damageReduce' || this.ability(def) === 'steam') dmg *= 1 - c.ability.damageReduce;
+  dmg *= 1 - this.megaFx(def, 'dmgReduce');
 
   if (forecast) return { dmg: dmg, type: type };
 
   var crit = false;
-  var cp = c.critChance + ML.traitSum(att.mon, 'crit') + ML.traitSum(def.mon, 'critTaken') + ((move.fx && move.fx.crit) || 0) + ML.heldFx(att.mon, 'crit');
+  var cp = c.critChance + ML.traitSum(att.mon, 'crit') + ML.traitSum(def.mon, 'critTaken') + ((move.fx && move.fx.crit) || 0) + ML.heldFx(att.mon, 'crit') + this.megaFx(att, 'crit');
   if (this.ability(att) === 'critUp' || this.ability(att) === 'thunderCrit') cp += c.ability.critBonus;
   if (rng.chance(cp)) { crit = true; dmg *= c.critMultiplier; }
   dmg *= rng.range(d.randMin, d.randMax);
@@ -181,6 +202,11 @@ B.turn = function (actions) {
     var a = actions[i];
     if (a && a.type === 'switch' && self.bench(i).indexOf(a.to) >= 0) self.doSwitch(i, a.to);
   });
+  // 메가진화: 내 편은 고른 경우, 상대(AI)는 할 수 있으면 바로
+  sides.forEach(function (i) {
+    var a = actions[i];
+    if (a && a.type === 'move' && (a.mega || i === 1)) self.doMega(self.active(i));
+  });
   // 2) 도망·아이템·포획(내 편 먼저)
   for (var k = 0; k < 2 && !this.over; k++) {
     var a = actions[k];
@@ -194,7 +220,7 @@ B.turn = function (actions) {
   var order = [0, 1].filter(function (i) { return actions[i] && actions[i].type === 'move'; })
     .map(function (i) { return { u: self.active(i), r: rng() }; });
   order.sort(function (a, b) {
-    var fa = ML.hasTraitFx(a.u.mon, 'firstStrike') ? 1 : 0, fb = ML.hasTraitFx(b.u.mon, 'firstStrike') ? 1 : 0;
+    var fa = ML.hasTraitFx(a.u.mon, 'firstStrike') || self.megaFx(a.u, 'firstStrike') ? 1 : 0, fb = ML.hasTraitFx(b.u.mon, 'firstStrike') || self.megaFx(b.u, 'firstStrike') ? 1 : 0;
     if (fa !== fb) return fb - fa;
     var sa = self.effSpeed(a.u), sb = self.effSpeed(b.u);
     if (sa !== sb) return sb - sa;
@@ -327,6 +353,8 @@ B.useMove = function (u, foe, moveId, mimicked) {
     if (ls) heal += dealt * ls;
     if (move.fx && move.fx.drain) heal += dealt * move.fx.drain;
     if (heal > 0 && u.mon.hp > 0) this.heal(u, Math.max(1, Math.round(heal)), '체력을 흡수했다');
+    var bh = this.megaFx(u, 'burnOnHit');
+    if (bh && foe.mon.hp > 0 && dealt > 0 && !foe.mon.status && rng.chance(bh)) { this.say(this.name(u) + '의 작열하는 불꽃!', 'ability'); this.inflict(foe, 'burn', 1); }
     // 생명의 구슬: 공격할 때마다 반동
     var rc = ML.heldFx(u.mon, 'recoil');
     if (rc && u.mon.hp > 0 && dealt > 0) { this.say(this.name(u) + '은(는) 생명의 구슬 반동을 받았다.', 'dot'); this.applyDamage(u, Math.max(1, Math.round(u.stats.hp * rc)), {}); }
@@ -446,6 +474,8 @@ B.endOfTurn = function () {
     }
     var rg = ML.traitSum(u.mon, 'regen') + (self.ability(u) === 'mossRegen' ? c.ability.mossRegen : 0);
     if (rg && u.mon.hp > 0) self.heal(u, Math.max(1, Math.round(u.stats.hp * rg)), '재생으로 회복했다');
+    var mr = self.megaFx(u, 'regen');
+    if (mr && u.mon.hp > 0) self.heal(u, Math.max(1, Math.round(u.stats.hp * mr)), '메가 능력으로 회복했다');
     var hr = ML.heldFx(u.mon, 'regen');
     if (hr && u.mon.hp > 0) self.heal(u, Math.max(1, Math.round(u.stats.hp * hr)), '먹다 남은 열매로 회복했다');
     for (var m in u.sealed) { if (--u.sealed[m] <= 0) delete u.sealed[m]; }
@@ -455,7 +485,9 @@ B.endOfTurn = function () {
       self.say(self.name(u) + '이(가) ' + (u.form === 'day' ? '낮' : '밤') + '의 모습으로 바뀌었다!', 'ability');
     }
   });
-  if (this.field.rain > 0 && --this.field.rain === 0) this.say('비가 그쳤다.', 'field');
+  var storm = [0, 1].some(function (i) { var a = self.active(i); return a.mon.hp > 0 && self.megaFx(a, 'rainForever'); });
+  if (storm) this.field.rain = c.ability.rainTurns;
+  else if (this.field.rain > 0 && --this.field.rain === 0) this.say('비가 그쳤다.', 'field');
 };
 
 B.checkFaint = function () {

@@ -334,3 +334,10 @@ select, input { font: inherit; }
 .trait-pick { display: flex; flex-direction: column; gap: 8px; }
 .trait-pick .tp { flex-direction: row; align-items: center; gap: 10px; background: var(--panel2); border-radius: 12px; padding: 10px; }
 .tr-card { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; min-height: 70px; }
+/* 메가진화 */
+.mega-btn { background: linear-gradient(135deg, #ff7ad9, #7ae8ff); color: #10131c; font-weight: 900; border: 0; }
+.mega-btn.on { box-shadow: 0 0 0 3px #fff, 0 0 18px #ff7ad9; }
+.mega-flash { animation: megaflash 1s ease-out; }
+@keyframes megaflash { 0% { filter: brightness(4) saturate(0); transform: scale(0.8); } 60% { filter: brightness(1.8); transform: scale(1.12); } 100% { filter: none; transform: none; } }
+.mega-ring { transform-origin: 100px 104px; animation: megaspin 8s linear infinite; }
+@keyframes megaspin { to { transform: rotate(360deg); } }

@@ -40,9 +40,21 @@ ML.items = {
   lifeorb:      { name: '생명의 구슬', icon: '💗', kind: 'held', price: 0, shop: false, fx: { dmgUp: 0.3, recoil: 0.05 }, desc: '주는 피해 +30%, 공격할 때마다 최대 체력 5% 잃음 (대련장 보상)' },
   focussash:    { name: '버팀 머리띠', icon: '🥋', kind: 'held', price: 0, shop: false, fx: { sash: true }, desc: '체력이 가득할 때 쓰러질 공격을 받으면 체력 1로 버틴다(전투당 1회) (대련장 보상)' },
   kingcrown:    { name: '왕의 왕관',   icon: '👑', kind: 'held', price: 0, shop: false, fx: { atk: 0.1, def: 0.1, spd: 0.1 }, desc: '공격·방어·속도 +10% (대련장 보상)' },
+
+  // 메가 결정 [제안]: 그 종이 지니면 전투에서 메가진화. 3단계용은 5지역부터 상점, 전설용은 5~7지역 전설 장소에서 처음 이기거나 잡으면 얻는다
+  mega_furnacerat: { name: '용광서 메가 결정', icon: '💎', kind: 'held', price: 2500, unlock: 5, fx: { megaStone: 'furnacerat' }, desc: '용광서 전용. 지니고 있으면 전투에서 한 번 메가진화할 수 있다' },
+  mega_tidalshell: { name: '해일갑각 메가 결정', icon: '💎', kind: 'held', price: 2500, unlock: 5, fx: { megaStone: 'tidalshell' }, desc: '해일갑각 전용. 지니고 있으면 전투에서 한 번 메가진화할 수 있다' },
+  mega_eldwarden: { name: '고목수호 메가 결정', icon: '💎', kind: 'held', price: 2500, unlock: 5, fx: { megaStone: 'eldwarden' }, desc: '고목수호 전용. 지니고 있으면 전투에서 한 번 메가진화할 수 있다' },
+  mega_stormphoenix: { name: '천둥봉황 메가 결정', icon: '💎', kind: 'held', price: 2500, unlock: 5, fx: { megaStone: 'stormphoenix' }, desc: '천둥봉황 전용. 지니고 있으면 전투에서 한 번 메가진화할 수 있다' },
+  mega_ridgebear: { name: '산맥곰 메가 결정', icon: '💎', kind: 'held', price: 2500, unlock: 5, fx: { megaStone: 'ridgebear' }, desc: '산맥곰 전용. 지니고 있으면 전투에서 한 번 메가진화할 수 있다' },
+  mega_eclipsecat: { name: '월식묘 메가 결정', icon: '💎', kind: 'held', price: 2500, unlock: 5, fx: { megaStone: 'eclipsecat' }, desc: '월식묘 전용. 지니고 있으면 전투에서 한 번 메가진화할 수 있다' },
+  mega_eclipsedragon: { name: '일식룡 메가 결정', icon: '💎', kind: 'held', price: 0, shop: false, fx: { megaStone: 'eclipsedragon' }, desc: '일식룡 전용. 지니고 있으면 전투에서 한 번 메가진화할 수 있다 (전설 장소 보상)' },
+  mega_stormwhale: { name: '폭풍고래 메가 결정', icon: '💎', kind: 'held', price: 0, shop: false, fx: { megaStone: 'stormwhale' }, desc: '폭풍고래 전용. 지니고 있으면 전투에서 한 번 메가진화할 수 있다 (전설 장소 보상)' },
+  mega_worldtree: { name: '세계수거인 메가 결정', icon: '💎', kind: 'held', price: 0, shop: false, fx: { megaStone: 'worldtree' }, desc: '세계수거인 전용. 지니고 있으면 전투에서 한 번 메가진화할 수 있다 (전설 장소 보상)' },
 };
 
 // 상점 진열 순서. unlock: 그 지역이 열려야 판다(보조 아이템은 2지역부터)
 ML.shopList = ['ball', 'greatball', 'ball_fire', 'ball_water', 'ball_leaf', 'ball_rock', 'ball_thunder', 'ball_shadow',
   'potion', 'superpotion', 'cure', 'ivpill', 'traitcharm', 'fusionstone', 'charm', 'catalyst', 'purewater',
-  'orb_fire', 'orb_water', 'orb_leaf', 'orb_thunder', 'orb_rock', 'orb_shadow', 'powerband', 'hardshell', 'swiftfeather', 'sharpclaw', 'berry', 'purebell', 'luckycoin', 'learnkit'];
+  'orb_fire', 'orb_water', 'orb_leaf', 'orb_thunder', 'orb_rock', 'orb_shadow', 'powerband', 'hardshell', 'swiftfeather', 'sharpclaw', 'berry', 'purebell', 'luckycoin', 'learnkit',
+  'mega_furnacerat', 'mega_tidalshell', 'mega_eldwarden', 'mega_stormphoenix', 'mega_ridgebear', 'mega_eclipsecat'];

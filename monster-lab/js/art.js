@@ -228,11 +228,25 @@ var ML = window.ML = window.ML || {};
       g += claws(a.claws, b, p);
       g += eyes(a.eyes || 'big', b, p);
       }
+      // 메가진화: 몸을 키우고, 뒤에 가시 후광 + 머리 위에 메가 결정
+      var megaBack = '', megaFront = '';
+      if (opts.mega) {
+        var gid = 'mg' + (uid++), spikes = '';
+        for (var i = 0; i < 16; i++) {
+          var a1 = i / 16 * Math.PI * 2, a2 = (i + 0.5) / 16 * Math.PI * 2, r1 = i % 2 ? 78 : 92;
+          spikes += (i ? ' L' : 'M') + (100 + Math.cos(a1) * r1).toFixed(1) + ' ' + (104 + Math.sin(a1) * r1).toFixed(1) + ' L' + (100 + Math.cos(a2) * 58).toFixed(1) + ' ' + (104 + Math.sin(a2) * 58).toFixed(1);
+        }
+        megaBack = '<defs><radialGradient id="' + gid + '"><stop offset="0" stop-color="' + p.light + '" stop-opacity="0.75"/><stop offset="0.6" stop-color="' + p.main + '" stop-opacity="0.35"/><stop offset="1" stop-color="' + p.main + '" stop-opacity="0"/></radialGradient></defs>' +
+          '<circle cx="100" cy="104" r="96" fill="url(#' + gid + ')"/>' +
+          '<path class="mega-ring" d="' + spikes + ' Z" fill="none" stroke="' + p.light + '" stroke-width="3" opacity="0.8" filter="url(#glow)"/>';
+        megaFront = '<g filter="url(#glow)"><path d="M100 4 L114 20 L100 38 L86 20 Z" fill="#ff7ad9" stroke="#fff" stroke-width="2.5"/><path d="M100 10 L108 20 L100 31 L92 20 Z" fill="#7ae8ff"/><path d="M95 15 L100 10 L105 15" stroke="#fff" stroke-width="2" fill="none"/></g>';
+        tf = 'translate(100 172) scale(1.1) translate(-100 -172) ' + tf;
+      }
       var size = opts.size || 120;
       return '<svg class="mon-svg" viewBox="0 0 200 200" width="' + size + '" height="' + size + '" xmlns="http://www.w3.org/2000/svg">' +
         '<defs><filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>' +
         '<ellipse cx="100" cy="176" rx="' + (56 * scale) + '" ry="8" fill="#000" opacity="0.25"/>' +
-        '<g transform="' + tf + '">' + g + '</g>' + (opts.shiny ? sparkles() : '') + '</svg>';
+        megaBack + '<g transform="' + tf + '">' + g + '</g>' + megaFront + (opts.shiny ? sparkles() : '') + '</svg>';
     },
   };
 })();
