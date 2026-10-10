@@ -131,7 +131,9 @@ B.calcDamage = function (att, def, move, forecast) {
     defEls.forEach(function (e) { if (ML.elements.beats[move.el] === e) type *= c.typeAdvantage; });
   }
   dmg *= type;
-  if (attEls.indexOf(move.el) >= 0) dmg *= c.stab + (ML.hasTraitFx(att.mon, 'stabBonus') ? c.traitStabBonus : 0);
+  var originAtt = this.ability(att) === 'origin';     // 근원: 모든 기술이 자속 보정, 주는 피해 +20%
+  if (originAtt || attEls.indexOf(move.el) >= 0) dmg *= c.stab + (ML.hasTraitFx(att.mon, 'stabBonus') ? c.traitStabBonus : 0);
+  if (originAtt) dmg *= 1 + c.ability.originBonus;
 
   // 공격 보정
   var atkMod = 1;

@@ -47,7 +47,7 @@ ML.abilities = {
   dayNight: {"key": "dayNight", "name": "낮·밤 전환", "desc": "매 턴 끝 낮↔밤. 낮: 불꽃 기술 +30% / 밤: 그림자 기술 +30%·속도 +20%"},
   rain: {"key": "rain", "name": "비 내리기", "desc": "등장 시 비 5턴: 물결·번개 기술 +30%"},
   revive: {"key": "revive", "name": "1회 부활", "desc": "전투당 1회, 쓰러지면 체력 40%로 부활"},
-  originTBD: {"key": "origin", "name": "근원의 힘", "desc": "상성이 없다(주고받는 피해 모두 ×1). 턴이 끝날 때마다 공격 +1(최대 +3)"},
+  originTBD: {"key": "origin", "name": "근원의 힘", "desc": "상성 없음. 모든 속성의 기술이 자기 속성 보정(×1.2)을 받고, 주는 피해 +20%. 턴이 끝날 때마다 공격 +1(최대 +3)"},
 };
 
 ML.species = {
@@ -186,7 +186,7 @@ ML.species = {
   worldtree: { name: "세계수거인", els: ["leaf", "rock"], stage: 0, rarity: "legend", stats: { hp: 150, atk: 113, def: 141, spd: 66 }, fusionValue: 99, evolve: null, ability: "revive",
     learn: [[1, "leaf"], [1, "pebble"], [10, "petalstorm"], [20, "landslide"], [30, "photosyn"], [40, "treefall"], [45, "quake"]],
     art: {"body": "oval", "horns": ["antler", 3], "tail": "leaf", "wings": 2, "pattern": "swirl", "claws": 3, "aura": 2, "eyes": "glow"} },
-  primordial: { name: "태초수", els: ["origin"], stage: 0, rarity: "hidden", stats: { hp: 135, atk: 135, def: 125, spd: 125 }, fusionValue: 100, evolve: null, ability: "originTBD",
-    learn: [[1, "originbeam"], [1, "warcry"], [10, "spring"], [20, "eruption"], [30, "tidal"], [40, "treefall"], [45, "thunderfall"], [48, "eclipse"]],
+  primordial: { name: "태초수", els: ["origin"], stage: 0, rarity: "hidden", stats: { hp: 146, atk: 146, def: 134, spd: 134 }, fusionValue: 100, evolve: null, ability: "originTBD",
+    learn: [[1, "originbeam"], [1, "warcry"], [10, "spring"], [20, "eruption"], [30, "tidal"], [40, "thunderfall"], [45, "eclipse"], [50, "genesis"]],
     art: {"body": "round", "horns": ["crown", 3], "wings": 2, "tail": "wisp", "pattern": "swirl", "aura": 3, "eyes": "glow"} },
 };

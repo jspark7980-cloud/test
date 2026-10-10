@@ -53,6 +53,7 @@ ML.config = {
     reviveHpPct: 0.4,       // 세계수거인
     sealTurns: 2,           // 기술 봉인
     // 합성 전용종
+    originBonus: 0.2,       // 태초수: 주는 피해 +20%
     steamBurn: 0.2, thunderCritPara: 0.5, mossRegen: 0.04, phantomEvasion: 0.15, sporeSleep: 0.2,
   },
 

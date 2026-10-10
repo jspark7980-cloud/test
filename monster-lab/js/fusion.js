@@ -41,7 +41,7 @@ var ML = window.ML = window.ML || {};
     var egg = {
       id: 'e' + Date.now().toString(36),
       species: res,
-      level: hatchLevel(a, b),
+      level: isLegendary(res) ? Math.ceil((a.level + b.level) / 2) : hatchLevel(a, b),   // 전설·숨겨진 몬스터는 부모 평균 레벨로
       pool: pool(a, b, noBad),
       parentTraits: pool(a, b, false),
       ivs: {}, moves: [],
@@ -156,7 +156,7 @@ var ML = window.ML = window.ML || {};
       var special = ML.fusionTable.some(function (t) { return t[2] === res; }) || res === 'primordial';
       prev = '<div class="f-result">' + (res === 'primordial' && !g.dex.caught[res] ? '<div class="q big">?</div>' : ML.art.svg(res, { size: 130 })) +
         '<div><div class="small muted">예상 결과' + (special ? ' — ✨특수 조합' : a.species === b.species ? ' — 같은 종' : ' — 합성 값 평균 ' + ((ML.species[a.species].fusionValue + ML.species[b.species].fusionValue) / 2)) + '</div>' +
-        '<h3>' + speciesName(res) + '</h3>' + ui.elChips(sp.els) + '<div class="small">부화 Lv ' + hatchLevel(a, b) + ' · 전투 ' + c.hatchBattles + '번 뒤 부화</div></div></div>' +
+        '<h3>' + speciesName(res) + '</h3>' + ui.elChips(sp.els) + '<div class="small">부화 Lv ' + (isLegendary(res) ? Math.ceil((a.level + b.level) / 2) : hatchLevel(a, b)) + ' · 전투 ' + c.hatchBattles + '번 뒤 부화</div></div></div>' +
         '<div class="section-t">계승 가능한 특성 풀 (' + pl.length + '개) — 실제 특성은 부화 때 공개</div>' + (pl.length ? ui.traitChips(pl) : '<p class="muted small">없음</p>') +
         '<div class="small muted" style="margin-top:6px">풀에서 물려받는 개수: ' + Object.keys(table).map(function (k) { return k + '개 ' + table[k] + '%'; }).join(' · ') +
         ' (나머지 칸은 새 특성) · 돌연변이 ' + Math.round((pick.aids.catalyst ? c.mutationCatalyst : c.mutation) * 100) + '% · 기술 1개 계승 ' + Math.round(c.moveInherit * 100) + '%' +

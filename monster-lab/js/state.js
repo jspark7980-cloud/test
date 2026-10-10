@@ -34,6 +34,14 @@ ML.state = {
     g.party = g.party.filter(ok); g.box = g.box.filter(ok);
     g.eggs = (g.eggs || []).filter(function (e) { return ML.species[e.species]; });
     g.party.concat(g.box).forEach(function (m) { m.moves = m.moves.filter(function (x) { return ML.moves[x]; }); });
+    // 패치: 이미 Lv 50을 넘은 태초수는 새 기술 「태초의 일격」을 바로 배운다(가장 약한 기술과 바꿈)
+    g.party.concat(g.box).forEach(function (m) {
+      if (m.species !== 'primordial' || m.level < 50 || m.moves.indexOf('genesis') >= 0) return;
+      if (m.moves.length < 4) { m.moves.push('genesis'); return; }
+      var weak = 0;
+      m.moves.forEach(function (x, i) { if ((ML.moves[x].power || 0) < (ML.moves[m.moves[weak]].power || 0)) weak = i; });
+      m.moves[weak] = 'genesis';
+    });
     ML.game = g;
     return g;
   },

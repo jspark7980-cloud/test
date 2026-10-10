@@ -59,4 +59,5 @@ ML.moves = {
 
   // 근원(숨겨진 몬스터)
   originbeam:  { name: '근원의 빛',   el: 'origin', kind: 'attack', power: 100, acc: 100 },
+  genesis:     { name: '태초의 일격', el: 'origin', kind: 'attack', power: 130, acc: 95 },
 };
