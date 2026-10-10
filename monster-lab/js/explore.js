@@ -11,9 +11,9 @@ var ML = window.ML = window.ML || {};
   // ── 지도 그리기 ───────────────────────────────────
   function mapSvg() {
     var g = ML.game, reg = region(), pr = ML.state.prog();
-    var o = '<svg class="map-svg" viewBox="0 0 1000 560" xmlns="http://www.w3.org/2000/svg">' +
+    var o = '<svg class="map-svg" viewBox="0 0 1000 600" xmlns="http://www.w3.org/2000/svg">' +
       '<defs><linearGradient id="mapbg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="' + reg.bg[0] + '"/><stop offset="1" stop-color="' + reg.bg[1] + '"/></linearGradient></defs>' +
-      '<rect width="1000" height="560" rx="24" fill="url(#mapbg)"/>';
+      '<rect width="1000" height="600" rx="24" fill="url(#mapbg)"/>';
     // 장식: 풀 무늬
     for (var i = 0; i < 40; i++) {
       var x = (i * 137) % 980 + 10, y = (i * 89) % 540 + 10;
@@ -131,6 +131,7 @@ var ML = window.ML = window.ML || {};
       var mon = ML.createMonster(pick, lv, rng, { shiny: rng.chance(ML.config.shinyChance), traitTable: g.region >= 3 ? 'high' : 'low' });
       ML.state.markSeen(pick);
       ML.state.saveRng(rng);
+      if (mon.shiny) ui.toast('✨ 반짝반짝…! 색다른 개체다!');
       ML.state.save();
       if (justCleared) ui.toast('다음 길이 열렸다!');
       startBattle([mon], { kind: 'wild', rng: rng });
@@ -154,6 +155,12 @@ var ML = window.ML = window.ML || {};
     if (!needAlive()) return;
     var tr = ML.trainers[tid], rng = ML.state.rng(), g = ML.game;
     var foes = tr.team.map(function (t) { return ML.createMonster(t[0], t[1], rng, { traitTable: g.region >= 3 ? 'high' : 'low' }); });
+    // "특성 보유 몬스터"를 쓰는 보스: 몬스터마다 금 이상 특성을 1개 보장
+    if (tr.goodTraits) foes.forEach(function (m) {
+      if (m.traits.some(function (t) { var gr = ML.traits[t].grade; return gr === 'gold' || gr === 'legend'; })) return;
+      var golds = Object.keys(ML.traits).filter(function (t) { return ML.traits[t].grade === 'gold' && m.traits.indexOf(t) < 0; });
+      m.traits[0] = rng.pick(golds);
+    });
     foes.forEach(function (m) { ML.state.markSeen(m.species); });
     ML.state.saveRng(rng);
     startBattle(foes, { kind: 'trainer', trainer: tr, tid: tid, rng: rng });
@@ -177,6 +184,7 @@ var ML = window.ML = window.ML || {};
     var g = ML.game, c = ML.config, h = '';
     if (r.captured) {
       var where = ML.state.addMon(r.captured);
+      if (r.captured.shiny) g.dex.shiny = Object.assign(g.dex.shiny || {}, (function (o) { o[r.captured.species] = true; return o; })({}));
       g.stats.caught++;
       h += '<p>' + ML.species[r.captured.species].name + '은(는) ' + (where === 'party' ? '파티에 들어갔다!' : '파티가 가득 차서 보관함으로 보냈다.') + '</p>';
     }

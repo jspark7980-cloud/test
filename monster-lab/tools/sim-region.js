@@ -5,7 +5,8 @@ var ML = require('./sim.js');
 var N = +process.argv[2] || 200;
 var RG = +process.argv[3] || 1, reg = ML.regions[RG];
 var STARTERS = ['emberrat', 'dropcrab', 'sproutsquirrel', 'zapchick', 'pebblebear', 'shadecat'];
-var NEED = { kid: 6, warden: 10, boss1: 13, fisher: 17, keeper: 21, boss2: 24 };   // 봇이 도전하는 파티 평균 레벨
+var NEED = { kid: 6, warden: 10, boss1: 13, fisher: 17, keeper: 21, boss2: 24, caver: 29, priestess: 32, boss3: 36, templer: 41, hunter: 44, boss4: 47 };
+var START_LV = { 2: 14, 3: 25, 4: 36 };   // 봇이 도전하는 파티 평균 레벨
 
 function fight(rng, party, foes, wild, potions) {
   var bt = new ML.Battle({ rng: rng, mine: party, foe: foes, wild: wild, foePotions: potions || 0 });
@@ -27,8 +28,8 @@ function fight(rng, party, foes, wild, potions) {
 var res = [];
 for (var run = 0; run < N; run++) {
   var rng = ML.makeRng(1000 + run);
-  // 2지역: 1지역을 끝낸 파티(Lv 14 세 마리)로 시작
-  var party = RG === 1 ? [ML.createMonster(STARTERS[run % 6], 5, rng)] : [0, 1, 2].map(function (i) { var m = ML.createMonster(STARTERS[(run + i * 2) % 6], 14, rng); while (ML.evolveTarget(m)) ML.evolve(m); return m; }), box = [];
+  // 2지역부터: 앞 지역을 끝낸 파티(START_LV 세 마리)로 시작
+  var party = RG === 1 ? [ML.createMonster(STARTERS[run % 6], 5, rng)] : [0, 1, 2].map(function (i) { var m = ML.createMonster(STARTERS[(run + i * 2) % 6], START_LV[RG], rng); while (ML.evolveTarget(m)) ML.evolve(m); return m; }), box = [];
   var visited = { gate: true }, searches = {}, beaten = {}, wilds = 0, heals = 0, losses = 0, tFights = 0, done = false;
   var cleared = function (pid) { var p = reg.places[pid]; return p.trainer ? beaten[p.trainer] : (searches[pid] || 0) >= 3; };
   var reach = function (pid) { return pid === 'gate' || reg.edges.some(function (e) { var o = e[0] === pid ? e[1] : e[1] === pid ? e[0] : null; return o && visited[o] && cleared(o); }); };

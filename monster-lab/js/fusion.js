@@ -99,6 +99,7 @@ var ML = window.ML = window.ML || {};
     var g = ML.game;
     g.eggs.splice(g.eggs.indexOf(egg), 1);
     var where = ML.state.addMon(mon);
+    if (mon.shiny) { g.dex.shiny = g.dex.shiny || {}; g.dex.shiny[mon.species] = true; }
     ML.state.save();
     return { mon: mon, where: where, inherited: inherited, mutated: mutated, inheritMove: inheritMove };
   }

@@ -17,7 +17,10 @@ var ML = window.ML = window.ML || {};
         foePotions: opts.trainer && opts.trainer.potions || 0 });
       V = { battle: battle, opts: opts, shown: 0, busy: false, disp: { hp: {}, active: [battle.sides[0].active, 0] } };
       battle.sides.forEach(function (s) { s.units.forEach(function (u) { V.disp.hp[u.mon.uid] = u.mon.hp; }); });
-      if (opts.kind === 'wild') battle.log.unshift({ msg: ML.josa('야생 ' + (foes[0].shiny ? '✨색다른 ' : '') + ML.species[foes[0].species].name + '이(가) 나타났다!'), kind: 'field' });
+      if (opts.kind === 'wild') {
+        var rare = ML.species[foes[0].species].rarity === 'rare';
+        battle.log.unshift({ msg: ML.josa('야생 ' + (foes[0].shiny ? '✨색다른 ' : '') + ML.species[foes[0].species].name + '이(가) 나타났다!' + (rare ? ' 보기 드문 희귀종이다!' : '')), kind: foes[0].shiny || rare ? 'crit' : 'field' });
+      }
       if (opts.trainer) battle.log.unshift({ msg: ML.josa(opts.trainer.name + '이(가) 승부를 걸어왔다!'), kind: 'field' });
       render();
       play(true);

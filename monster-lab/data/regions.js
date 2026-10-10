@@ -1,4 +1,4 @@
-// 지역·장소·출현표·트레이너. 좌표는 지도 SVG(1000×560) 기준.
+// 지역·장소·출현표·트레이너. 좌표는 지도 SVG(1000×600) 기준.
 // place.kind: gate(출입구) / search(탐색) / boss
 // wild: [종, 가중치, 최저 레벨, 최고 레벨] · rare: 낮은 확률 희귀종
 var ML = window.ML = window.ML || {};
@@ -45,8 +45,47 @@ ML.regions = {
     },
     edges: [['gate', 'sand'], ['gate', 'bay'], ['sand', 'reef'], ['bay', 'light'], ['reef', 'light'], ['light', 'boss']],
   },
-  3: { name: '안개 고목숲', locked: '5단계에서 열립니다' },
-  4: { name: '잿빛 화산령', locked: '5단계에서 열립니다' },
+  3: {
+    name: '안개 고목숲', color: '#9ad08a', bg: ['#1f2b22', '#121a15'], need: 2,
+    desc: '천 년 묵은 나무들이 안개 속에 서 있는 숲. 2·3단계 몬스터와 좋은 특성을 가진 개체가 많다.',
+    start: 'gate',
+    places: {
+      gate:  { name: '숲 입구', kind: 'gate', x: 110, y: 440, icon: '🚪', desc: '안개가 발목까지 차오른다.',
+               wild: [['vinesquirrel', 20, 22, 25], ['nightcat', 20, 22, 25], ['blazerat', 20, 22, 25], ['wavepincer', 20, 22, 25], ['magmadrake', 20, 22, 25]] },
+      moss:  { name: '이끼 길', kind: 'search', x: 320, y: 300, icon: '🌿', desc: '발소리가 이끼에 묻힌다.',
+               wild: [['vinesquirrel', 20, 24, 28], ['sporebun', 20, 24, 28], ['bogfrog', 20, 24, 28], ['thunderbird', 20, 24, 28], ['wraithfog', 20, 24, 28]] },
+      cave:  { name: '옛 동굴', kind: 'search', x: 340, y: 500, icon: '🕳️', desc: '오래된 뼈와 화석이 박힌 동굴. 탐험가가 지키고 있다.', trainer: 'caver',
+               wild: [['boulderbear', 25, 26, 30], ['gemsnail', 25, 26, 30], ['voltsnake', 25, 26, 30], ['nightcat', 25, 26, 30]],
+               rare: ['fossilbat', 27, 30] },
+      lake:  { name: '거울 호수', kind: 'search', x: 600, y: 170, icon: '🪞', desc: '수면이 거울처럼 숲을 비춘다. 무녀가 기도하고 있다.', trainer: 'priestess',
+               wild: [['wraithfog', 25, 28, 32], ['bogfrog', 25, 28, 32], ['wavepincer', 20, 28, 31], ['tidalshell', 15, 32, 33], ['eclipsecat', 15, 32, 33]],
+               rare: ['mirrorimp', 29, 32] },
+      ruin:  { name: '고목 폐허', kind: 'search', x: 640, y: 430, icon: '🏚️', desc: '거대한 나무뿌리가 옛 건물을 삼켰다.',
+               wild: [['eldwarden', 20, 32, 34], ['ridgebear', 20, 32, 34], ['stormphoenix', 20, 32, 34], ['furnacerat', 20, 32, 34], ['gemsnail', 20, 30, 34]] },
+      boss:  { name: '숲의 심장', kind: 'boss', x: 880, y: 290, icon: '👑', desc: '좋은 특성을 지닌 몬스터만 기르는 숲지기가 기다린다.', trainer: 'boss3' },
+    },
+    edges: [['gate', 'moss'], ['gate', 'cave'], ['moss', 'lake'], ['cave', 'ruin'], ['lake', 'ruin'], ['ruin', 'boss']],
+  },
+  4: {
+    name: '잿빛 화산령', color: '#ff8a5c', bg: ['#3a1c16', '#1a0d0b'], need: 3,
+    desc: '재가 눈처럼 내리는 화산 지대. 3단계 몬스터만 산다.',
+    start: 'gate',
+    places: {
+      gate:   { name: '화산 기슭', kind: 'gate', x: 110, y: 450, icon: '🚪', desc: '뜨거운 바람에 재가 날린다.',
+                wild: [['furnacerat', 20, 34, 37], ['ridgebear', 20, 34, 37], ['tidalshell', 20, 34, 37], ['eldwarden', 20, 34, 37], ['stormphoenix', 20, 34, 37]] },
+      ash:    { name: '잿빛 들판', kind: 'search', x: 320, y: 470, icon: '🌋', desc: '모든 것이 회색이다.',
+                wild: [['eclipsecat', 20, 36, 40], ['furnacerat', 20, 36, 40], ['ridgebear', 20, 36, 40], ['stormphoenix', 20, 36, 40], ['tidalshell', 20, 36, 40]] },
+      temple: { name: '촛불 사원', kind: 'search', x: 330, y: 220, icon: '🕯️', desc: '꺼지지 않는 촛불이 수천 개 켜진 사원.', trainer: 'templer',
+                wild: [['eclipsecat', 25, 38, 42], ['eldwarden', 25, 38, 42], ['furnacerat', 25, 38, 42], ['tidalshell', 25, 38, 42]],
+                rare: ['candlefae', 38, 42] },
+      lava:   { name: '용암 강', kind: 'search', x: 610, y: 430, icon: '🔥', desc: '붉은 강이 천천히 흐른다.',
+                wild: [['furnacerat', 25, 40, 44], ['ridgebear', 25, 40, 44], ['stormphoenix', 25, 40, 44], ['eclipsecat', 25, 40, 44]] },
+      crater: { name: '분화구 길', kind: 'search', x: 640, y: 180, icon: '⛰️', desc: '정상으로 이어지는 마지막 길. 사냥꾼이 막아선다.', trainer: 'hunter',
+                wild: [['tidalshell', 25, 42, 45], ['eldwarden', 25, 42, 45], ['stormphoenix', 25, 42, 45], ['ridgebear', 25, 42, 45]] },
+      boss:   { name: '화산 정상', kind: 'boss', x: 880, y: 300, icon: '👑', desc: '합성으로만 얻는 몬스터를 다루는 용암 군주가 기다린다.', trainer: 'boss4' },
+    },
+    edges: [['gate', 'ash'], ['gate', 'temple'], ['ash', 'lava'], ['temple', 'crater'], ['lava', 'crater'], ['crater', 'boss']],
+  },
 };
 
 // 트레이너. team: [종, 레벨] · potions: 체력 30% 이하일 때 쓰는 고급 회복약 수
@@ -63,4 +102,16 @@ ML.trainers = {
             team: [['thunderbird', 20], ['boulderbear', 20], ['nightcat', 21]], potions: 1, gold: 700 },
   boss2:  { name: '폭풍 선장 해랑', icon: '⚓', boss: true, line: '번개와 파도, 둘 다 감당할 수 있겠어?', lose: '하하! 폭풍을 뚫었구나. 다음 바다로 가라!',
             team: [['bogfrog', 23], ['voltsnake', 23], ['thunderbird', 24]], potions: 2, gold: 1300 },
+  caver:     { name: '동굴 탐험가 바위솔', icon: '⛏️', line: '이 동굴 화석은 내가 먼저 찾았어!', lose: '좋아, 동굴 안쪽 길을 알려 주지.',
+               team: [['boulderbear', 28], ['gemsnail', 28], ['voltsnake', 29]], potions: 1, gold: 900 },
+  priestess: { name: '거울 호수의 무녀 하늬', icon: '🔮', line: '호수에 비친 너의 마음을 보여 줘.', lose: '맑은 마음이구나. 숲의 심장으로 가렴.',
+               team: [['wraithfog', 31], ['bogfrog', 31], ['eclipsecat', 32]], potions: 1, gold: 1200 },
+  boss3:     { name: '숲지기 노을', icon: '🌳', boss: true, goodTraits: true, line: '내 아이들은 모두 좋은 특성을 타고났지. 이길 수 있겠니?', lose: '…특성만이 전부는 아니었구나. 화산령으로 가거라.',
+               team: [['eldwarden', 34], ['eclipsecat', 35], ['gemsnail', 36]], potions: 2, gold: 2200 },
+  templer:   { name: '사원지기 등불', icon: '🕯️', line: '촛불이 흔들리는 건 바람 때문만은 아니야.', lose: '네 불꽃이 더 밝구나.',
+               team: [['furnacerat', 40], ['magmadrake', 40], ['stormphoenix', 41]], potions: 1, gold: 1800 },
+  hunter:    { name: '용암 사냥꾼 불티', icon: '🏹', line: '정상에 가고 싶다면 날 넘어가!', lose: '…군주님께 혼나겠는걸.',
+               team: [['ridgebear', 43], ['eclipsecat', 43], ['tidalshell', 44]], potions: 2, gold: 2600 },
+  boss4:     { name: '용암 군주 단야', icon: '🌋', boss: true, line: '합성으로만 태어나는 힘을 보여 주마!', lose: '훌륭하다… 너야말로 진짜 연구자다.',
+               team: [['furnacerat', 43], ['steamturtle', 43], ['thundercat', 44]], potions: 1, gold: 5000 },
 };

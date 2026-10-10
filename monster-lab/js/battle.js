@@ -82,6 +82,10 @@ B.replace = function (side, idx) {
 };
 
 B.onEnter = function (u) {
+  if (this.ability(u) === 'aurora') {
+    var f = this.sides[1 - u.side].units[this.sides[1 - u.side].active];
+    if (f && f.mon.hp > 0) { this.say(this.name(u) + '의 오로라가 빛났다!', 'ability'); this.changeStage(f, 'spd', -1); }
+  }
   if (this.ability(u) === 'rain') {
     this.field.rain = ML.config.ability.rainTurns;
     this.say('비가 내리기 시작했다!', 'field');
@@ -104,7 +108,9 @@ B.effSpeed = function (u) {
 
 B.evasion = function (u) {
   var c = ML.config, e = u.stages.eva * c.evasionPerStep;
-  if (this.ability(u) === 'evasion') e += c.ability.baseEvasion;
+  var ab = this.ability(u);
+  if (ab === 'evasion' || ab === 'aurora') e += c.ability.baseEvasion;
+  if (ab === 'phantom') e += c.ability.phantomEvasion;
   return Math.max(0, Math.min(0.5, e));
 };
 
@@ -139,13 +145,13 @@ B.calcDamage = function (att, def, move, forecast) {
     if (att.form === 'night' && move.el === 'shadow') atkMod *= 1 + c.ability.dayNightBonus;
   }
   dmg *= atkMod;
-  if (this.ability(def) === 'damageReduce') dmg *= 1 - c.ability.damageReduce;
+  if (this.ability(def) === 'damageReduce' || this.ability(def) === 'steam') dmg *= 1 - c.ability.damageReduce;
 
   if (forecast) return { dmg: dmg, type: type };
 
   var crit = false;
   var cp = c.critChance + ML.traitSum(att.mon, 'crit') + ML.traitSum(def.mon, 'critTaken') + ((move.fx && move.fx.crit) || 0);
-  if (this.ability(att) === 'critUp') cp += c.ability.critBonus;
+  if (this.ability(att) === 'critUp' || this.ability(att) === 'thunderCrit') cp += c.ability.critBonus;
   if (rng.chance(cp)) { crit = true; dmg *= c.critMultiplier; }
   dmg *= rng.range(d.randMin, d.randMax);
   return { dmg: Math.max(d.minDamage, Math.round(dmg)), type: type, crit: crit };
@@ -154,7 +160,7 @@ B.calcDamage = function (att, def, move, forecast) {
 B.sideHasTeamBuff = function (side) {
   // 촛불요정: 쓰러지지 않았으면 대기 중이어도 우리 편 전원 공격 +10%
   var self = this;
-  return this.sides[side].units.some(function (u) { return u.mon.hp > 0 && self.ability(u) === 'teamAtk'; });
+  return this.sides[side].units.some(function (u) { var a = self.ability(u); return u.mon.hp > 0 && (a === 'teamAtk' || a === 'phantom'); });
 };
 
 // ── 턴 진행 ───────────────────────────────────────────
@@ -297,7 +303,9 @@ B.useMove = function (u, foe, moveId, mimicked) {
   if (move.kind === 'attack') {
     var r = this.calcDamage(u, foe, move);
     if (r.crit) this.say('급소에 맞았다!', 'crit');
+    var thunderCrit = r.crit && this.ability(u) === 'thunderCrit';
     var dealt = this.applyDamage(foe, r.dmg, { from: u, type: r.type });
+    if (thunderCrit && foe.mon.hp > 0 && rng.chance(c.ability.thunderCritPara)) { this.say('번개가 함께 내리쳤다!', 'ability'); this.inflict(foe, 'para', 1); }
     if (r.type > 1.01) this.say('효과가 굉장했다!', 'eff-good');
     else if (r.type < 0.99) this.say('효과가 별로인 듯하다…', 'eff-bad');
     // 흡혈·흡수
@@ -313,6 +321,14 @@ B.useMove = function (u, foe, moveId, mimicked) {
         var back = Math.max(1, Math.round(dealt * c.ability.counterPct));
         this.say(this.name(foe) + '의 반격!', 'ability');
         this.applyDamage(u, back, {});
+      }
+      if (ab === 'steam' && u.mon.hp > 0 && rng.chance(c.ability.steamBurn)) {
+        this.say(this.name(foe) + '의 뜨거운 증기!', 'ability');
+        this.inflict(u, 'burn', 1);
+      }
+      if (ab === 'sporeArmor' && u.mon.hp > 0 && rng.chance(c.ability.sporeSleep)) {
+        this.say(this.name(foe) + '의 몸에서 수정 포자가 퍼졌다!', 'ability');
+        this.inflict(u, 'sleep', 1);
       }
       if (ab === 'contactPara' && u.mon.hp > 0 && rng.chance(c.ability.contactParaChance)) {
         this.say(this.name(foe) + '의 몸에서 전기가 튀었다!', 'ability');
@@ -407,7 +423,7 @@ B.endOfTurn = function () {
       u.statusTurns--;
       if (u.statusTurns <= 0) { u.mon.status = null; self.say(self.name(u) + '의 ' + ML.STATUS_NAMES[st] + '이(가) 나았다.', 'status'); }
     }
-    var rg = ML.traitSum(u.mon, 'regen');
+    var rg = ML.traitSum(u.mon, 'regen') + (self.ability(u) === 'mossRegen' ? c.ability.mossRegen : 0);
     if (rg && u.mon.hp > 0) self.heal(u, Math.max(1, Math.round(u.stats.hp * rg)), '재생으로 회복했다');
     for (var m in u.sealed) { if (--u.sealed[m] <= 0) delete u.sealed[m]; }
     if (self.ability(u) === 'dayNight' && u.mon.hp > 0) {
