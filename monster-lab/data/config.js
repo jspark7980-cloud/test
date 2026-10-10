@@ -65,6 +65,7 @@ ML.config = {
       low:      { bronze: 60, bad: 22, silver: 14, gold: 3.5, legend: 0.5 }, // 1·2지역, 첫 몬스터, 합성 빈 칸
       high:     { bronze: 50, bad: 20, silver: 21, gold: 7.5, legend: 1.5 }, // 3·4지역
       mutation: { bronze: 40, bad: 20, silver: 25, gold: 12,  legend: 3 },
+      legendary: { bronze: 15, bad: 0, silver: 40, gold: 35, legend: 10 },   // 전설 조우: 나쁜 특성 없음, 금 이상 1개 보장
     },
   },
 

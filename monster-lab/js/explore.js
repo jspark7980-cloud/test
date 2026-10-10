@@ -162,7 +162,12 @@ var ML = window.ML = window.ML || {};
   function meetLegend() {
     if (!needAlive()) return;
     var p = region().places[ML.game.at], rng = ML.state.rng();
-    var mon = ML.createMonster(p.legend[0], p.legend[1], rng, { shiny: rng.chance(ML.config.shinyChance), traitTable: 'high' });
+    var mon = ML.createMonster(p.legend[0], p.legend[1], rng, { shiny: rng.chance(ML.config.shinyChance), traitTable: 'legendary' });
+    // 금 이상 특성 1개 보장
+    if (!mon.traits.some(function (t) { var gr = ML.traits[t].grade; return gr === 'gold' || gr === 'legend'; })) {
+      var golds = Object.keys(ML.traits).filter(function (t) { return ML.traits[t].grade === 'gold' && mon.traits.indexOf(t) < 0; });
+      mon.traits[0] = rng.pick(golds);
+    }
     ML.state.markSeen(mon.species);
     ML.state.saveRng(rng);
     ML.state.save();
