@@ -31,15 +31,18 @@ var ML = window.ML = window.ML || {};
     return p;
   }
 
+  function isLegendary(id) { var r = ML.species[id].rarity; return r === 'legend' || r === 'hidden'; }
+
   function hatchLevel(a, b) { return Math.max(C().hatchMinLevel, Math.ceil((a.level + b.level) / 4)); }
 
   function create(a, b, aids) {
-    var g = ML.game, c = C();
+    var g = ML.game, c = C(), res = resultSpecies(a.species, b.species);
+    var noBad = aids.purewater || isLegendary(res);     // 전설·숨겨진 몬스터는 나쁜 특성이 나오지 않는다
     var egg = {
       id: 'e' + Date.now().toString(36),
-      species: resultSpecies(a.species, b.species),
+      species: res,
       level: hatchLevel(a, b),
-      pool: pool(a, b, aids.purewater),
+      pool: pool(a, b, noBad),
       parentTraits: pool(a, b, false),
       ivs: {}, moves: [],
       shinyBoth: a.shiny && b.shiny,
@@ -71,16 +74,18 @@ var ML = window.ML = window.ML || {};
       mon.ivs[k] = Math.round(Math.max(1 - r, Math.min(1 + r, v)) * 1000) / 1000;
     });
     // 특성: 부모 풀에서 n개 + 나머지는 새 특성 → 항상 3개, 돌연변이면 1개 더
+    var noBad = egg.aids.purewater || isLegendary(egg.species);
+    if (noBad) egg.pool = egg.pool.filter(function (t) { return ML.traits[t].grade !== 'bad'; });
     var table = egg.aids.charm ? c.inheritCharm : c.inherit;
     var n = Math.min(+rng.weighted(table), egg.pool.length, ML.config.traits.slots);
     var p = egg.pool.slice(), traits = [];
     for (var i = 0; i < n; i++) traits.push(p.splice(Math.floor(rng() * p.length), 1)[0]);
     var inherited = traits.length;
     // 새 특성은 부모 특성과 겹치지 않게(계승한 것과 새로 생긴 것이 구분되도록)
-    traits = traits.concat(ML.rollTraits(rng, 'low', ML.config.traits.slots - traits.length, traits.concat(egg.parentTraits), egg.aids.purewater));
+    traits = traits.concat(ML.rollTraits(rng, 'low', ML.config.traits.slots - traits.length, traits.concat(egg.parentTraits), noBad));
     var mutated = null;
     if (rng.chance(egg.aids.catalyst ? c.mutationCatalyst : c.mutation)) {
-      mutated = ML.rollTraits(rng, 'mutation', 1, traits.concat(egg.parentTraits), egg.aids.purewater)[0] || null;
+      mutated = ML.rollTraits(rng, 'mutation', 1, traits.concat(egg.parentTraits), noBad)[0] || null;
       if (mutated) traits.push(mutated);
     }
     mon.traits = traits.slice(0, ML.config.traits.maxSlots);
@@ -146,7 +151,7 @@ var ML = window.ML = window.ML || {};
     }).join('');
     var prev = '<p class="muted">부모 2마리를 고르면 결과를 미리 볼 수 있다.</p>';
     if (a && b) {
-      var res = resultSpecies(a.species, b.species), sp = ML.species[res], pl = pool(a, b, pick.aids.purewater);
+      var res = resultSpecies(a.species, b.species), sp = ML.species[res], pl = pool(a, b, pick.aids.purewater || isLegendary(res));
       var table = pick.aids.charm ? c.inheritCharm : c.inherit;
       var special = ML.fusionTable.some(function (t) { return t[2] === res; }) || res === 'primordial';
       prev = '<div class="f-result">' + (res === 'primordial' && !g.dex.caught[res] ? '<div class="q big">?</div>' : ML.art.svg(res, { size: 130 })) +
