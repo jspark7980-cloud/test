@@ -318,3 +318,6 @@ select, input { font: inherit; }
 .iv-tag.iv-a { color: var(--good); } .bar i.iv-a { background: var(--good); }
 .iv-tag.iv-b { color: #9cc6ff; } .bar i.iv-b { background: #7aa8ff; }
 .iv-tag.iv-c { color: var(--bad); } .bar i.iv-c { background: var(--bad); }
+.stat.stat2 { grid-template-columns: 40px 96px 1fr 70px 44px; }
+.stat2 .sv { white-space: nowrap; }
+.iv-s-t { color: #ffd76b; } .iv-a-t { color: var(--good); } .iv-b-t { color: #9cc6ff; } .iv-c-t { color: var(--bad); }

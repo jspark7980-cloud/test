@@ -196,13 +196,15 @@ var ML = window.ML = window.ML || {};
       '<div class="section-t">체력 ' + m.hp + ' / ' + st.hp + (m.status ? ' · ' + ML.STATUS_NAMES[m.status] : '') + '</div>' +
       (function () {
         var tot = ML.ivTotalPct(m), tg = ML.ivGrade(tot);
-        return '<div class="section-t">개체값 <span class="iv-tag ' + tg[1] + '">종합 ' + tot + '% · ' + tg[0] + '</span> <span class="muted small">(최대치 대비: 0% = 능력치 −10%, 100% = 능력치 +10%)</span></div>' +
+        var rg = ML.statRange(m);
+        return '<div class="section-t">능력치 · 개체값 <span class="iv-tag ' + tg[1] + '">종합 ' + tot + '% · ' + tg[0] + '</span></div>' +
+          '<div class="muted small">이 몬스터의 능력치 / 같은 종·같은 레벨에서 나올 수 있는 최대치 (최저~최고)</div>' +
           [['hp', '체력'], ['atk', '공격'], ['def', '방어'], ['spd', '속도']].map(function (k) {
             var p = ML.ivPct(m.ivs[k[0]]), gr = ML.ivGrade(p);
-            return '<div class="stat"><span>' + k[1] + '</span><div class="bar"><i class="' + gr[1] + '" style="width:' + Math.max(3, p) + '%"></i></div><b>' + p + '%</b></div>';
+            return '<div class="stat stat2"><span>' + k[1] + '</span><b class="sv">' + rg.now[k[0]] + '<span class="muted"> / ' + rg.max[k[0]] + '</span></b>' +
+              '<div class="bar"><i class="' + gr[1] + '" style="width:' + Math.max(3, p) + '%"></i></div><span class="muted small">' + rg.min[k[0]] + '~' + rg.max[k[0]] + '</span><b class="' + gr[1] + '-t">' + p + '%</b></div>';
           }).join('');
       })() +
-      '<div class="small muted">공격 ' + st.atk + ' · 방어 ' + st.def + ' · 속도 ' + st.spd + '</div>' +
       '<div class="small muted">경험치 ' + m.exp + ' / ' + need + (ev ? ' · Lv' + ev[1] + '에 ' + ML.species[ev[0]].name + '(으)로 진화' : '') + '</div>' +
       '<div class="section-t">고유 능력 — ' + ab.name + '</div><div class="muted small">' + ab.desc + '</div>' +
       '<div class="section-t">특성</div>' + m.traits.map(function (t) { return '<div class="trait-line">' + ui.traitChip(t) + ' <span class="muted small">' + ML.traits[t].desc + '</span></div>'; }).join('') +
@@ -228,6 +230,8 @@ var ML = window.ML = window.ML || {};
           (m.status ? '<span class="badge st-' + m.status + '">' + ML.STATUS_NAMES[m.status] + '</span>' : '') + (m.hp <= 0 ? '<span class="hint bad">기절</span>' : '') + '</div>' +
           '<div class="hp"><i class="' + (m.hp / st.hp <= 0.25 ? 'low' : m.hp / st.hp <= 0.5 ? 'mid' : '') + '" style="width:' + (m.hp / st.hp * 100) + '%"></i></div>' +
           '<div class="small muted">체력 ' + m.hp + ' / ' + st.hp + ' · 경험치 ' + m.exp + ' / ' + need + '</div>' +
+          (function () { var rg = ML.statRange(m); return '<div class="small">' + [['hp', '체력'], ['atk', '공격'], ['def', '방어'], ['spd', '속도']].map(function (k) {
+            return k[1] + ' <b>' + rg.now[k[0]] + '</b><span class="muted">/' + rg.max[k[0]] + '</span>'; }).join(' · ') + ' <span class="iv-tag ' + ML.ivGrade(ML.ivTotalPct(m))[1] + '">개체 ' + ML.ivTotalPct(m) + '%</span></div>'; })() +
           '<div class="small">' + m.moves.map(function (x) { return ML.moves[x].name; }).join(', ') + '</div>' + ui.traitChips(m.traits) + '</div></button>';
       }).join('') + '</div>' +
       '<div class="section-t row" style="justify-content:space-between;max-width:900px;margin:16px auto 6px">📦 보관함 (' + g.box.length + '마리)' +

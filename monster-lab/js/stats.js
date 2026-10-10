@@ -165,3 +165,14 @@ ML.ivTotalPct = function (mon) {
   return Math.round(k.reduce(function (s, x) { return s + ML.ivPct(mon.ivs[x]); }, 0) / k.length);
 };
 ML.ivGrade = function (p) { return p >= 90 ? ['최고', 'iv-s'] : p >= 70 ? ['좋음', 'iv-a'] : p >= 40 ? ['보통', 'iv-b'] : ['낮음', 'iv-c']; };
+
+// 이 개체와 같은 종·레벨·특성일 때 능력치가 가질 수 있는 범위(개체값 최저~최고)
+ML.statRange = function (mon) {
+  var r = ML.config.ivRange, lo = {}, hi = {};
+  ['hp', 'atk', 'def', 'spd'].forEach(function (k) { lo[k] = 1 - r; hi[k] = 1 + r; });
+  return {
+    min: ML.calcStats(Object.assign({}, mon, { ivs: lo })),
+    max: ML.calcStats(Object.assign({}, mon, { ivs: hi })),
+    now: ML.calcStats(mon),
+  };
+};
