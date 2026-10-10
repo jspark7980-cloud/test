@@ -11,8 +11,10 @@ var ML = window.ML = window.ML || {};
     var g = ML.game;
     if (g.at !== 'hub') {
       screen.innerHTML = '<div class="hub-away"><h2>🏠 연구소</h2><p>지금은 <b>' + ML.regions[g.region].places[g.at].name + '</b>에 있다.</p>' +
-        '<p class="muted">회복소·상점·보관함은 연구소에서만 쓸 수 있다.</p><button class="btn primary big" id="back">🏠 연구소로 돌아가기</button></div>';
+        '<p class="muted">회복소·상점은 연구소에서만 쓸 수 있다. 보관함은 어디서든 볼 수 있지만, 옮기기는 연구소에서만 된다.</p>' +
+        '<div class="row" style="justify-content:center"><button class="btn big" id="see-box">📦 보관함 보기</button><button class="btn primary big" id="back">🏠 연구소로 돌아가기</button></div></div>';
       ui.$('#back').onclick = function () { g.at = 'hub'; ML.state.save(); ML.app.status(); render(); };
+      ui.$('#see-box').onclick = renderBox;
       return;
     }
     var open2 = ML.state.unlocked(2);
@@ -108,7 +110,7 @@ var ML = window.ML = window.ML || {};
   function renderBox() {
     var g = ML.game;
     screen.innerHTML = backBar('📦 보관함') +
-      '<div class="section-t">파티 (' + g.party.length + ' / ' + ML.config.partyMax + ') — 몬스터를 누르면 옮기거나 순서를 바꿀 수 있다</div>' +
+      '<div class="section-t">파티 (' + g.party.length + ' / ' + ML.config.partyMax + ') — ' + (g.at === 'hub' ? '몬스터를 누르면 옮기거나 순서를 바꿀 수 있다' : '<span class="hint bad">지금은 보기만 가능 — 옮기기는 연구소에서</span>') + '</div>' +
       '<div class="tile-grid">' + g.party.map(function (m) { return monTile(m, 'party'); }).join('') + '</div>' +
       '<div class="section-t row" style="justify-content:space-between">보관함 (' + g.box.length + '마리)' +
       '<div class="row"><select id="tfilter"><option value="">특성: 전체</option>' + ['legend', 'gold', 'silver', 'bronze', 'bad'].map(function (gr) {
@@ -142,6 +144,7 @@ var ML = window.ML = window.ML || {};
 
   function boxActions(uid, where) {
     var g = ML.game, f = findMon(uid), acts = [];
+    if (g.at !== 'hub') return monDetail(f.mon, []);     // 밖에서는 보기만
     if (where === 'party') {
       if (f.i > 0) acts.push(['lead', '🚩 선두로']);
       if (g.party.length > 1) acts.push(['tobox', '📦 보관함으로']);
@@ -216,7 +219,8 @@ var ML = window.ML = window.ML || {};
   // ── 파티 탭 ───────────────────────────────────────
   function renderParty() {
     var g = ML.game;
-    screen.innerHTML = '<div class="sub-head"><h2>👥 파티</h2><span class="muted small">🚩 첫 번째 몬스터가 먼저 나간다. 몬스터를 누르면 자세히 볼 수 있다.</span></div>' +
+    screen.innerHTML = '<div class="sub-head"><h2>👥 파티</h2><span class="muted small">🚩 첫 번째 몬스터가 먼저 나간다. 몬스터를 누르면 자세히 볼 수 있다.</span>' +
+      '<button class="btn" id="box-top">📦 보관함 보기 (' + g.box.length + ')</button></div>' +
       '<div class="party-list">' + g.party.map(function (m, i) {
         var st = ML.calcStats(m), sp = ML.species[m.species], need = ML.expToNext(m.level);
         return '<button class="tm pl" data-i="' + i + '">' + ML.art.svg(m.species, { size: 96, shiny: m.shiny }) +
@@ -225,7 +229,17 @@ var ML = window.ML = window.ML || {};
           '<div class="hp"><i class="' + (m.hp / st.hp <= 0.25 ? 'low' : m.hp / st.hp <= 0.5 ? 'mid' : '') + '" style="width:' + (m.hp / st.hp * 100) + '%"></i></div>' +
           '<div class="small muted">체력 ' + m.hp + ' / ' + st.hp + ' · 경험치 ' + m.exp + ' / ' + need + '</div>' +
           '<div class="small">' + m.moves.map(function (x) { return ML.moves[x].name; }).join(', ') + '</div>' + ui.traitChips(m.traits) + '</div></button>';
-      }).join('') + '</div>' + (g.box.length ? '<p class="muted small">파티를 바꾸려면 연구소 → 보관함.</p>' : '');
+      }).join('') + '</div>' +
+      '<div class="section-t row" style="justify-content:space-between;max-width:900px;margin:16px auto 6px">📦 보관함 (' + g.box.length + '마리)' +
+      (g.box.length ? '<button class="btn sm" id="box-all">정렬·특성 필터로 보기</button>' : '') + '</div>' +
+      (g.box.length ? '<div class="tile-grid" style="max-width:900px;margin:0 auto">' + g.box.map(function (m) { return monTile(m, 'box'); }).join('') + '</div>' +
+        '<p class="muted small" style="max-width:900px;margin:6px auto">' + (g.at === 'hub' ? '몬스터를 누르면 파티와 바꾸거나 놓아줄 수 있다.' : '누르면 자세히 볼 수 있다. 파티와 바꾸기는 연구소에서.') + '</p>'
+        : '<p class="muted small" style="max-width:900px;margin:0 auto">비어 있다.</p>');
+    if (ui.$('#box-all')) ui.$('#box-all').onclick = renderBox;
+    ui.$('#box-top').onclick = renderBox;
+    screen.querySelectorAll('[data-where="box"]').forEach(function (b) {
+      b.onclick = function () { boxActions(b.dataset.mon, 'box'); };
+    });
     screen.querySelectorAll('[data-i]').forEach(function (b) {
       b.onclick = function (e) {
         if (e.target.closest('[data-trait]')) return;
