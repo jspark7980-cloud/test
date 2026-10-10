@@ -258,7 +258,7 @@ var ML = window.ML = window.ML || {};
   // ── 가방 탭 ───────────────────────────────────────
   function renderBag() {
     var g = ML.game, ids = Object.keys(g.items).filter(function (id) { return ML.items[id] && g.items[id] > 0; });
-    var kinds = [['heal', '회복'], ['ball', '포획 도구'], ['fusion', '합성']];
+    var kinds = [['heal', '회복'], ['iv', '육성'], ['ball', '포획 도구'], ['fusion', '합성']];
     screen.innerHTML = '<div class="sub-head"><h2>🎒 가방</h2><span class="gold">💰 ' + g.gold + '</span></div>' +
       kinds.map(function (k) {
         var list = ids.filter(function (id) { return ML.items[id].kind === k[0]; });
@@ -266,12 +266,48 @@ var ML = window.ML = window.ML || {};
         return '<div class="section-t">' + k[1] + '</div><div class="bag-grid">' + list.map(function (id) {
           var it = ML.items[id];
           return '<button class="bag-item" data-item="' + id + '"><span class="bi">' + it.icon + '</span><div><b>' + it.name + '</b> ×' + g.items[id] +
-            '<br><span class="muted small">' + it.desc + (it.kind === 'heal' ? ' · 눌러서 사용' : it.kind === 'ball' ? ' · 야생 전투에서 사용' : '') + '</span></div></button>';
+            '<br><span class="muted small">' + it.desc + (it.kind === 'heal' ? ' · 눌러서 사용' : it.kind === 'ball' ? ' · 야생 전투에서 사용' : it.kind === 'iv' ? ' · 눌러서 사용' : '') + '</span></div></button>';
         }).join('') + '</div>';
       }).join('') + (ids.length ? '' : '<p class="muted">가방이 비어 있다. 연구소 상점에서 살 수 있다.</p>');
     screen.querySelectorAll('[data-item]').forEach(function (b) {
-      b.onclick = function () { if (ML.items[b.dataset.item].kind === 'heal') useOutside(b.dataset.item); };
+      b.onclick = function () { var k = ML.items[b.dataset.item].kind; if (k === 'heal') useOutside(b.dataset.item); else if (k === 'iv') useIvPill(b.dataset.item); };
     });
+  }
+
+  // 개체 재추첨약: 파티·보관함 몬스터 1마리 → 새 개체값을 보고 새 값/원래 값 고르기
+  function useIvPill(id) {
+    var g = ML.game, all = g.party.concat(g.box);
+    var m = ui.modal('<h3>🎲 누구의 개체값을 새로 뽑을까?</h3><div class="tile-grid">' + all.map(function (p) { return monTile(p, 'pick'); }).join('') +
+      '</div><div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn" data-close>취소</button></div>');
+    m.querySelectorAll('[data-mon]').forEach(function (b) {
+      b.onclick = function () { rerollIv(id, all.filter(function (p) { return p.uid === b.dataset.mon; })[0]); };
+    });
+  }
+
+  function rerollIv(id, mon) {
+    if (!ML.state.takeItem(id)) return;
+    var rng = ML.state.rng(), r = ML.config.ivRange, old = Object.assign({}, mon.ivs), nu = {};
+    ['hp', 'atk', 'def', 'spd'].forEach(function (k) { nu[k] = Math.round(rng.range(1 - r, 1 + r) * 1000) / 1000; });
+    ML.state.saveRng(rng); ML.state.save();
+    var row = function (ivs) {
+      var tmp = Object.assign({}, mon, { ivs: ivs }), st = ML.calcStats(tmp), tot = ML.ivTotalPct(tmp), gr = ML.ivGrade(tot);
+      return '<div class="iv-col"><div class="iv-tag ' + gr[1] + '">종합 ' + tot + '% · ' + gr[0] + '</div>' +
+        [['hp', '체력'], ['atk', '공격'], ['def', '방어'], ['spd', '속도']].map(function (k) {
+          var p = ML.ivPct(ivs[k[0]]);
+          return '<div class="stat"><span>' + k[1] + '</span><div class="bar"><i class="' + ML.ivGrade(p)[1] + '" style="width:' + Math.max(3, p) + '%"></i></div><b>' + st[k[0]] + '</b></div>';
+        }).join('') + '</div>';
+    };
+    var md = ui.modal('<h3>🎲 ' + ML.species[mon.species].name + ' 개체값 재추첨</h3><div class="iv-compare"><div><div class="section-t">원래</div>' + row(old) +
+      '<button class="btn" id="keep-old">원래 값 유지</button></div><div><div class="section-t">새로 뽑은 값</div>' + row(nu) +
+      '<button class="btn primary" id="take-new">새 값으로 바꾸기</button></div></div>', null, true);
+    var done = function (ivs) {
+      var before = ML.calcStats(mon).hp;
+      mon.ivs = ivs;
+      if (mon.hp > 0) mon.hp = Math.max(1, Math.min(ML.calcStats(mon).hp, mon.hp + ML.calcStats(mon).hp - before));
+      ML.state.save(); ui.closeModal(); renderBag();
+    };
+    md.querySelector('#keep-old').onclick = function () { done(old); ui.toast('원래 개체값을 유지했다.'); };
+    md.querySelector('#take-new').onclick = function () { done(nu); ui.toast('새 개체값으로 바뀌었다!'); };
   }
 
   // 전투 밖에서 회복 아이템 쓰기(기절한 몬스터에게는 못 씀)

@@ -321,3 +321,6 @@ select, input { font: inherit; }
 .stat.stat2 { grid-template-columns: 40px 96px 1fr 70px 44px; }
 .stat2 .sv { white-space: nowrap; }
 .iv-s-t { color: #ffd76b; } .iv-a-t { color: var(--good); } .iv-b-t { color: #9cc6ff; } .iv-c-t { color: var(--bad); }
+.iv-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.iv-compare > div { background: var(--panel2); border-radius: 14px; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+.iv-col .stat { grid-template-columns: 40px 1fr 44px; }
