@@ -1,11 +1,11 @@
-// 1지역 진행 시뮬레이션: node tools/sim-region.js [판 수]
+// 지역 진행 시뮬레이션: node tools/sim-region.js [판 수] [지역]
 // 봇: 첫 몬스터 하나로 시작 → 탐색 → 야생은 싸우거나(체력 50% 아래면) 포획 → 파티 3마리 채움
 //     → 체력이 떨어지면 회복소 → 파티 평균 레벨이 기준을 넘으면 트레이너·보스 도전
 var ML = require('./sim.js');
 var N = +process.argv[2] || 200;
-var reg = ML.regions[1];
+var RG = +process.argv[3] || 1, reg = ML.regions[RG];
 var STARTERS = ['emberrat', 'dropcrab', 'sproutsquirrel', 'zapchick', 'pebblebear', 'shadecat'];
-var NEED = { kid: 6, warden: 10, boss1: 13 };   // 봇이 도전하는 파티 평균 레벨
+var NEED = { kid: 6, warden: 10, boss1: 13, fisher: 17, keeper: 21, boss2: 24 };   // 봇이 도전하는 파티 평균 레벨
 
 function fight(rng, party, foes, wild, potions) {
   var bt = new ML.Battle({ rng: rng, mine: party, foe: foes, wild: wild, foePotions: potions || 0 });
@@ -27,7 +27,8 @@ function fight(rng, party, foes, wild, potions) {
 var res = [];
 for (var run = 0; run < N; run++) {
   var rng = ML.makeRng(1000 + run);
-  var party = [ML.createMonster(STARTERS[run % 6], 5, rng)], box = [];
+  // 2지역: 1지역을 끝낸 파티(Lv 14 세 마리)로 시작
+  var party = RG === 1 ? [ML.createMonster(STARTERS[run % 6], 5, rng)] : [0, 1, 2].map(function (i) { var m = ML.createMonster(STARTERS[(run + i * 2) % 6], 14, rng); while (ML.evolveTarget(m)) ML.evolve(m); return m; }), box = [];
   var visited = { gate: true }, searches = {}, beaten = {}, wilds = 0, heals = 0, losses = 0, tFights = 0, done = false;
   var cleared = function (pid) { var p = reg.places[pid]; return p.trainer ? beaten[p.trainer] : (searches[pid] || 0) >= 3; };
   var reach = function (pid) { return pid === 'gate' || reg.edges.some(function (e) { var o = e[0] === pid ? e[1] : e[1] === pid ? e[0] : null; return o && visited[o] && cleared(o); }); };
@@ -49,7 +50,7 @@ for (var run = 0; run < N; run++) {
       continue;
     }
     // 가장 깊은 탐색 장소
-    var sp = ['hill', 'flower', 'brook', 'meadow', 'gate'].filter(function (pid) { return reach(pid); })[0];
+    var sp = Object.keys(reg.places).reverse().filter(function (pid) { return reg.places[pid].wild && reach(pid); })[0];
     visited[sp] = true;
     searches[sp] = (searches[sp] || 0) + 1;
     if (!rng.chance(0.75)) continue;

@@ -102,6 +102,18 @@ ML.config = {
   loseGoldPct: 0.2,        // 전멸 시 잃는 골드
   partyMax: 3,
 
+  // 합성: 부모 2마리 + 합성석. 부모는 전투 3회 휴식, 알은 전투 5회 뒤 부화
+  fusion: {
+    restBattles: 3, hatchBattles: 5, maxEggs: 3,
+    moveInherit: 0.3, ivSpread: 0.05,
+    mutation: 0.05, mutationCatalyst: 0.15,
+    // 부모 특성 풀에서 물려받는 개수(나머지 칸은 새 특성)
+    inherit:      { 0: 25, 1: 40, 2: 25, 3: 10 },
+    inheritCharm: { 0: 5, 1: 30, 2: 40, 3: 25 },
+    shinyBothParents: 0.25,
+    hatchMinLevel: 5,
+  },
+
   // 시험 전투
   test: { defaultLevel: 10, expBoost: 10 },
 };

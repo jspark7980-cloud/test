@@ -5,7 +5,7 @@ var ML = window.ML = window.ML || {};
 
 ML.regions = {
   1: {
-    name: '햇살 들판', color: '#7fcf6a', bg: ['#1d3a24', '#132418'],
+    name: '햇살 들판', need: 0, color: '#7fcf6a', bg: ['#1d3a24', '#132418'],
     desc: '연구소 바로 앞의 너른 들판. 1단계 몬스터들이 산다.',
     start: 'gate',
     places: {
@@ -24,7 +24,27 @@ ML.regions = {
     },
     edges: [['gate', 'meadow'], ['gate', 'brook'], ['meadow', 'flower'], ['brook', 'hill'], ['flower', 'hill'], ['hill', 'boss']],
   },
-  2: { name: '천둥 해안', locked: '4단계에서 열립니다' },
+  2: {
+    name: '천둥 해안', color: '#6ab4ff', bg: ['#16304a', '#0d1a2a'], need: 1,
+    desc: '파도와 번개가 끊이지 않는 해안. 2단계 몬스터가 나타난다.',
+    start: 'gate',
+    places: {
+      gate:  { name: '해안 입구', kind: 'gate', x: 110, y: 430, icon: '🚪', desc: '소금기 섞인 바람이 분다.',
+               wild: [['wiresnake', 25, 12, 14], ['dropcrab', 20, 12, 14], ['mosstad', 20, 12, 14], ['zapchick', 20, 12, 14], ['crystalsnail', 15, 12, 14]] },
+      sand:  { name: '모래사장', kind: 'search', x: 330, y: 470, icon: '🏖️', desc: '반짝이는 모래 속에 무언가 숨어 있다.',
+               wild: [['dropcrab', 20, 13, 16], ['pebblebear', 20, 13, 16], ['zapchick', 20, 13, 16], ['shroombun', 15, 13, 16], ['wavepincer', 25, 16, 17]] },
+      bay:   { name: '안개 만', kind: 'search', x: 330, y: 230, icon: '🌫️', desc: '짙은 안개가 낀 잔잔한 만. 낚시꾼이 자리를 지킨다.', trainer: 'fisher',
+               wild: [['mosstad', 25, 15, 18], ['fogwisp', 20, 15, 18], ['wavepincer', 25, 16, 18], ['nightcat', 15, 16, 18], ['shadecat', 15, 15, 18]],
+               rare: ['mistray', 16, 19] },
+      reef:  { name: '번개 암초', kind: 'search', x: 600, y: 420, icon: '⚡', desc: '번개가 자주 떨어지는 바위 암초.',
+               wild: [['wiresnake', 20, 17, 20], ['thunderbird', 25, 17, 20], ['boulderbear', 20, 17, 20], ['crystalsnail', 15, 17, 20], ['blazerat', 20, 17, 20]],
+               rare: ['sparkjelly', 17, 20] },
+      light: { name: '등대 언덕', kind: 'search', x: 640, y: 170, icon: '🗼', desc: '해안을 비추는 낡은 등대. 등대지기가 길을 막는다.', trainer: 'keeper',
+               wild: [['thunderbird', 20, 18, 21], ['vinesquirrel', 20, 18, 21], ['blazerat', 20, 18, 21], ['nightcat', 20, 18, 21], ['charlizard', 20, 18, 21]] },
+      boss:  { name: '폭풍 부두', kind: 'boss', x: 880, y: 300, icon: '👑', desc: '번개와 파도를 함께 다루는 선장이 기다린다.', trainer: 'boss2' },
+    },
+    edges: [['gate', 'sand'], ['gate', 'bay'], ['sand', 'reef'], ['bay', 'light'], ['reef', 'light'], ['light', 'boss']],
+  },
   3: { name: '안개 고목숲', locked: '5단계에서 열립니다' },
   4: { name: '잿빛 화산령', locked: '5단계에서 열립니다' },
 };
@@ -37,4 +57,10 @@ ML.trainers = {
             team: [['pebblebear', 9], ['wiresnake', 9], ['fogwisp', 10]], gold: 260 },
   boss1:  { name: '화로지기 여울', icon: '🔥', boss: true, line: '불꽃은 꺼지지 않아. 각오는 됐지?', lose: '…좋은 불씨를 가졌구나. 다음 길을 열어 주마.',
             team: [['charlizard', 12], ['emberrat', 13], ['candlefae', 14]], potions: 1, gold: 600 },
+  fisher: { name: '해변 낚시꾼 물새', icon: '🎣', line: '안개 속에서 낚은 녀석들이야. 만만치 않을걸?', lose: '이런, 오늘은 내가 낚였네.',
+            team: [['mosstad', 16], ['wavepincer', 17], ['fogwisp', 17]], gold: 450 },
+  keeper: { name: '등대지기 은솔', icon: '🧑‍✈️', line: '등대 불빛 아래에선 도망칠 곳이 없지.', lose: '…지나가도 좋다. 부두에 선장이 있다.',
+            team: [['thunderbird', 20], ['boulderbear', 20], ['nightcat', 21]], potions: 1, gold: 700 },
+  boss2:  { name: '폭풍 선장 해랑', icon: '⚓', boss: true, line: '번개와 파도, 둘 다 감당할 수 있겠어?', lose: '하하! 폭풍을 뚫었구나. 다음 바다로 가라!',
+            team: [['bogfrog', 23], ['voltsnake', 23], ['thunderbird', 24]], potions: 2, gold: 1300 },
 };

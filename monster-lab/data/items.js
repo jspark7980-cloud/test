@@ -15,9 +15,12 @@ ML.items = {
   superpotion:  { name: '고급 회복약', icon: '🧪', kind: 'heal', price: 90, fx: { healPct: 0.5 }, desc: '체력 50% 회복' },
   cure:         { name: '만능 해독제', icon: '💊', kind: 'heal', price: 25, fx: { cure: true },   desc: '상태 이상 해제' },
 
-  fusionstone:  { name: '합성석',      icon: '💠', kind: 'fusion', price: 150, desc: '합성에 1개 쓴다(2지역 합성소에서 사용)' },
+  fusionstone:  { name: '합성석',      icon: '💠', kind: 'fusion', price: 150, desc: '합성에 1개 쓴다' },
+  charm:        { name: '계승 부적',   icon: '🧿', kind: 'fusion', price: 200, unlock: 2, desc: '합성: 부모 특성을 더 많이 물려받는다' },
+  catalyst:     { name: '돌연변이 촉매', icon: '🧫', kind: 'fusion', price: 250, unlock: 2, desc: '합성: 돌연변이 5% → 15%' },
+  purewater:    { name: '정화수',      icon: '💧', kind: 'fusion', price: 200, unlock: 2, desc: '합성: 나쁜 특성이 나오지 않는다' },
 };
 
-// 상점 진열 순서(지역 해금에 따라 늘어난다 — 계승 부적 등은 4단계)
+// 상점 진열 순서. unlock: 그 지역이 열려야 판다(보조 아이템은 2지역부터)
 ML.shopList = ['ball', 'greatball', 'ball_fire', 'ball_water', 'ball_leaf', 'ball_rock', 'ball_thunder', 'ball_shadow',
-  'potion', 'superpotion', 'cure', 'fusionstone'];
+  'potion', 'superpotion', 'cure', 'fusionstone', 'charm', 'catalyst', 'purewater'];

@@ -5,7 +5,7 @@ var root = path.join(__dirname, '..');
 var ctx = { console: console, Math: Math, Date: Date, JSON: JSON, Object: Object };
 ctx.window = ctx;
 vm.createContext(ctx);
-['data/config.js', 'data/elements.js', 'data/moves.js', 'data/traits.js', 'data/monsters.js', 'data/items.js', 'data/regions.js',
+['data/config.js', 'data/elements.js', 'data/moves.js', 'data/traits.js', 'data/monsters.js', 'data/items.js', 'data/regions.js', 'data/fusion.js',
  'js/rng.js', 'js/stats.js', 'js/battle.js', 'js/ai.js'].forEach(function (f) {
   vm.runInContext(fs.readFileSync(path.join(root, f), 'utf8'), ctx, { filename: f });
 });

@@ -15,13 +15,14 @@ var ML = window.ML = window.ML || {};
       ui.$('#back').onclick = function () { g.at = 'hub'; ML.state.save(); ML.app.status(); render(); };
       return;
     }
+    var open2 = ML.state.unlocked(2);
     var fac = [
       ['heal', '🏥', '회복소', '파티와 보관함의 몬스터를 모두 무료로 회복'],
       ['shop', '🛒', '상점', '포획구·회복약·합성석'],
       ['box', '📦', '보관함', '파티 ' + g.party.length + ' · 보관 ' + g.box.length + '마리'],
       ['dex', '📖', '도감', '잡은 종 ' + Object.keys(g.dex.caught).length + ' / 본 종 ' + Object.keys(g.dex.seen).length],
-      ['fusion', '🧬', '합성소', '2지역에서 열린다(4단계)', true],
-      ['hatch', '🥚', '부화장', '2지역에서 열린다(4단계)', true],
+      ['fusion', '🧬', '합성소', open2 ? '몬스터 2마리 + 합성석 → 알' : '1지역 보스를 이기면 열린다', !open2],
+      ['hatch', '🥚', '부화장', open2 ? '알 ' + g.eggs.length + ' / ' + ML.config.fusion.maxEggs + (g.eggs.some(function (e) { return !e.left; }) ? ' · 부화 준비!' : '') : '1지역 보스를 이기면 열린다', !open2],
     ];
     screen.innerHTML = '<div class="hub"><div class="hub-head"><h2>🏠 연구소</h2><button class="btn primary big" id="go-map">🗺️ 지도로 나가기</button></div>' +
       '<div class="fac-grid">' + fac.map(function (f) {
@@ -35,7 +36,9 @@ var ML = window.ML = window.ML || {};
         else if (f === 'shop') renderShop();
         else if (f === 'box') renderBox();
         else if (f === 'dex') ML.app.show('dex');
-        else ui.toast('2지역(천둥 해안)에 가면 열린다.');
+        else if (!open2) ui.toast('1지역 보스를 이기면 열린다.');
+        else if (f === 'fusion') ML.fusion.renderLab();
+        else ML.fusion.renderHatch();
       };
     });
   }
@@ -55,7 +58,7 @@ var ML = window.ML = window.ML || {};
   // ── 상점 ──────────────────────────────────────────
   function renderShop() {
     var g = ML.game;
-    screen.innerHTML = backBar('🛒 상점') + '<div class="shop">' + ML.shopList.map(function (id) {
+    screen.innerHTML = backBar('🛒 상점') + '<div class="shop">' + ML.shopList.filter(function (id) { return !ML.items[id].unlock || ML.state.unlocked(ML.items[id].unlock); }).map(function (id) {
       var it = ML.items[id];
       return '<div class="shop-item"><span class="bi">' + it.icon + '</span><div class="si-body"><b>' + it.name + '</b> <span class="muted small">보유 ' + ML.state.item(id) + '</span>' +
         '<div class="muted small">' + it.desc + '</div></div><div class="si-buy"><span class="price">💰 ' + it.price + '</span>' +
@@ -92,7 +95,7 @@ var ML = window.ML = window.ML || {};
     var st = ML.calcStats(m);
     return '<button class="mon-tile' + (m.hp <= 0 ? ' down' : '') + '" data-mon="' + m.uid + '" data-where="' + where + '">' +
       ML.art.svg(m.species, { size: 74, shiny: m.shiny }) + '<b>' + (m.shiny ? '✨' : '') + ML.species[m.species].name + '</b><span class="small">Lv ' + m.level + '</span>' +
-      '<div class="mini"><i style="width:' + (m.hp / st.hp * 100) + '%"></i></div>' +
+      '<div class="mini"><i style="width:' + (m.hp / st.hp * 100) + '%"></i></div>' + (m.rest > 0 ? '<span class="hint bad small">휴식 ' + m.rest + '</span>' : '') +
       '<div class="tile-traits">' + m.traits.map(function (t) { var gr = ML.traits[t].grade; return '<i class="tdot ' + gr + '" style="--c:' + (ML.traitGrades[gr].color === 'rainbow' ? '#fff' : ML.traitGrades[gr].color) + '"></i>'; }).join('') + '</div></button>';
   }
 
@@ -133,6 +136,7 @@ var ML = window.ML = window.ML || {};
       if (act === 'lead') { g.party.splice(f.i, 1); g.party.unshift(f.mon); }
       if (act === 'tobox') { g.party.splice(f.i, 1); g.box.push(f.mon); }
       if (act === 'toparty') {
+        if (f.mon.rest > 0) { ui.toast('합성 뒤 쉬는 중이다. 전투 ' + f.mon.rest + '번 뒤에 파티에 넣을 수 있다.'); return; }
         if (g.party.length < ML.config.partyMax) { g.box.splice(f.i, 1); g.party.push(f.mon); }
         else return swapPick(f);
       }

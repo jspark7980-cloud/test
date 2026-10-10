@@ -243,3 +243,34 @@ select, input { font: inherit; }
 .card.unknown .q { font-size: 56px; color: var(--muted); padding: 22px 0 10px; }
 .silhouette .mon-svg { filter: brightness(0) opacity(0.55); }
 @media (max-width: 900px) { .explore { grid-template-columns: 1fr; } .fac-grid { grid-template-columns: 1fr 1fr; } }
+
+/* 4단계: 지역 탭·합성소·부화장 */
+.reg-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.reg-tab { min-height: 42px; padding: 0 14px; border-radius: 12px; background: var(--panel2); border: 2px solid var(--line); font-weight: 700; font-size: 15px; }
+.reg-tab.on { background: var(--accent); color: #0b1020; }
+.reg-tab:disabled { opacity: 0.4; }
+.map-box { position: relative; }
+.fusion { display: grid; grid-template-columns: 1fr 1.2fr; gap: 16px; max-width: 1100px; margin: 0 auto; }
+.f-parents { display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
+.f-parents .plus { text-align: center; font-size: 28px; font-weight: 900; color: var(--muted); }
+.f-slot { background: var(--panel); border: 2px dashed var(--line); border-radius: 18px; min-height: 190px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 8px; }
+.f-slot .q, .q.big { font-size: 48px; color: var(--muted); }
+.f-side { background: var(--panel); border: 2px solid var(--line); border-radius: 18px; padding: 14px; }
+.aids { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.aid { background: var(--panel2); border: 2px solid var(--line); border-radius: 12px; padding: 8px; font-size: 14px; font-weight: 700; text-align: left; }
+.aid.on { border-color: var(--good); background: #1d3a2c; }
+.aid:disabled { opacity: 0.4; }
+.f-result { display: flex; gap: 12px; align-items: center; margin-top: 12px; background: var(--panel2); border-radius: 14px; padding: 8px; }
+.f-result h3 { margin: 2px 0; }
+.f-result .mon-svg { margin: 0; }
+.mon-tile:disabled { opacity: 0.35; }
+.egg-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; max-width: 900px; }
+.egg-card { background: var(--panel); border: 2px solid var(--line); border-radius: 18px; padding: 12px; text-align: center; display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.egg-card.ready { border-color: var(--warn); }
+.egg-card.ready svg { animation: wobble2 1s ease-in-out infinite; }
+.egg-big { display: inline-block; }
+.egg-big.hatching svg { animation: wobble2 0.35s ease-in-out infinite; }
+.egg-big.hatched { animation: evopop 0.6s ease-out; }
+@keyframes wobble2 { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-8deg); } 75% { transform: rotate(8deg); } }
+@media (max-width: 900px) { .fusion { grid-template-columns: 1fr; } }
+.intro .traits { justify-content: center; }

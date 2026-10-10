@@ -75,7 +75,19 @@ var ML = window.ML = window.ML || {};
       var st = ML.calcStats(m);
       return '<div class="pb' + (m.hp <= 0 ? ' down' : '') + '">' + ML.art.svg(m.species, { size: 44, shiny: m.shiny }) + '<div><b>Lv' + m.level + '</b><div class="mini"><i style="width:' + (m.hp / st.hp * 100) + '%"></i></div></div></div>';
     }).join('') + (alive ? '' : '<span class="hint bad">전원 기절 — 연구소 회복소로!</span>') + '</div>';
-    screen.innerHTML = '<div class="explore"><div class="map-wrap"><div class="map-title">' + reg.name + (pr.cleared ? ' 🏅' : '') + '</div>' + mapSvg() + partyBar + '</div><div class="place-panel">' + ML.josa(panel) + '</div></div>';
+    var regTabs = Object.keys(ML.regions).map(function (r) {
+      var R = ML.regions[r], open = ML.state.unlocked(+r);
+      return '<button class="reg-tab' + (+r === g.region ? ' on' : '') + '" data-region="' + r + '"' + (open ? '' : ' disabled') + '>' + (open ? '' : '🔒 ') + r + '. ' + R.name + (ML.game.prog[r] && ML.game.prog[r].cleared ? ' 🏅' : '') + '</button>';
+    }).join('');
+    screen.innerHTML = '<div class="explore"><div class="map-wrap"><div class="reg-tabs">' + regTabs + '</div><div class="map-box"><div class="map-title">' + reg.name + (pr.cleared ? ' 🏅' : '') + '</div>' + mapSvg() + '</div>' + partyBar + '</div><div class="place-panel">' + ML.josa(panel) + '</div></div>';
+    screen.querySelectorAll('[data-region]').forEach(function (b) {
+      b.onclick = function () {
+        var r = +b.dataset.region;
+        if (r === g.region) return;
+        g.region = r; g.at = 'hub'; ML.state.save(); ML.app.status(); render();
+        ui.toast(ML.regions[r].name + '(으)로 가는 길. 연구소에서 출발한다.');
+      };
+    });
 
     screen.querySelectorAll('[data-place]').forEach(function (n) { n.onclick = function () { travel(n.dataset.place); }; });
     screen.querySelectorAll('[data-go]').forEach(function (b) { b.onclick = function () { travel(b.dataset.go); }; });
@@ -189,12 +201,13 @@ var ML = window.ML = window.ML || {};
 
   function finish(r, o) {
     var g = ML.game;
+    if (!r.escaped) ML.fusion.tick();      // 휴식·알 카운트(도망친 전투는 세지 않음)
     if (r.winner === 1) { ML.state.healAll(); g.at = 'hub'; }
     ML.state.save();
     if (r.winner === 0 && o.trainer && o.trainer.boss) {
       var next = ML.regions[g.region + 1];
       var m = ui.modal('<div class="intro"><div class="t-icon">🏅</div><h3>' + region().name + ' 정복!</h3><p>' + o.trainer.name + '을(를) 이겼다.</p>' +
-        '<p class="muted">' + (next ? '다음 지역인 ' + next.name + '은(는) ' + (next.locked || '곧 열립니다') + '.' : '') + '</p>' +
+        '<p class="muted">' + (next ? (next.locked ? '다음 지역인 ' + next.name + '은(는) ' + next.locked + '.' : '지도에서 다음 지역 「' + next.name + '」에 갈 수 있다!' + (g.region === 1 ? ' 연구소에 합성소·부화장이 열렸다.' : '')) : '') + '</p>' +
         '<div class="row" style="justify-content:center"><button class="btn primary" data-close>좋아!</button></div></div>', function () { ML.app.show('map'); }, true);
       return;
     }

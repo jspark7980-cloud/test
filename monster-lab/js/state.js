@@ -10,7 +10,7 @@ ML.state = {
     var g = {
       v: 1, seed: seed, rng: seed, created: Date.now(), playMs: 0,
       gold: c.startGold, items: Object.assign({}, c.startItems),
-      party: [], box: [],
+      party: [], box: [], eggs: [],
       dex: { seen: {}, caught: {} },
       region: 1, at: 'hub',                    // 'hub' 또는 장소 id
       prog: { 1: { visited: {}, searches: {}, beaten: {}, cleared: false } },
@@ -32,6 +32,7 @@ ML.state = {
     // 데이터에서 사라진 종·기술은 걸러 낸다
     var ok = function (m) { return m && ML.species[m.species]; };
     g.party = g.party.filter(ok); g.box = g.box.filter(ok);
+    g.eggs = (g.eggs || []).filter(function (e) { return ML.species[e.species]; });
     g.party.concat(g.box).forEach(function (m) { m.moves = m.moves.filter(function (x) { return ML.moves[x]; }); });
     ML.game = g;
     return g;
@@ -70,6 +71,13 @@ ML.state = {
     ML.game.party.concat(ML.game.box).forEach(function (m) { m.hp = ML.calcStats(m).hp; m.status = null; });
   },
   partyAlive: function () { return ML.game.party.some(function (m) { return m.hp > 0; }); },
+
+  // 지역이 열렸나: 앞 지역 보스를 이겼으면
+  unlocked: function (r) {
+    var reg = ML.regions[r];
+    if (!reg || reg.locked) return false;
+    return !reg.need || !!(ML.game.prog[reg.need] && ML.game.prog[reg.need].cleared);
+  },
 
   // ── 지도 진행 ────────────────────────────────────
   prog: function (r) {
