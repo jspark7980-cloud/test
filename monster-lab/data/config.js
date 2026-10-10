@@ -120,6 +120,17 @@ ML.config = {
     hatchMinLevel: 5,
   },
 
+  // 대련장: 보상 = 상대 레벨 × 3마리 × goldPerLv × 연승 배율(이길 때마다 +20%, 최대 +100%)
+  spar: {
+    streakStep: 0.2, streakMax: 1.0,
+    tiers: [
+      { name: '가벼운 대련', icon: '🙂', lvOffset: -3, goldPerLv: 4,  traits: 'low',  potions: 0, desc: '내 파티 평균보다 3레벨 낮다' },
+      { name: '정식 대련',   icon: '😤', lvOffset: 0,  goldPerLv: 7,  traits: 'low',  potions: 1, desc: '내 파티 평균 레벨, 회복약 1개' },
+      { name: '강적 대련',   icon: '😈', lvOffset: 3,  goldPerLv: 11, traits: 'high', potions: 1, desc: '3레벨 높고 좋은 특성이 잘 붙는다' },
+      { name: '지옥 대련',   icon: '💀', lvOffset: 6,  goldPerLv: 16, traits: 'high', potions: 2, desc: '6레벨 높고 회복약 2개' },
+    ],
+  },
+
   // 시험 전투
   test: { defaultLevel: 10, expBoost: 10 },
 };

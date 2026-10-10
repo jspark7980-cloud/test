@@ -324,3 +324,10 @@ select, input { font: inherit; }
 .iv-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .iv-compare > div { background: var(--panel2); border-radius: 14px; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
 .iv-col .stat { grid-template-columns: 40px 1fr 44px; }
+.spar-head { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 8px; }
+.spar-head div { background: var(--panel); border: 2px solid var(--line); border-radius: 12px; padding: 8px 10px; }
+.spar-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.spar-card { background: var(--panel); border: 2px solid var(--line); border-radius: 18px; padding: 14px; display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 180px; }
+.spar-card .fi { font-size: 40px; }
+.spar-card b { font-size: 19px; }
+@media (max-width: 900px) { .spar-grid, .spar-head { grid-template-columns: 1fr 1fr; } }

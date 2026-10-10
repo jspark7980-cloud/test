@@ -4,7 +4,7 @@ var ML = window.ML = window.ML || {};
 (function () {
   var ui = ML.ui, screen = document.getElementById('screen');
 
-  ML.explore = { render: render, search: search, ending: ending };
+  ML.explore = { render: render, search: search, ending: ending, startBattle: function (f, o) { startBattle(f, o); } };
 
   function region() { return ML.regions[ML.game.region]; }
 
@@ -228,6 +228,7 @@ var ML = window.ML = window.ML || {};
   // 결과 창에 보일 보상(여기서 실제로 지급)
   function reward(r, foes, o) {
     var g = ML.game, c = ML.config, h = '';
+    if (o.spar) return ML.spar.reward(r, o);
     if (r.captured) {
       var where = ML.state.addMon(r.captured);
       if (r.captured.shiny) g.dex.shiny = Object.assign(g.dex.shiny || {}, (function (o) { o[r.captured.species] = true; return o; })({}));
@@ -257,6 +258,7 @@ var ML = window.ML = window.ML || {};
   function finish(r, o) {
     var g = ML.game;
     if (!r.escaped) ML.fusion.tick();      // 휴식·알 카운트(도망친 전투는 세지 않음)
+    if (o.spar) return ML.spar.finish(r);
     if (r.winner === 1) { ML.state.healAll(); g.at = 'hub'; }
     ML.state.save();
     if (r.winner === 0 && o.trainer && o.trainer.boss && !ML.regions[g.region + 1]) {
