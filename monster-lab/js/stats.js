@@ -93,3 +93,60 @@ ML.evolveTarget = function (mon) {
   var ev = ML.species[mon.species].evolve;
   return ev && mon.level >= ev[1] ? ev[0] : null;
 };
+
+// ── 경험치·레벨업·진화 ─────────────────────────────
+ML.expToNext = function (level) { var e = ML.config.exp; return e.nextBase + level * e.nextPerLevel; };
+
+ML.expYield = function (mon) {
+  var sp = ML.species[mon.species], base = ML.config.exp.base;
+  return mon.level * (sp.stage ? base[sp.stage] : base[sp.rarity] || base[3]);
+};
+
+// 경험치를 더하고 레벨업을 처리. 결과: { gain, from, to, learned: [자동으로 배운 기술], pending: [교체를 골라야 할 기술] }
+ML.gainExp = function (mon, amount) {
+  var c = ML.config, res = { gain: amount, from: mon.level, to: mon.level, learned: [], pending: [] };
+  if (mon.level >= c.maxLevel) return res;
+  mon.exp += amount;
+  while (mon.level < c.maxLevel && mon.exp >= ML.expToNext(mon.level)) {
+    mon.exp -= ML.expToNext(mon.level);
+    var before = ML.calcStats(mon).hp;
+    mon.level++;
+    if (mon.hp > 0) mon.hp = Math.max(1, mon.hp + ML.calcStats(mon).hp - before);   // 쓰러진 몬스터는 그대로
+    ML.newMovesAt(mon.species, mon.level).forEach(function (m) {
+      if (mon.moves.indexOf(m) >= 0) return;
+      if (mon.moves.length < 4) { mon.moves.push(m); res.learned.push(m); }
+      else res.pending.push(m);
+    });
+  }
+  if (mon.level >= c.maxLevel) mon.exp = 0;
+  res.to = mon.level;
+  return res;
+};
+
+ML.newMovesAt = function (speciesId, level) {
+  return ML.learnsetOf(speciesId).filter(function (e) { return e[0] === level; }).map(function (e) { return e[1]; });
+};
+
+// 진화: 종을 바꾸고 늘어난 최대 체력만큼 현재 체력도 늘린다
+ML.evolve = function (mon) {
+  var to = ML.evolveTarget(mon);
+  if (!to) return null;
+  var before = ML.calcStats(mon).hp;
+  mon.species = to;
+  if (mon.hp > 0) mon.hp = Math.max(1, mon.hp + ML.calcStats(mon).hp - before);
+  return to;
+};
+
+// 전투가 끝난 뒤 내 편(side 0)이 받을 경험치: { uid: 양 }
+ML.battleExp = function (battle, boost) {
+  var out = {};
+  battle.defeated.forEach(function (d) {
+    if (d.side !== 1 || !d.appeared.length) return;
+    var share = ML.expYield(d.mon) / d.appeared.length;
+    d.appeared.forEach(function (uid) { out[uid] = (out[uid] || 0) + share; });
+  });
+  battle.sides[0].units.forEach(function (u) {
+    if (out[u.mon.uid]) out[u.mon.uid] = Math.max(1, Math.round(out[u.mon.uid] * (1 + ML.traitSum(u.mon, 'exp')) * (boost || 1)));
+  });
+  return out;
+};

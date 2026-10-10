@@ -32,3 +32,13 @@ ML.hashSeed = function (str) {
 };
 
 ML.randomSeed = function () { return Math.floor(Math.random() * 1e9); };
+
+// 조사 고르기: "불씨쥐이(가)" → "불씨쥐가", "용광서은(는)" → "용광서는"
+ML.josa = function (text) {
+  return String(text).replace(/([가-힣])(이\(가\)|은\(는\)|을\(를\)|과\(와\)|\(으\)로)/g, function (all, ch, j) {
+    var jong = (ch.charCodeAt(0) - 0xAC00) % 28, has = jong !== 0;
+    if (j === '(으)로') return ch + (has && jong !== 8 ? '으로' : '로');
+    var pair = { '이(가)': ['이', '가'], '은(는)': ['은', '는'], '을(를)': ['을', '를'], '과(와)': ['과', '와'] }[j];
+    return ch + (has ? pair[0] : pair[1]);
+  });
+};

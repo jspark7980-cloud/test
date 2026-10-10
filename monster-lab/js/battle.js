@@ -1,5 +1,5 @@
 // 전투 진행(DOM 없음 — tools/sim.js에서도 그대로 쓴다)
-// 1단계: 1대1. 2단계에서 3대3·교체를 붙인다(sides[].mons에 여러 마리).
+// 3대3: 한 마리씩 출전, 교체도 1턴. 쓰러지면 다음 몬스터를 고른다(턴 소모 없음).
 var ML = window.ML = window.ML || {};
 
 ML.STATUS_NAMES = { burn: '화상', para: '마비', sleep: '수면', poison: '독' };
@@ -16,7 +16,10 @@ ML.Battle = function (opts) {
   this.sides = [opts.mine, opts.foe].map(function (mons, i) {
     return { idx: i, units: mons.map(function (m) { return self.makeUnit(m, i); }), active: 0 };
   });
-  this.sides.forEach(function (s) { self.onEnter(s.units[s.active]); });
+  this.appeared = [{}, {}];      // 한 번이라도 나온 몬스터(uid) — 경험치 분배용
+  this.defeated = [];            // { side, mon, appeared: [uid…] } 쓰러진 순서
+  this.needReplace = [false, false];
+  this.sides.forEach(function (s) { self.enter(s.idx, s.active, true); });
 };
 
 var B = ML.Battle.prototype;
@@ -33,9 +36,46 @@ B.makeUnit = function (mon, side) {
 B.name = function (u) {
   return (u.side === 0 ? '' : '상대 ') + ML.species[u.mon.species].name;
 };
-B.say = function (msg, kind) { this.log.push({ msg: msg, kind: kind || '' }); };
+B.say = function (msg, kind) { this.log.push({ msg: ML.josa(msg), kind: kind || '' }); };
 B.active = function (side) { var s = this.sides[side]; return s.units[s.active]; };
 B.ability = function (u) { var a = ML.abilities[ML.species[u.mon.species].ability]; return a && a.key; };
+
+B.alive = function (side) { return this.sides[side].units.filter(function (u) { return u.mon.hp > 0; }); };
+// 교체 가능한 대기 몬스터(살아 있고 지금 나와 있지 않음)의 번호
+B.bench = function (side) {
+  var s = this.sides[side];
+  return s.units.map(function (u, i) { return i; }).filter(function (i) { return i !== s.active && s.units[i].mon.hp > 0; });
+};
+
+B.enter = function (side, idx, first) {
+  var s = this.sides[side], u = s.units[idx];
+  s.active = idx;
+  this.appeared[side][u.mon.uid] = true;
+  this.log.push({ swap: side, to: idx });
+  if (!first) this.say((side === 0 ? '가랏, ' : '상대가 ') + ML.species[u.mon.species].name + (side === 0 ? '!' : '을(를) 내보냈다!'), 'switch');
+  this.onEnter(u);
+};
+
+// 나가는 몬스터는 능력 단계·봉인이 풀린다(상태 이상은 남는다)
+B.leave = function (u) {
+  u.stages = { atk: 0, def: 0, spd: 0, eva: 0 };
+  u.sealed = {};
+  u.lastMove = null;
+};
+
+B.doSwitch = function (side, idx) {
+  var out = this.active(side);
+  this.say((side === 0 ? '돌아와, ' : '상대가 ') + ML.species[out.mon.species].name + (side === 0 ? '!' : '을(를) 불러들였다.'), 'switch');
+  this.leave(out);
+  this.enter(side, idx);
+};
+
+// 쓰러진 뒤 다음 몬스터 내보내기(턴 소모 없음)
+B.replace = function (side, idx) {
+  if (!this.needReplace[side]) return;
+  this.needReplace[side] = false;
+  this.enter(side, idx);
+};
 
 B.onEnter = function (u) {
   if (this.ability(u) === 'rain') {
@@ -108,31 +148,38 @@ B.calcDamage = function (att, def, move, forecast) {
 };
 
 B.sideHasTeamBuff = function (side) {
-  return this.ability(this.active(side)) === 'teamAtk';
+  // 촛불요정: 쓰러지지 않았으면 대기 중이어도 우리 편 전원 공격 +10%
+  var self = this;
+  return this.sides[side].units.some(function (u) { return u.mon.hp > 0 && self.ability(u) === 'teamAtk'; });
 };
 
 // ── 턴 진행 ───────────────────────────────────────────
-// actions[i] = { type: 'move', move: 'ember' }
+// actions[i] = { type: 'move', move: 'ember' } 또는 { type: 'switch', to: 1 }
 B.turn = function (actions) {
-  if (this.over) return;
+  if (this.over || this.needReplace[0] || this.needReplace[1]) return;
   this.turnNo++;
   var self = this, rng = this.rng;
-  var order = [0, 1].map(function (i) { return self.active(i); });
-  order.sort(function (a, b) {
-    var fa = ML.hasTraitFx(a.mon, 'firstStrike') ? 1 : 0, fb = ML.hasTraitFx(b.mon, 'firstStrike') ? 1 : 0;
-    if (fa !== fb) return fb - fa;
-    var sa = self.effSpeed(a), sb = self.effSpeed(b);
-    if (sa !== sb) return sb - sa;
-    return 0;
+  // 1) 교체 먼저(빠른 쪽부터)
+  var sides = [0, 1].sort(function (a, b) { return self.effSpeed(self.active(b)) - self.effSpeed(self.active(a)); });
+  sides.forEach(function (i) {
+    var a = actions[i];
+    if (a && a.type === 'switch' && self.bench(i).indexOf(a.to) >= 0) self.doSwitch(i, a.to);
   });
-  if (order[0] !== order[1] && self.effSpeed(order[0]) === self.effSpeed(order[1]) &&
-      ML.hasTraitFx(order[0].mon, 'firstStrike') === ML.hasTraitFx(order[1].mon, 'firstStrike') && rng.chance(0.5)) {
-    order.reverse();
-  }
+  // 2) 기술: 시간 감각 → 속도 순, 같으면 무작위
+  var order = [0, 1].filter(function (i) { return !actions[i] || actions[i].type !== 'switch'; })
+    .map(function (i) { return { u: self.active(i), r: rng() }; });
+  order.sort(function (a, b) {
+    var fa = ML.hasTraitFx(a.u.mon, 'firstStrike') ? 1 : 0, fb = ML.hasTraitFx(b.u.mon, 'firstStrike') ? 1 : 0;
+    if (fa !== fb) return fb - fa;
+    var sa = self.effSpeed(a.u), sb = self.effSpeed(b.u);
+    if (sa !== sb) return sb - sa;
+    return a.r - b.r;
+  });
   for (var i = 0; i < order.length && !this.over; i++) {
-    var u = order[i];
-    if (u.mon.hp <= 0) continue;
+    var u = order[i].u;
+    if (u.mon.hp <= 0 || u !== this.active(u.side)) continue;
     var foe = this.active(1 - u.side);
+    if (foe.mon.hp <= 0) { this.say(this.name(u) + '은(는) 공격할 상대가 없다.', ''); continue; }
     this.act(u, foe, actions[u.side]);
     this.checkFaint();
   }
@@ -236,7 +283,7 @@ B.applyDamage = function (u, dmg, info) {
     u.endureUsed = true; u.mon.hp = 1;
     this.say(this.name(u) + '은(는) 불사조의 심장으로 버텼다!', 'trait');
   }
-  this.log.push({ hit: u.side, dmg: before - u.mon.hp, eff: info && info.type });
+  this.log.push({ hit: u.side, uid: u.mon.uid, dmg: before - u.mon.hp, eff: info && info.type });
   // 맞으면 깰 수 있음
   if (u.mon.hp > 0 && u.mon.status === 'sleep' && info && info.from && this.rng.chance(c.status.sleep.wakeOnHit)) {
     u.mon.status = null; this.say(this.name(u) + '이(가) 맞고 깨어났다!', 'status');
@@ -248,7 +295,7 @@ B.heal = function (u, amt, msg) {
   var before = u.mon.hp;
   u.mon.hp = Math.min(u.stats.hp, u.mon.hp + amt);
   if (u.mon.hp > before) {
-    this.log.push({ heal: u.side, amt: u.mon.hp - before });
+    this.log.push({ heal: u.side, uid: u.mon.uid, amt: u.mon.hp - before });
     if (msg) this.say(this.name(u) + '은(는) ' + msg + '.', 'heal');
   }
 };
@@ -304,18 +351,27 @@ B.checkFaint = function () {
   var c = ML.config, self = this;
   [0, 1].forEach(function (i) {
     var u = self.active(i);
-    if (u.mon.hp > 0 || self.over) return;
+    if (u.mon.hp > 0 || u.fainted || self.over) return;
     if (self.ability(u) === 'revive' && !u.reviveUsed) {
       u.reviveUsed = true;
       u.mon.hp = Math.round(u.stats.hp * c.ability.reviveHpPct);
       u.mon.status = null;
+      self.log.push({ heal: u.side, uid: u.mon.uid, amt: u.mon.hp });
       self.say(self.name(u) + '이(가) 다시 일어섰다!', 'ability');
       return;
     }
+    u.fainted = true;
+    u.mon.status = null;
     self.say(self.name(u) + '은(는) 쓰러졌다!', 'faint');
-    // 2단계: 다음 몬스터 교체. 지금은 1대1이라 바로 끝.
-    var side = self.sides[i];
-    var next = side.units.findIndex(function (x) { return x.mon.hp > 0; });
-    if (next < 0) { self.over = true; self.winner = 1 - i; }
+    self.log.push({ faint: i, uid: u.mon.uid });
+    self.defeated.push({ side: i, mon: u.mon, appeared: Object.keys(self.appeared[1 - i]) });
   });
+  if (this.over) return;
+  var out = [0, 1].map(function (i) { return self.alive(i).length === 0; });
+  if (out[0] || out[1]) {
+    this.over = true;
+    this.winner = out[0] ? 1 : 0;      // 동시에 전멸하면 내 패배 [제안]
+    return;
+  }
+  [0, 1].forEach(function (i) { if (self.active(i).mon.hp <= 0) self.needReplace[i] = true; });
 };

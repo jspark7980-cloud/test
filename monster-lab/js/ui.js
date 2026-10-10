@@ -23,12 +23,13 @@ ML.ui = {
     return { rare: '희귀', fusion: '합성 전용', legend: '전설', hidden: '숨겨진' }[sp.rarity] || '';
   },
 
-  modal: function (html, onClose) {
+  // locked = true면 바깥을 눌러도 닫히지 않는다(반드시 골라야 하는 창)
+  modal: function (html, onClose, locked) {
     var root = document.getElementById('modal-root');
-    root.innerHTML = '<div class="modal-bg"><div class="modal">' + html + '</div></div>';
+    root.innerHTML = '<div class="modal-bg"><div class="modal">' + ML.josa(html) + '</div></div>';
     var bg = root.firstChild;
     bg.addEventListener('click', function (e) {
-      if (e.target === bg || e.target.closest('[data-close]')) { ML.ui.closeModal(); if (onClose) onClose(); }
+      if ((e.target === bg && !locked) || e.target.closest('[data-close]')) { ML.ui.closeModal(); if (onClose) onClose(); }
     });
     return bg.firstChild;
   },
@@ -36,7 +37,7 @@ ML.ui = {
 
   toast: function (msg) {
     var t = document.getElementById('toast');
-    t.textContent = msg; t.classList.add('on');
+    t.textContent = ML.josa(msg); t.classList.add('on');
     clearTimeout(ML.ui._tt);
     ML.ui._tt = setTimeout(function () { t.classList.remove('on'); }, 1800);
   },

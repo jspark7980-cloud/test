@@ -30,9 +30,6 @@ ML.config = {
   stagePerStep: 0.25,      // 공격·방어·속도: 1 + 0.25 × 단계 (음수면 1 / (1 + 0.25 × |단계|))
   evasionPerStep: 0.1,     // 회피 단계당 10%p
 
-  // 진화 레벨
-  evolveLevels: { three: [16, 32], two: [22] },
-
   // 상태 이상
   status: {
     burn:   { turns: 4, dotPct: 0.06, atkMul: 0.75 },
@@ -69,6 +66,17 @@ ML.config = {
     },
   },
 
-  // 1단계 시험 전투
-  test: { defaultLevel: 10 },
+  // 적 AI
+  // 교환 효율 = (내 최고 공격이 깎는 상대 체력 비율) ÷ (상대 최고 공격이 깎는 내 체력 비율)
+  // 효율이 switchIfBelow 이하면 "크게 불리" → 효율이 switchGain배 이상인 대기 몬스터가 있으면 switchChance 확률로 교체
+  ai: { switchIfBelow: 0.8, switchGain: 2, switchChance: 0.8 },
+
+  // 경험치: 쓰러뜨린 몬스터 레벨 × 종별 기본값, 그 전투에 나온 내 몬스터가 똑같이 나눔
+  exp: {
+    base: { 1: 6, 2: 9, 3: 12, rare: 12, fusion: 14, legend: 20, hidden: 20 },
+    nextBase: 12, nextPerLevel: 6,     // 다음 레벨 필요 = 12 + 레벨 × 6
+  },
+
+  // 시험 전투
+  test: { defaultLevel: 10, expBoost: 10 },
 };

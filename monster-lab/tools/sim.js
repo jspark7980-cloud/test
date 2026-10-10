@@ -24,12 +24,21 @@ function levelFor(id) {
   return st === 1 ? rng.int(5, 15) : st === 2 ? rng.int(18, 30) : rng.int(34, 45);
 }
 
-function fight(a, b) {
-  var b1 = new ML.Battle({ rng: rng, mine: [a], foe: [b] });
+// 전투 한 판. teams: [[mon…], [mon…]], noSwitch[i] = true면 그 편은 교체하지 않음
+function battle(teams, noSwitch) {
+  var bt = new ML.Battle({ rng: rng, mine: teams[0], foe: teams[1] });
   var guard = 0;
-  while (!b1.over && guard++ < 100) {
-    b1.turn([{ type: 'move', move: ML.ai.chooseMove(b1, 0) }, { type: 'move', move: ML.ai.chooseMove(b1, 1) }]);
+  while (!bt.over && guard++ < 200) {
+    [0, 1].forEach(function (i) { if (bt.needReplace[i]) bt.replace(i, ML.ai.chooseReplacement(bt, i)); });
+    var acts = [0, 1].map(function (i) {
+      return noSwitch && noSwitch[i] ? { type: 'move', move: ML.ai.chooseMove(bt, i) } : ML.ai.chooseAction(bt, i);
+    });
+    bt.turn(acts);
   }
+  return bt;
+}
+function fight(a, b) {
+  var b1 = battle([[a], [b]]);
   return { turns: b1.turnNo, winner: b1.winner, left: b1.winner == null ? 0 : b1.active(b1.winner).mon.hp / b1.active(b1.winner).stats.hp };
 }
 
@@ -57,6 +66,22 @@ var byEl = {}; ids.forEach(function (id) { var e = ML.species[id].els[0], s = ML
 ML.elements.order.forEach(function (e) {
   var foe = ML.elements.beats[e];
   run(ML.elements.info[e].name + ' → ' + ML.elements.info[foe].name + '(2단계)', function () { return rng.pick(byEl[e + 2]); }, function () { return rng.pick(byEl[foe + 2]); });
+});
+
+// 3대3: 같은 단계 무작위 팀
+console.log('\n3대3 (같은 단계 무작위 팀, 1000판씩)');
+[1, 2, 3].forEach(function (st) {
+  var pick = sameStage(st), turns = 0, sw = 0, swWin = 0;
+  for (var i = 0; i < 1000; i++) {
+    var lv = levelFor(pick());
+    var mk = function () { return [0, 1, 2].map(function () { return ML.createMonster(pick(), lv, rng); }); };
+    var bt = battle([mk(), mk()]);
+    turns += bt.turnNo;
+    sw += bt.log.filter(function (e) { return e.kind === 'switch' && /돌아와|불러들였다/.test(e.msg); }).length;
+    var bt2 = battle([mk(), mk()], [false, true]);      // 교체하는 AI vs 교체 안 하는 AI
+    if (bt2.winner === 0) swWin++;
+  }
+  console.log('  ' + st + '단계 평균 ' + (turns / 1000).toFixed(1) + '턴, 판당 교체 ' + (sw / 1000).toFixed(2) + '회, 교체 AI 승률 ' + (swWin / 10).toFixed(1) + '%');
 });
 
 // 종별 승률(같은 단계 무작위 상대)

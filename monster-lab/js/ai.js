@@ -1,7 +1,53 @@
-// 적 AI: 상성이 유리한 기술 우선. (2단계: 크게 불리하면 교체)
+// 적 AI: 상성이 유리한 기술 우선, 크게 불리하면 교체
 var ML = window.ML = window.ML || {};
 
 ML.ai = {
+  // 이번 턴 행동: 크게 불리하면 더 나은 대기 몬스터로 교체, 아니면 기술
+  // "크게 불리" = 교환 효율(내가 깎는 상대 체력 비율 ÷ 내가 잃는 체력 비율)이 switchIfBelow 이하
+  chooseAction: function (battle, side) {
+    var c = ML.config.ai, rng = battle.rng;
+    var u = battle.active(side), foe = battle.active(1 - side), bench = battle.bench(side);
+    if (bench.length) {
+      var now = ML.ai.trade(battle, u, foe);
+      if (now <= c.switchIfBelow) {
+        var best = null, bs = 0;
+        bench.forEach(function (i) {
+          var r = ML.ai.trade(battle, battle.sides[side].units[i], foe);
+          if (r > bs) { bs = r; best = i; }
+        });
+        if (best !== null && bs >= now * c.switchGain && rng.chance(c.switchChance)) return { type: 'switch', to: best };
+      }
+    }
+    return { type: 'move', move: ML.ai.chooseMove(battle, side) };
+  },
+
+  // 쓰러진 뒤 내보낼 몬스터: 지금 상대와 교환 효율이 가장 좋은 쪽(체력 많은 쪽 우대)
+  chooseReplacement: function (battle, side) {
+    var foe = battle.active(1 - side), units = battle.sides[side].units, best = null, bs = -1;
+    battle.bench(side).forEach(function (i) {
+      var u = units[i], r = ML.ai.trade(battle, u, foe) * (0.5 + 0.5 * u.mon.hp / u.stats.hp);
+      if (r > bs) { bs = r; best = i; }
+    });
+    return best;
+  },
+
+  trade: function (battle, u, foe) {
+    var give = ML.ai.bestHit(battle, u, foe) / foe.stats.hp;
+    var take = ML.ai.bestHit(battle, foe, u) / u.stats.hp;
+    return give / take;
+  },
+
+  // 가장 센 공격 기술의 예상 피해(명중률 반영)
+  bestHit: function (battle, att, def) {
+    var best = 0;
+    att.mon.moves.forEach(function (id) {
+      var mv = ML.moves[id];
+      if (mv.kind !== 'attack' || att.sealed[id]) return;
+      best = Math.max(best, battle.calcDamage(att, def, mv, true).dmg * mv.acc / 100);
+    });
+    return Math.max(1, best);
+  },
+
   // 기술마다 점수를 매기고 가장 높은 것(동점 근처는 무작위)
   chooseMove: function (battle, side) {
     var u = battle.active(side), foe = battle.active(1 - side), rng = battle.rng;

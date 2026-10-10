@@ -1,32 +1,40 @@
-// 시작·화면 전환. 1단계: 도감 미리보기 + 1대1 시험 전투
+// 시작·화면 전환. 지금은 도감 미리보기 + 3대3 시험 전투(팀 편성, 레벨업·진화 확인용)
 var ML = window.ML = window.ML || {};
 
 (function () {
   var ui = ML.ui, screen = document.getElementById('screen');
   var saved = ML.save.load() || {};
+  var T = ML.config.test.defaultLevel;
   var setup = Object.assign({
-    mine: 'emberrat', mineLv: ML.config.test.defaultLevel, mineShiny: false,
-    foe: 'sproutsquirrel', foeLv: ML.config.test.defaultLevel, foeShiny: false,
-    seed: ML.randomSeed(),
-  }, saved.test || {});
-  var current = 'dex', battleView = null;
+    foes: [{ sp: 'sproutsquirrel', lv: T }, { sp: 'zapchick', lv: T }, { sp: 'shadecat', lv: T }],
+    seed: ML.randomSeed(), expBoost: false,
+  }, saved.setup || {});
+  var team = loadTeam();
 
-  function persist() { saved.test = setup; ML.save.write(saved); }
+  // 내 팀은 전투 뒤 레벨·기술·진화가 그대로 저장된다
+  function loadTeam() {
+    var t = (saved.team || []).filter(function (m) { return m && ML.species[m.species] && m.ivs; });
+    if (t.length === 3) return t;
+    var rng = ML.makeRng(ML.randomSeed());
+    return ['emberrat', 'dropcrab', 'sproutsquirrel'].map(function (id) { return ML.createMonster(id, T, rng); });
+  }
+  function persist() { saved.setup = setup; saved.team = team; ML.save.write(saved); }
 
   // ── 탭 ────────────────────────────────────────────
   var tabs = document.getElementById('tabs');
   tabs.addEventListener('click', function (e) {
     var b = e.target.closest('[data-tab]');
-    if (!b || battleView && battleView.busy) return;
+    if (!b || ML.battleView.isBusy()) return;
     show(b.dataset.tab);
   });
   function show(tab) {
-    current = tab; battleView = null;
+    ML.battleView.stop();
     saved.tab = tab; ML.save.write(saved);
     [].forEach.call(tabs.children, function (b) { b.classList.toggle('on', b.dataset.tab === tab); });
     screen.scrollTop = 0;
     if (tab === 'dex') renderDex(); else renderSetup();
   }
+  ML.app = { show: show };
   ui.bindTraitTips(screen);
   ui.bindTraitTips(document.getElementById('modal-root'));
 
@@ -101,7 +109,7 @@ var ML = window.ML = window.ML || {};
     m.querySelectorAll('[data-go]').forEach(function (s) { s.onclick = function () { openDetail(s.dataset.go, shiny); }; });
   }
 
-  // ── 시험 전투 설정 ────────────────────────────────
+  // ── 시험 전투: 팀 편성 ────────────────────────────
   function speciesOptions(sel) {
     return groups().map(function (gr) {
       return '<optgroup label="' + gr.t + '">' + gr.ids.map(function (id) {
@@ -109,184 +117,85 @@ var ML = window.ML = window.ML || {};
       }).join('') + '</optgroup>';
     }).join('');
   }
+  function moveNames(m) { return m.moves.map(function (x) { return ML.moves[x].name; }).join(', '); }
 
-  // 같은 시드면 같은 개체(특성·개체값)가 나온다
-  function buildMons() {
-    var rng = ML.makeRng(setup.seed);
-    var mine = ML.createMonster(setup.mine, setup.mineLv, rng, { shiny: setup.mineShiny });
-    var foe = ML.createMonster(setup.foe, setup.foeLv, rng, { shiny: setup.foeShiny });
-    return { mine: mine, foe: foe, rng: rng };
+  function myCard(m, i) {
+    var st = ML.calcStats(m), need = ML.expToNext(m.level), ev = ML.species[m.species].evolve;
+    return '<div class="tm">' + ML.art.svg(m.species, { size: 92, shiny: m.shiny }) +
+      '<div class="tm-body"><div class="row" style="gap:6px"><b>' + (i === 0 ? '🚩 ' : '') + ML.species[m.species].name + '</b><span>Lv ' + m.level + '</span>' + ui.elChips(ML.species[m.species].els) + '</div>' +
+      '<div class="bar" title="경험치"><i style="width:' + (m.level >= ML.config.maxLevel ? 100 : m.exp / need * 100) + '%"></i></div>' +
+      '<div class="muted small">경험치 ' + m.exp + ' / ' + need + (ev ? ML.josa(' · Lv' + ev[1] + '에 ' + ML.species[ev[0]].name + '(으)로 진화') : '') + '</div>' +
+      '<div class="muted small">체력 ' + st.hp + ' · 공격 ' + st.atk + ' · 방어 ' + st.def + ' · 속도 ' + st.spd + '</div>' +
+      '<div class="small">' + moveNames(m) + '</div>' + ui.traitChips(m.traits) + '</div>' +
+      '<div class="tm-btns"><button class="btn sm" data-change="' + i + '">바꾸기</button>' + (i ? '<button class="btn sm" data-lead="' + i + '">선두로</button>' : '') + '</div></div>';
   }
 
-  function pickPanel(side, label) {
-    var id = setup[side], lv = setup[side + 'Lv'], shiny = setup[side + 'Shiny'];
-    return '<div class="pick"><h3>' + label + '</h3>' + ML.art.svg(id, { size: 170, shiny: shiny, flip: side === 'foe' }) +
-      '<select data-sel="' + side + '">' + speciesOptions(id) + '</select>' +
-      '<div class="stepper"><button data-lv="' + side + ':-5">−5</button><button data-lv="' + side + ':-1">−</button><b>Lv ' + lv + '</b><button data-lv="' + side + ':1">+</button><button data-lv="' + side + ':5">+5</button></div>' +
-      '<div class="row" style="justify-content:center"><button class="btn" data-rand="' + side + '">🎲 무작위</button><button class="btn" data-shiny="' + side + '">' + (shiny ? '✨ 색다른 개체' : '기본 색') + '</button></div>' +
-      '<div id="prev-' + side + '" style="margin-top:10px"></div></div>';
+  function foeRow(f, i) {
+    return '<div class="tm">' + ML.art.svg(f.sp, { size: 70, flip: true }) +
+      '<div class="tm-body"><select data-foe="' + i + '">' + speciesOptions(f.sp) + '</select>' +
+      '<div class="stepper sm"><button data-flv="' + i + ':-5">−5</button><button data-flv="' + i + ':-1">−</button><b>Lv ' + f.lv + '</b><button data-flv="' + i + ':1">+</button><button data-flv="' + i + ':5">+5</button></div></div></div>';
   }
 
   function renderSetup() {
-    screen.innerHTML = '<div class="setup">' + pickPanel('mine', '내 몬스터') + pickPanel('foe', '상대 몬스터 (적 AI)') +
+    screen.innerHTML = '<div class="setup">' +
+      '<div class="pick"><h3>내 팀 <span class="muted small">— 전투 뒤 레벨·기술·진화가 저장됩니다. 🚩가 먼저 나갑니다.</span></h3>' + team.map(myCard).join('') + '</div>' +
+      '<div class="pick"><h3>상대 팀 (적 AI)</h3>' + setup.foes.map(foeRow).join('') +
+      '<div class="row" style="justify-content:center;margin-top:8px"><button class="btn" id="f-rand">🎲 무작위 팀</button><button class="btn" id="f-match">내 팀 레벨에 맞추기</button></div></div>' +
       '<div class="setup-foot"><span class="muted">시드</span><input id="seed" inputmode="numeric" value="' + setup.seed + '">' +
-      '<button class="btn" id="new-seed">🎲 새 시드</button><button class="btn primary" id="go">⚔️ 전투 시작</button></div></div>';
-    var mons = buildMons();
-    ['mine', 'foe'].forEach(function (side) {
-      var m = mons[side], st = ML.calcStats(m);
-      ui.$('#prev-' + side).innerHTML = ui.traitChips(m.traits) +
-        '<div class="muted" style="margin-top:6px;font-size:14px">체력 ' + st.hp + ' · 공격 ' + st.atk + ' · 방어 ' + st.def + ' · 속도 ' + st.spd + '</div>' +
-        '<div class="muted" style="font-size:13px">기술: ' + m.moves.map(function (x) { return ML.moves[x].name; }).join(', ') + '</div>';
+      '<button class="btn" id="new-seed">🎲 새 시드</button>' +
+      '<button class="btn' + (setup.expBoost ? ' primary' : '') + '" id="boost">경험치 ×' + ML.config.test.expBoost + (setup.expBoost ? ' 켜짐' : ' 꺼짐') + ' (시험용)</button>' +
+      '<button class="btn primary" id="go">⚔️ 전투 시작</button></div></div>';
+    screen.querySelectorAll('[data-change]').forEach(function (b) { b.onclick = function () { changeMon(+b.dataset.change); }; });
+    screen.querySelectorAll('[data-lead]').forEach(function (b) {
+      b.onclick = function () { var i = +b.dataset.lead, m = team.splice(i, 1)[0]; team.unshift(m); persist(); renderSetup(); };
     });
-    screen.querySelectorAll('[data-sel]').forEach(function (s) { s.onchange = function () { setup[s.dataset.sel] = s.value; persist(); renderSetup(); }; });
-    screen.querySelectorAll('[data-lv]').forEach(function (b) {
+    screen.querySelectorAll('[data-foe]').forEach(function (s) { s.onchange = function () { setup.foes[+s.dataset.foe].sp = s.value; persist(); renderSetup(); }; });
+    screen.querySelectorAll('[data-flv]').forEach(function (b) {
       b.onclick = function () {
-        var p = b.dataset.lv.split(':'), k = p[0] + 'Lv';
-        setup[k] = Math.max(1, Math.min(ML.config.maxLevel, setup[k] + +p[1])); persist(); renderSetup();
+        var p = b.dataset.flv.split(':'), f = setup.foes[+p[0]];
+        f.lv = Math.max(1, Math.min(ML.config.maxLevel, f.lv + +p[1])); persist(); renderSetup();
       };
     });
-    screen.querySelectorAll('[data-rand]').forEach(function (b) {
-      b.onclick = function () {
-        var ids = Object.keys(ML.species);
-        setup[b.dataset.rand] = ids[Math.floor(Math.random() * ids.length)]; persist(); renderSetup();
-      };
-    });
-    screen.querySelectorAll('[data-shiny]').forEach(function (b) { b.onclick = function () { var k = b.dataset.shiny + 'Shiny'; setup[k] = !setup[k]; persist(); renderSetup(); }; });
+    ui.$('#f-rand').onclick = function () {
+      var ids = Object.keys(ML.species).filter(function (id) { return ML.species[id].rarity !== 'hidden'; });
+      setup.foes.forEach(function (f) { f.sp = ids[Math.floor(Math.random() * ids.length)]; }); persist(); renderSetup();
+    };
+    ui.$('#f-match').onclick = function () { setup.foes.forEach(function (f, i) { f.lv = team[i].level; }); persist(); renderSetup(); };
     ui.$('#seed').onchange = function () { setup.seed = parseInt(this.value, 10) || ML.hashSeed(this.value); persist(); renderSetup(); };
     ui.$('#new-seed').onclick = function () { setup.seed = ML.randomSeed(); persist(); renderSetup(); };
+    ui.$('#boost').onclick = function () { setup.expBoost = !setup.expBoost; persist(); renderSetup(); };
     ui.$('#go').onclick = startBattle;
   }
 
-  // ── 전투 ──────────────────────────────────────────
-  function startBattle() {
-    var mons = buildMons();
-    var battle = new ML.Battle({ rng: mons.rng, mine: [mons.mine], foe: [mons.foe] });
-    battleView = { battle: battle, shown: 0, busy: false, hp: [mons.mine.hp, mons.foe.hp] };
-    renderBattle();
-    flushLog(true);
-  }
-
-  function infoBox(u, hp) {
-    var sp = ML.species[u.mon.species], pct = Math.max(0, hp / u.stats.hp * 100);
-    var cls = pct <= 25 ? 'low' : pct <= 50 ? 'mid' : '';
-    var badges = '';
-    if (u.mon.status) badges += '<span class="badge st-' + u.mon.status + '">' + ML.STATUS_NAMES[u.mon.status] + '</span>';
-    for (var k in u.stages) if (u.stages[k]) badges += '<span class="badge ' + (u.stages[k] > 0 ? 'up' : 'down') + '">' + ML.STAT_NAMES[k] + ' ' + (u.stages[k] > 0 ? '+' : '') + u.stages[k] + '</span>';
-    for (var m in u.sealed) badges += '<span class="badge down">봉인: ' + ML.moves[m].name + ' ' + u.sealed[m] + '</span>';
-    if (ML.abilities[sp.ability].key === 'dayNight') badges += '<span class="badge">' + (u.form === 'day' ? '☀️ 낮' : '🌙 밤') + '</span>';
-    return '<div class="info"><div class="top"><span class="nm">' + (u.mon.shiny ? '✨' : '') + sp.name + '</span><span>Lv ' + u.mon.level + '</span></div>' +
-      '<div class="row" style="gap:6px;margin-top:2px">' + ui.elChips(sp.els) + '</div>' +
-      '<div class="hp"><i class="' + cls + '" style="width:' + pct + '%"></i></div>' +
-      '<div class="hpnum"><span>' + ML.abilities[sp.ability].name + '</span><span>' + hp + ' / ' + u.stats.hp + '</span></div>' +
-      '<div class="badges">' + badges + '</div>' + ui.traitChips(u.mon.traits) + '</div>';
-  }
-
-  function renderBattle() {
-    var v = battleView, b = v.battle, me = b.active(0), foe = b.active(1);
-    var foeEls = ML.species[foe.mon.species].els;
-    var moves = me.mon.moves.map(function (id) {
-      var mv = ML.moves[id], t = ML.typeMultiplier(mv.el, foeEls), hint = '';
-      if (mv.kind === 'attack') hint = t > 1.01 ? '<span class="hint good">효과 굉장 ×' + t.toFixed(2) + '</span>' : t < 0.99 ? '<span class="hint bad">효과 별로 ×' + t.toFixed(2) + '</span>' : '';
-      var dis = v.busy || b.over || me.sealed[id];
-      return '<button class="move" style="--c:' + ML.elements.info[mv.el].main + '" data-move="' + id + '"' + (dis ? ' disabled' : '') + '><b>' + mv.name + '</b>' +
-        '<small>' + ML.elements.info[mv.el].icon + ' ' + (mv.kind === 'attack' ? '위력 ' + mv.power : '변화') + ' · 명중 ' + mv.acc + (me.sealed[id] ? ' · 봉인됨' : '') + '</small>' + hint + '</button>';
-    }).join('');
-    var allSealed = me.mon.moves.every(function (id) { return me.sealed[id]; });
-    if (allSealed && !b.over) moves += '<button class="move" data-move="">기다리기</button>';
-    screen.innerHTML = '<div class="battle"><div class="field' + (b.field.rain ? ' rain' : '') + '">' +
-      (b.field.rain ? '<div class="weather">🌧️ 비 ' + b.field.rain + '턴</div>' : '') +
-      '<div class="side">' + infoBox(me, v.hp[0]) + '<div class="sprite" id="sp0">' + ML.art.svg(me.mon.species, { size: 210, shiny: me.mon.shiny }) + '</div></div>' +
-      '<div class="side">' + infoBox(foe, v.hp[1]) + '<div class="sprite" id="sp1">' + ML.art.svg(foe.mon.species, { size: 210, shiny: foe.mon.shiny, flip: true }) + '</div></div>' +
-      '</div><div class="controls"><div class="moves">' + moves + '</div><div class="log" id="log"></div></div>' +
-      '<div class="row" style="justify-content:space-between"><span class="muted">턴 ' + b.turnNo + ' · 시드 ' + setup.seed + '</span><button class="btn" id="quit">설정으로</button></div></div>';
-    var log = ui.$('#log');
-    b.log.slice(0, v.shown).forEach(function (e) { if (e.msg) appendLog(log, e); });
-    log.scrollTop = log.scrollHeight;
-    if (b.turnNo === 0 || !b.log.length) log.innerHTML = log.innerHTML || '<p class="muted">기술을 골라 주세요.</p>';
-    screen.querySelectorAll('[data-move]').forEach(function (btn) { btn.onclick = function () { playerMove(btn.dataset.move || null); }; });
-    ui.$('#quit').onclick = function () { if (!v.busy) show('test'); };
-    if (b.over && v.shown >= b.log.length) showResult();
-  }
-
-  function appendLog(log, e) {
-    var p = document.createElement('p');
-    p.className = 'k-' + (e.kind || '');
-    p.textContent = e.msg;
-    log.appendChild(p);
-  }
-
-  function playerMove(moveId) {
-    var v = battleView, b = v.battle;
-    if (v.busy || b.over) return;
-    var foeMove = ML.ai.chooseMove(b, 1);
-    b.turn([{ type: 'move', move: moveId }, { type: 'move', move: foeMove }]);
-    flushLog();
-  }
-
-  // 로그를 한 줄씩 보여 주며 체력바·흔들림·숫자를 연출
-  function flushLog(instant) {
-    var v = battleView, b = v.battle;
-    v.busy = true;
-    screen.querySelectorAll('.move').forEach(function (x) { x.disabled = true; });
-    var step = function () {
-      if (battleView !== v) return;
-      if (v.shown >= b.log.length) {
-        v.busy = false;
-        v.hp = [b.active(0).mon.hp, b.active(1).mon.hp];
-        renderBattle();
-        return;
-      }
-      var e = b.log[v.shown++], delay = instant ? 0 : 420;
-      var log = ui.$('#log');
-      if (e.msg) { if (log.querySelector('.muted')) log.innerHTML = ''; appendLog(log, e); log.scrollTop = log.scrollHeight; }
-      if (e.hit !== undefined) {
-        v.hp[e.hit] = Math.max(0, v.hp[e.hit] - e.dmg);
-        updateHp(e.hit);
-        var sp = ui.$('#sp' + e.hit);
-        if (sp && e.dmg > 0) {
-          sp.classList.remove('shake'); void sp.offsetWidth; sp.classList.add('shake');
-          floatText(sp, '-' + e.dmg, e.eff > 1.01 ? 'good' : e.eff < 0.99 ? 'weak' : 'dmg');
-        }
-        delay = instant ? 0 : 260;
-      }
-      if (e.heal !== undefined) {
-        v.hp[e.heal] = Math.min(b.active(e.heal).stats.hp, v.hp[e.heal] + e.amt);
-        updateHp(e.heal);
-        var sh = ui.$('#sp' + e.heal);
-        if (sh) floatText(sh, '+' + e.amt, 'heal');
-        delay = instant ? 0 : 260;
-      }
-      if (e.kind === 'faint') { var sf = ui.$('#sp' + (e.msg.indexOf('상대 ') === 0 ? 1 : 0)); if (sf) sf.classList.add('faint'); }
-      setTimeout(step, delay);
+  function changeMon(i) {
+    var cur = team[i], pick = { sp: cur.species, lv: cur.level };
+    var draw = function () {
+      var m = ui.modal('<h3>' + (i + 1) + '번 자리 몬스터 바꾸기</h3><div class="pick" style="border:0;padding:0">' +
+        ML.art.svg(pick.sp, { size: 150 }) + '<select id="c-sp">' + speciesOptions(pick.sp) + '</select>' +
+        '<div class="stepper"><button data-c="-5">−5</button><button data-c="-1">−</button><b>Lv ' + pick.lv + '</b><button data-c="1">+</button><button data-c="5">+5</button></div>' +
+        '<p class="muted small">새로 만들면 개체값·특성 3개를 다시 뽑고 경험치는 0부터입니다.</p></div>' +
+        '<div class="row" style="justify-content:flex-end"><button class="btn" data-close>취소</button><button class="btn primary" id="c-ok">새로 만들기</button></div>');
+      m.querySelector('#c-sp').onchange = function () { pick.sp = this.value; draw(); };
+      m.querySelectorAll('[data-c]').forEach(function (b) { b.onclick = function () { pick.lv = Math.max(1, Math.min(ML.config.maxLevel, pick.lv + +b.dataset.c)); draw(); }; });
+      m.querySelector('#c-ok').onclick = function () {
+        team[i] = ML.createMonster(pick.sp, pick.lv, ML.makeRng(ML.randomSeed()));
+        ui.closeModal(); persist(); renderSetup();
+      };
     };
-    step();
+    draw();
   }
 
-  function updateHp(side) {
-    var u = battleView.battle.active(side), hp = battleView.hp[side];
-    var box = screen.querySelectorAll('.info')[side];
-    if (!box) return;
-    var pct = Math.max(0, hp / u.stats.hp * 100), bar = box.querySelector('.hp > i');
-    bar.style.width = pct + '%';
-    bar.className = pct <= 25 ? 'low' : pct <= 50 ? 'mid' : '';
-    box.querySelector('.hpnum span:last-child').textContent = hp + ' / ' + u.stats.hp;
-  }
-
-  function floatText(el, text, cls) {
-    var f = document.createElement('div');
-    f.className = 'float ' + cls; f.textContent = text;
-    el.appendChild(f);
-    setTimeout(function () { f.remove(); }, 900);
-  }
-
-  function showResult() {
-    var b = battleView.battle, win = b.winner === 0;
-    var m = ui.modal('<h3>' + (win ? '🏆 승리!' : '💥 패배…') + '</h3><p class="muted">' + b.turnNo + '턴 · 시드 ' + setup.seed + '</p>' +
-      '<div class="row" style="justify-content:flex-end"><button class="btn" id="r-setup">설정으로</button>' +
-      '<button class="btn" id="r-same">같은 시드로 다시</button><button class="btn primary" id="r-next">새 시드로 다시</button></div>');
-    m.querySelector('#r-setup').onclick = function () { ui.closeModal(); show('test'); };
-    m.querySelector('#r-same').onclick = function () { ui.closeModal(); startBattle(); };
-    m.querySelector('#r-next').onclick = function () { ui.closeModal(); setup.seed = ML.randomSeed(); persist(); startBattle(); };
+  // ── 전투 시작 ─────────────────────────────────────
+  function startBattle() {
+    var rng = ML.makeRng(setup.seed);
+    team.forEach(function (m) { m.hp = ML.calcStats(m).hp; m.status = null; });   // 시험 전투: 시작 전 전원 회복
+    var foes = setup.foes.map(function (f) { return ML.createMonster(f.sp, f.lv, rng); });
+    ML.battleView.start(team, foes, {
+      rng: rng, expBoost: setup.expBoost,
+      onSave: persist,
+      onExit: function () { show('test'); },
+      onRematch: startBattle,
+    });
   }
 
   show(saved.tab === 'test' ? 'test' : 'dex');
