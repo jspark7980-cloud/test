@@ -34,7 +34,7 @@ var ML = window.ML = window.ML || {};
     var s = st(), g = ML.game;
     screen.innerHTML = '<div class="sub-head"><button class="btn" id="to-hub">← 연구소</button><h2>🥊 대련장</h2><span class="gold">💰 ' + g.gold + '</span></div>' +
       '<div class="spar-head"><div>🔥 연승 <b>' + s.streak + '</b> (보상 ×' + streakMul().toFixed(1) + ')</div><div>최고 연승 <b>' + s.best + '</b></div><div>대련 승리 <b>' + s.wins + '</b></div><div>대련으로 번 골드 <b>' + s.earned + '</b></div></div>' +
-      '<p class="muted small">상대 3마리와 3대3. 시작 전과 끝난 뒤 파티를 무료로 회복한다. 지면 골드는 잃지 않지만 연승이 끊긴다. 이길 때마다 보상이 +' + Math.round(C().streakStep * 100) + '%씩 늘어난다(최대 +' + Math.round(C().streakMax * 100) + '%).</p>' +
+      '<p class="muted small">상대 3마리와 3대3. 정식 이상은 이기면 확률로 지닌 물건(생명의 구슬·버팀 머리띠·왕의 왕관 등)을 준다. 시작 전과 끝난 뒤 파티를 무료로 회복한다. 지면 골드는 잃지 않지만 연승이 끊긴다. 이길 때마다 보상이 +' + Math.round(C().streakStep * 100) + '%씩 늘어난다(최대 +' + Math.round(C().streakMax * 100) + '%).</p>' +
       '<div class="spar-grid">' + C().tiers.map(function (t, i) {
         var inf = tierInfo(t);
         return '<button class="spar-card" data-tier="' + i + '"><span class="fi">' + t.icon + '</span><b>' + t.name + '</b><span>상대 Lv ' + inf.lv + ' × 3</span>' +
@@ -63,9 +63,19 @@ var ML = window.ML = window.ML || {};
     reward: function (r, o) {
       var g = ML.game, s = st(), h = '';
       if (r.winner === 0) {
-        g.gold += o.spar.gold; s.wins++; s.earned += o.spar.gold; s.streak++; s.best = Math.max(s.best, s.streak);
+        var gold = Math.round(o.spar.gold * ML.state.goldMul());
+        g.gold += gold; s.wins++; s.earned += gold; s.streak++; s.best = Math.max(s.best, s.streak);
         g.stats.wins++;
-        h = '<p>💰 ' + o.spar.gold + '골드를 얻었다! 🔥 ' + s.streak + '연승 — 다음 보상 ×' + streakMul().toFixed(1) + '</p>';
+        h = '<p>💰 ' + gold + '골드를 얻었다!' + (gold > o.spar.gold ? ' (🪙 행운 동전)' : '') + ' 🔥 ' + s.streak + '연승 — 다음 보상 ×' + streakMul().toFixed(1) + '</p>';
+        // 지닌 물건 보상
+        var hc = ML.config.held, rng = ML.state.rng();
+        if (rng.chance(hc.sparDrop[o.spar.tier] || 0)) {
+          var tot = hc.dropTable.reduce(function (a, d) { return a + d[1]; }, 0), r = rng.range(0, tot), id = hc.dropTable[0][0];
+          for (var i = 0; i < hc.dropTable.length; i++) { r -= hc.dropTable[i][1]; if (r < 0) { id = hc.dropTable[i][0]; break; } }
+          ML.state.addItem(id);
+          h += '<p class="lvup">🎁 지닌 물건 ' + ML.items[id].icon + ' ' + ML.items[id].name + '을(를) 받았다!</p>';
+        }
+        ML.state.saveRng(rng);
       } else {
         h = '<p class="hint bad">대련에서 졌다. 골드는 잃지 않았다. 연승이 끊겼다(' + s.streak + '연승).</p>';
         s.streak = 0;

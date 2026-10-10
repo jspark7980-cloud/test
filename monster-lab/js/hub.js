@@ -103,7 +103,7 @@ var ML = window.ML = window.ML || {};
   function monTile(m, where) {
     var st = ML.calcStats(m);
     return '<button class="mon-tile' + (m.hp <= 0 ? ' down' : '') + '" data-mon="' + m.uid + '" data-where="' + where + '">' +
-      ML.art.svg(m.species, { size: 74, shiny: m.shiny }) + '<b>' + (m.shiny ? '✨' : '') + ML.species[m.species].name + '</b><span class="small">Lv ' + m.level + '</span>' +
+      ML.art.svg(m.species, { size: 74, shiny: m.shiny }) + '<b>' + (m.shiny ? '✨' : '') + ML.species[m.species].name + (m.held && ML.items[m.held] ? ' ' + ML.items[m.held].icon : '') + '</b><span class="small">Lv ' + m.level + '</span>' +
       '<div class="mini"><i style="width:' + (m.hp / st.hp * 100) + '%"></i></div>' + (m.rest > 0 ? '<span class="hint bad small">휴식 ' + m.rest + '</span>' : '') +
       '<span class="small iv-tag ' + ML.ivGrade(ML.ivTotalPct(m))[1] + '">개체 ' + ML.ivTotalPct(m) + '%</span>' +
       '<div class="tile-traits">' + m.traits.map(function (t) { var gr = ML.traits[t].grade; return '<i class="tdot ' + gr + '" style="--c:' + (ML.traitGrades[gr].color === 'rainbow' ? '#fff' : ML.traitGrades[gr].color) + '"></i>'; }).join('') + '</div></button>';
@@ -166,7 +166,7 @@ var ML = window.ML = window.ML || {};
         var m = ui.modal('<h3>정말 ' + ML.species[f.mon.species].name + '을(를) 놓아줄까?</h3><p class="muted">되돌릴 수 없다.</p>' +
           '<div class="row" style="justify-content:flex-end"><button class="btn" data-close>그만두기</button><button class="btn danger" id="rel-ok">놓아주기</button></div>');
         m.querySelector('#rel-ok').onclick = function () {
-          g.box.splice(f.i, 1); ML.state.save(); ui.closeModal(); ui.toast('잘 지내!'); renderBox();
+          if (f.mon.held) ML.state.addItem(f.mon.held); g.box.splice(f.i, 1); ML.state.save(); ui.closeModal(); ui.toast('잘 지내!' + (f.mon.held ? ' (지닌 물건은 가방으로)' : '')); renderBox();
         };
         return;
       }
@@ -209,6 +209,12 @@ var ML = window.ML = window.ML || {};
       })() +
       '<div class="small muted">경험치 ' + m.exp + ' / ' + need + (ev ? ' · Lv' + ev[1] + '에 ' + ML.species[ev[0]].name + '(으)로 진화' : '') + '</div>' +
       '<div class="section-t">고유 능력 — ' + ab.name + '</div><div class="muted small">' + ab.desc + '</div>' +
+      (function () {
+        if (!findMon(m.uid)) return '';
+        var it = m.held && ML.items[m.held];
+        return '<div class="section-t">지닌 물건</div><div class="trait-line">' + (it ? it.icon + ' <b>' + it.name + '</b> <span class="muted small">' + it.desc + '</span>' : '<span class="muted">없음</span>') +
+          ' <button class="btn sm" data-held="give">' + (it ? '바꾸기' : '장착') + '</button>' + (it ? ' <button class="btn sm" data-held="take">해제</button>' : '') + '</div>';
+      })() +
       '<div class="section-t">특성</div>' + m.traits.map(function (t) { return '<div class="trait-line">' + ui.traitChip(t) + ' <span class="muted small">' + ML.traits[t].desc + '</span></div>'; }).join('') +
       '<div class="section-t">기술</div><div class="learn">' + m.moves.map(function (id) {
         var mv = ML.moves[id];
@@ -218,6 +224,47 @@ var ML = window.ML = window.ML || {};
       '<button class="btn primary" data-close>닫기</button></div>';
     var md = ui.modal(h);
     md.querySelectorAll('[data-act]').forEach(function (b) { b.onclick = function () { onAct(b.dataset.act); }; });
+    var again = function () { monDetail(m, actions, onAct); };
+    md.querySelectorAll('[data-held]').forEach(function (b) {
+      b.onclick = function () {
+        if (b.dataset.held === 'take') { takeHeld(m); again(); }
+        else pickHeld(m, again);
+      };
+    });
+  }
+
+  // ── 지닌 물건 ─────────────────────────────────────
+  function heldIds() { var g = ML.game; return Object.keys(g.items).filter(function (id) { return ML.items[id] && ML.items[id].kind === 'held' && g.items[id] > 0; }); }
+  function takeHeld(m) {
+    if (!m.held) return;
+    ML.state.addItem(m.held); ui.toast(ML.items[m.held].name + '을(를) 가방에 넣었다.'); m.held = null; ML.state.save();
+  }
+  function giveHeld(m, id) {
+    if (!ML.state.takeItem(id)) return;
+    if (m.held) ML.state.addItem(m.held);
+    m.held = id; ML.state.save();
+    ui.toast(ML.species[m.species].name + '에게 ' + ML.items[id].name + '을(를) 쥐여 주었다!');
+  }
+  // 몬스터에게 줄 물건 고르기
+  function pickHeld(m, done) {
+    var ids = heldIds(), g = ML.game;
+    var md = ui.modal('<h3>🎒 ' + ML.species[m.species].name + '에게 무엇을 쥐여 줄까?</h3>' + (ids.length ? '<div class="bag-grid">' + ids.map(function (id) {
+      var it = ML.items[id];
+      return '<button class="bag-item" data-pick="' + id + '"><span class="bi">' + it.icon + '</span><div><b>' + it.name + '</b> ×' + g.items[id] + '<br><span class="muted small">' + it.desc + '</span></div></button>';
+    }).join('') + '</div>' : '<p class="muted">가방에 지닌 물건이 없다. 상점(2지역부터)이나 대련장 보상으로 얻는다.</p>') +
+      '<div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn" id="held-back">돌아가기</button></div>');
+    md.querySelector('#held-back').onclick = done;
+    md.querySelectorAll('[data-pick]').forEach(function (b) { b.onclick = function () { giveHeld(m, b.dataset.pick); done(); }; });
+  }
+  // 가방에서: 물건 → 몬스터 고르기
+  function useHeld(id) {
+    var g = ML.game, all = g.party.concat(g.box);
+    var md = ui.modal('<h3>' + ML.items[id].icon + ' ' + ML.items[id].name + '을(를) 누구에게 쥐여 줄까?</h3><p class="muted small">이미 다른 물건을 가진 몬스터는 그 물건이 가방으로 돌아온다.</p><div class="tile-grid">' +
+      all.map(function (p) { return monTile(p, 'pick'); }).join('') +
+      '</div><div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn" data-close>취소</button></div>');
+    md.querySelectorAll('[data-mon]').forEach(function (b) {
+      b.onclick = function () { giveHeld(all.filter(function (p) { return p.uid === b.dataset.mon; })[0], id); ui.closeModal(); renderBag(); };
+    });
   }
 
   // ── 파티 탭 ───────────────────────────────────────
@@ -234,7 +281,7 @@ var ML = window.ML = window.ML || {};
           '<div class="small muted">체력 ' + m.hp + ' / ' + st.hp + ' · 경험치 ' + m.exp + ' / ' + need + '</div>' +
           (function () { var rg = ML.statRange(m); return '<div class="small">' + [['hp', '체력'], ['atk', '공격'], ['def', '방어'], ['spd', '속도']].map(function (k) {
             return k[1] + ' <b>' + rg.now[k[0]] + '</b><span class="muted">/' + rg.max[k[0]] + '</span>'; }).join(' · ') + ' <span class="iv-tag ' + ML.ivGrade(ML.ivTotalPct(m))[1] + '">개체 ' + ML.ivTotalPct(m) + '%</span></div>'; })() +
-          '<div class="small">' + m.moves.map(function (x) { return ML.moves[x].name; }).join(', ') + '</div>' + ui.traitChips(m.traits) + '</div></button>';
+          '<div class="small">' + m.moves.map(function (x) { return ML.moves[x].name; }).join(', ') + (m.held && ML.items[m.held] ? ' · ' + ML.items[m.held].icon + ' ' + ML.items[m.held].name : '') + '</div>' + ui.traitChips(m.traits) + '</div></button>';
       }).join('') + '</div>' +
       '<div class="section-t row" style="justify-content:space-between;max-width:900px;margin:16px auto 6px">📦 보관함 (' + g.box.length + '마리)' +
       (g.box.length ? '<button class="btn sm" id="box-all">정렬·특성 필터로 보기</button>' : '') + '</div>' +
@@ -260,7 +307,7 @@ var ML = window.ML = window.ML || {};
   // ── 가방 탭 ───────────────────────────────────────
   function renderBag() {
     var g = ML.game, ids = Object.keys(g.items).filter(function (id) { return ML.items[id] && g.items[id] > 0; });
-    var kinds = [['heal', '회복'], ['iv', '육성'], ['trait', '육성(특성)'], ['ball', '포획 도구'], ['fusion', '합성']];
+    var kinds = [['heal', '회복'], ['held', '지닌 물건(장비)'], ['iv', '육성'], ['trait', '육성(특성)'], ['ball', '포획 도구'], ['fusion', '합성']];
     screen.innerHTML = '<div class="sub-head"><h2>🎒 가방</h2><span class="gold">💰 ' + g.gold + '</span></div>' +
       kinds.map(function (k) {
         var list = ids.filter(function (id) { return ML.items[id].kind === k[0]; });
@@ -268,11 +315,11 @@ var ML = window.ML = window.ML || {};
         return '<div class="section-t">' + k[1] + '</div><div class="bag-grid">' + list.map(function (id) {
           var it = ML.items[id];
           return '<button class="bag-item" data-item="' + id + '"><span class="bi">' + it.icon + '</span><div><b>' + it.name + '</b> ×' + g.items[id] +
-            '<br><span class="muted small">' + it.desc + (it.kind === 'heal' ? ' · 눌러서 사용' : it.kind === 'ball' ? ' · 야생 전투에서 사용' : (it.kind === 'iv' || it.kind === 'trait') ? ' · 눌러서 사용' : '') + '</span></div></button>';
+            '<br><span class="muted small">' + it.desc + (it.kind === 'heal' ? ' · 눌러서 사용' : it.kind === 'ball' ? ' · 야생 전투에서 사용' : (it.kind === 'iv' || it.kind === 'trait') ? ' · 눌러서 사용' : it.kind === 'held' ? ' · 눌러서 쥐여 주기' : '') + '</span></div></button>';
         }).join('') + '</div>';
       }).join('') + (ids.length ? '' : '<p class="muted">가방이 비어 있다. 연구소 상점에서 살 수 있다.</p>');
     screen.querySelectorAll('[data-item]').forEach(function (b) {
-      b.onclick = function () { var k = ML.items[b.dataset.item].kind; if (k === 'heal') useOutside(b.dataset.item); else if (k === 'iv') useIvPill(b.dataset.item); else if (k === 'trait') useTraitCharm(b.dataset.item); };
+      b.onclick = function () { var k = ML.items[b.dataset.item].kind; if (k === 'heal') useOutside(b.dataset.item); else if (k === 'iv') useIvPill(b.dataset.item); else if (k === 'trait') useTraitCharm(b.dataset.item); else if (k === 'held') useHeld(b.dataset.item); };
     });
   }
 

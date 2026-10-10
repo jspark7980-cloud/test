@@ -81,6 +81,11 @@ ML.state = {
     return true;
   },
 
+  // 행운 동전: 파티에 하나라도 있으면 골드 배율(여러 개는 겹치지 않음)
+  goldMul: function () {
+    return 1 + Math.max.apply(null, ML.game.party.map(function (m) { return ML.heldFx(m, 'goldUp'); }).concat(0));
+  },
+
   healAll: function () {
     ML.game.party.concat(ML.game.box).forEach(function (m) { m.hp = ML.calcStats(m).hp; m.status = null; });
   },

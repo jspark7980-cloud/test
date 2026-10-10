@@ -135,6 +135,14 @@ ML.config = {
     ],
   },
 
+  // 지닌 물건 [제안]
+  held: {
+    elBoost: 0.2,
+    // 대련장 승리 시 지닌 물건을 얻을 확률(난이도 순서)과 뽑기 가중치
+    sparDrop: [0, 0.1, 0.2, 0.35],
+    dropTable: [['lifeorb', 20], ['focussash', 20], ['kingcrown', 10], ['berry', 10], ['sharpclaw', 10], ['luckycoin', 10], ['learnkit', 10], ['powerband', 5], ['swiftfeather', 5]],
+  },
+
   // 시험 전투
   test: { defaultLevel: 10, expBoost: 10 },
 };

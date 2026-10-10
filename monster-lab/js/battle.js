@@ -148,13 +148,15 @@ B.calcDamage = function (att, def, move, forecast) {
     if (att.form === 'day' && move.el === 'fire') atkMod *= 1 + c.ability.dayNightBonus;
     if (att.form === 'night' && move.el === 'shadow') atkMod *= 1 + c.ability.dayNightBonus;
   }
+  if (ML.heldFx(att.mon, 'elBoost') === move.el) atkMod *= 1 + c.held.elBoost;
+  atkMod *= 1 + ML.heldFx(att.mon, 'dmgUp');
   dmg *= atkMod;
   if (this.ability(def) === 'damageReduce' || this.ability(def) === 'steam') dmg *= 1 - c.ability.damageReduce;
 
   if (forecast) return { dmg: dmg, type: type };
 
   var crit = false;
-  var cp = c.critChance + ML.traitSum(att.mon, 'crit') + ML.traitSum(def.mon, 'critTaken') + ((move.fx && move.fx.crit) || 0);
+  var cp = c.critChance + ML.traitSum(att.mon, 'crit') + ML.traitSum(def.mon, 'critTaken') + ((move.fx && move.fx.crit) || 0) + ML.heldFx(att.mon, 'crit');
   if (this.ability(att) === 'critUp' || this.ability(att) === 'thunderCrit') cp += c.ability.critBonus;
   if (rng.chance(cp)) { crit = true; dmg *= c.critMultiplier; }
   dmg *= rng.range(d.randMin, d.randMax);
@@ -325,6 +327,9 @@ B.useMove = function (u, foe, moveId, mimicked) {
     if (ls) heal += dealt * ls;
     if (move.fx && move.fx.drain) heal += dealt * move.fx.drain;
     if (heal > 0 && u.mon.hp > 0) this.heal(u, Math.max(1, Math.round(heal)), '체력을 흡수했다');
+    // 생명의 구슬: 공격할 때마다 반동
+    var rc = ML.heldFx(u.mon, 'recoil');
+    if (rc && u.mon.hp > 0 && dealt > 0) { this.say(this.name(u) + '은(는) 생명의 구슬 반동을 받았다.', 'dot'); this.applyDamage(u, Math.max(1, Math.round(u.stats.hp * rc)), {}); }
     // 반격·접촉 반격
     if (foe.mon.hp > 0 && dealt > 0) {
       var ab = this.ability(foe);
@@ -381,6 +386,11 @@ B.applyDamage = function (u, dmg, info) {
     u.endureUsed = true; u.mon.hp = 1;
     this.say(this.name(u) + '은(는) 불사조의 심장으로 버텼다!', 'trait');
   }
+  // 버팀 머리띠: 체력이 가득할 때만
+  if (u.mon.hp <= 0 && before >= u.stats.hp && before > 1 && !u.sashUsed && ML.heldFx(u.mon, 'sash')) {
+    u.sashUsed = true; u.mon.hp = 1;
+    this.say(this.name(u) + '은(는) 버팀 머리띠로 버텼다!', 'trait');
+  }
   this.log.push({ hit: u.side, uid: u.mon.uid, dmg: before - u.mon.hp, eff: info && info.type });
   // 맞으면 깰 수 있음
   if (u.mon.hp > 0 && u.mon.status === 'sleep' && info && info.from && this.rng.chance(c.status.sleep.wakeOnHit)) {
@@ -401,7 +411,7 @@ B.heal = function (u, amt, msg) {
 B.inflict = function (u, type, chance) {
   var c = ML.config, rng = this.rng;
   if (u.mon.status || u.mon.hp <= 0) return false;
-  var p = chance * (1 - ML.traitSum(u.mon, 'statusResist'));
+  var p = chance * (1 - ML.traitSum(u.mon, 'statusResist') - ML.heldFx(u.mon, 'statusResist'));
   if (!rng.chance(p)) return false;
   u.mon.status = type;
   if (type === 'sleep') u.statusTurns = rng.int(c.status.sleep.minTurns, c.status.sleep.maxTurns);
@@ -436,6 +446,8 @@ B.endOfTurn = function () {
     }
     var rg = ML.traitSum(u.mon, 'regen') + (self.ability(u) === 'mossRegen' ? c.ability.mossRegen : 0);
     if (rg && u.mon.hp > 0) self.heal(u, Math.max(1, Math.round(u.stats.hp * rg)), '재생으로 회복했다');
+    var hr = ML.heldFx(u.mon, 'regen');
+    if (hr && u.mon.hp > 0) self.heal(u, Math.max(1, Math.round(u.stats.hp * hr)), '먹다 남은 열매로 회복했다');
     for (var m in u.sealed) { if (--u.sealed[m] <= 0) delete u.sealed[m]; }
     if (self.ability(u) === 'origin' && u.mon.hp > 0 && u.stages.atk < ML.config.stageMax) self.changeStage(u, 'atk', 1);
     if (self.ability(u) === 'dayNight' && u.mon.hp > 0) {

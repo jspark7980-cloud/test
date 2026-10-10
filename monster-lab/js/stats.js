@@ -75,6 +75,12 @@ ML.traitFx = function (mon, key) {
   return undefined;
 };
 
+// 지닌 물건 효과(없으면 0)
+ML.heldFx = function (mon, key) {
+  var it = mon && mon.held && ML.items[mon.held];
+  return (it && it.fx && it.fx[key]) || 0;
+};
+
 // 능력치 = 종족값 × (1 + 레벨 × k) × 개체값 × (1 + 특성%). 체력은 + 레벨 × 2
 ML.calcStats = function (mon) {
   var c = ML.config, sp = ML.species[mon.species], lv = mon.level;
@@ -82,7 +88,7 @@ ML.calcStats = function (mon) {
   ['hp', 'atk', 'def', 'spd'].forEach(function (k) {
     var v = sp.stats[k] * mul * mon.ivs[k];
     if (k === 'hp') v += lv * c.hpPerLevel;
-    else v *= 1 + ML.traitSum(mon, k);
+    else v *= 1 + ML.traitSum(mon, k) + ML.heldFx(mon, k);
     out[k] = Math.max(1, Math.round(v));
   });
   return out;
@@ -150,7 +156,7 @@ ML.battleExp = function (battle, boost) {
     who.forEach(function (uid) { out[uid] = (out[uid] || 0) + share; });
   });
   battle.sides[0].units.forEach(function (u) {
-    if (out[u.mon.uid]) out[u.mon.uid] = Math.max(1, Math.round(out[u.mon.uid] * (1 + ML.traitSum(u.mon, 'exp')) * (boost || 1)));
+    if (out[u.mon.uid]) out[u.mon.uid] = Math.max(1, Math.round(out[u.mon.uid] * (1 + ML.traitSum(u.mon, 'exp') + ML.heldFx(u.mon, 'exp')) * (boost || 1)));
   });
   return out;
 };

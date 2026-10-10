@@ -238,7 +238,7 @@ var ML = window.ML = window.ML || {};
     }
     if (r.winner === 0 && !r.captured) {
       g.stats.wins++;
-      var gold = o.trainer ? o.trainer.gold : foes[0].level * c.wildGold;
+      var gold = Math.round((o.trainer ? o.trainer.gold : foes[0].level * c.wildGold) * ML.state.goldMul());
       g.gold += gold;
       h += '<p>💰 ' + gold + '골드를 얻었다!</p>';
       if (o.trainer) {
