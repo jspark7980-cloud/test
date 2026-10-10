@@ -73,8 +73,10 @@ ML.config = {
   // 효율이 switchIfBelow 이하면 "크게 불리" → 효율이 switchGain배 이상인 대기 몬스터가 있으면 switchChance 확률로 교체
   ai: { switchIfBelow: 0.8, switchGain: 2, switchChance: 0.8, potionBelow: 0.3 },
 
-  // 경험치: 쓰러뜨린 몬스터 레벨 × 종별 기본값, 그 전투에 나온 내 몬스터가 똑같이 나눔
+  // 경험치: 쓰러뜨린 몬스터 레벨 × 종별 기본값.
+  // shareAll: true면 파티 전원이 전부 받는다(나누지 않음). false면 그 전투에 나온 몬스터끼리 나눈다.
   exp: {
+    shareAll: true,
     base: { 1: 6, 2: 9, 3: 12, rare: 12, fusion: 14, legend: 20, hidden: 20 },
     nextBase: 12, nextPerLevel: 6,     // 다음 레벨 필요 = 12 + 레벨 × 6
   },

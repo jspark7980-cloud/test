@@ -138,12 +138,16 @@ ML.evolve = function (mon) {
 };
 
 // 전투가 끝난 뒤 내 편(side 0)이 받을 경험치: { uid: 양 }
+// config.exp.shareAll이면 파티 전원(안 나온 몬스터·쓰러진 몬스터 포함)이 쓰러뜨린 몬스터의 경험치를 나누지 않고 전부 받는다.
 ML.battleExp = function (battle, boost) {
-  var out = {};
+  var out = {}, all = ML.config.exp.shareAll;
+  var mine = battle.sides[0].units.map(function (u) { return u.mon.uid; });
   battle.defeated.forEach(function (d) {
-    if (d.side !== 1 || !d.appeared.length) return;
-    var share = ML.expYield(d.mon) / d.appeared.length;
-    d.appeared.forEach(function (uid) { out[uid] = (out[uid] || 0) + share; });
+    if (d.side !== 1) return;
+    var who = all ? mine : d.appeared;
+    if (!who.length) return;
+    var share = ML.expYield(d.mon) / (all ? 1 : who.length);
+    who.forEach(function (uid) { out[uid] = (out[uid] || 0) + share; });
   });
   battle.sides[0].units.forEach(function (u) {
     if (out[u.mon.uid]) out[u.mon.uid] = Math.max(1, Math.round(out[u.mon.uid] * (1 + ML.traitSum(u.mon, 'exp')) * (boost || 1)));

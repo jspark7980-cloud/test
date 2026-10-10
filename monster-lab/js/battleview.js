@@ -13,7 +13,7 @@ var ML = window.ML = window.ML || {};
     // opts: { rng, kind: 'wild'|'trainer'|'test', trainer, bag(게임 가방 사용), expBoost,
     //         onSave(), reward(result) → 결과 창에 붙일 HTML, onFinish(result) 또는 (시험) onExit/onRematch }
     start: function (team, foes, opts) {
-      var battle = new ML.Battle({ rng: opts.rng, mine: team, foe: foes, wild: opts.kind === 'wild',
+      var battle = new ML.Battle({ rng: opts.rng, mine: team, foe: foes, wild: opts.kind === 'wild', lead: opts.lead,
         foePotions: opts.trainer && opts.trainer.potions || 0 });
       V = { battle: battle, opts: opts, shown: 0, busy: false, disp: { hp: {}, active: [battle.sides[0].active, 0] } };
       battle.sides.forEach(function (s) { s.units.forEach(function (u) { V.disp.hp[u.mon.uid] = u.mon.hp; }); });
@@ -24,7 +24,7 @@ var ML = window.ML = window.ML || {};
       if (opts.trainer) battle.log.unshift({ msg: ML.josa(opts.trainer.name + '이(가) 승부를 걸어왔다!'), kind: 'field' });
       render();
       play(true);
-      if (opts.trainer) {
+      if (opts.trainer && !opts.skipIntro) {
         var t = opts.trainer;
         var m = ui.modal('<div class="intro">' + '<div class="t-icon">' + t.icon + '</div><h3>' + t.name + (t.boss ? ' <span class="boss-tag">지역 보스</span>' : '') + '</h3>' +
           '<p>“' + t.line + '”</p><div class="row" style="justify-content:center">' +

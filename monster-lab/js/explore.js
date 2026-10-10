@@ -188,14 +188,36 @@ var ML = window.ML = window.ML || {};
   // ── 전투 시작·끝 ──────────────────────────────────
   function startBattle(foes, o) {
     var g = ML.game;
-    ML.app.battleMode();
-    g.stats.battles++;
-    ML.battleView.start(g.party, foes, {
-      rng: o.rng, kind: o.kind, trainer: o.trainer, bag: true,
+    var alive = g.party.map(function (m, i) { return i; }).filter(function (i) { return g.party[i].hp > 0; });
+    if (alive.length <= 1) return go(alive[0]);
+    // 먼저 내보낼 몬스터 고르기(상대 선봉과의 상성 힌트)
+    var foe = foes[0], fsp = ML.species[foe.species], t = o.trainer;
+    var head = t ? '<div class="intro"><div class="t-icon">' + t.icon + '</div><h3>' + t.name + (t.boss ? ' <span class="boss-tag">지역 보스</span>' : '') + '</h3><p>“' + t.line + '”</p></div>'
+      : '<h3>야생 ' + (foe.shiny ? '✨색다른 ' : '') + fsp.name + '이(가) 나타났다!</h3>';
+    var list = alive.map(function (i) {
+      var m = g.party[i], st = ML.calcStats(m), best = 0, worst = 0;
+      m.moves.forEach(function (id) { var mv = ML.moves[id]; if (mv.kind === 'attack') best = Math.max(best, ML.typeMultiplier(mv.el, fsp.els)); });
+      foe.moves.forEach(function (id) { var mv = ML.moves[id]; if (mv.kind === 'attack') worst = Math.max(worst, ML.typeMultiplier(mv.el, ML.species[m.species].els)); });
+      var hint = (best > 1.01 ? '<span class="hint good">공격 유리</span> ' : best < 0.99 ? '<span class="hint bad">공격 불리</span> ' : '') +
+        (worst > 1.01 ? '<span class="hint bad">약점 노출</span>' : worst < 0.99 ? '<span class="hint good">방어 유리</span>' : '');
+      return '<button class="sw-item" data-lead="' + i + '">' + ML.art.svg(m.species, { size: 70, shiny: m.shiny }) +
+        '<div><b>' + ML.species[m.species].name + '</b> Lv ' + m.level + '<br><span class="muted">' + m.hp + ' / ' + st.hp + (m.status ? ' · ' + ML.STATUS_NAMES[m.status] : '') + '</span><br>' + hint + '</div></button>';
+    }).join('');
+    var md = ui.modal(head + '<div class="lead-foe">' + ML.art.svg(foe.species, { size: 90, shiny: foe.shiny, flip: true }) + '<div><span class="muted small">' + (t ? '상대 선봉' : '상대') + '</span><br><b>' + fsp.name + '</b> Lv ' + foe.level + ' ' + ui.elChips(fsp.els) +
+      (t ? '<div class="muted small">상대 ' + foes.length + '마리 · ' + foes.map(function (f) { return 'Lv ' + f.level; }).join(' / ') + '</div>' : '') + '</div></div>' +
+      '<div class="section-t">먼저 내보낼 몬스터</div><div class="sw-list">' + list + '</div>', null, true);
+    md.querySelectorAll('[data-lead]').forEach(function (b) { b.onclick = function () { ui.closeModal(); go(+b.dataset.lead); }; });
+
+    function go(lead) {
+      ML.app.battleMode();
+      g.stats.battles++;
+      ML.battleView.start(g.party, foes, {
+        rng: o.rng, kind: o.kind, trainer: o.trainer, bag: true, lead: lead, skipIntro: alive.length > 1,
       onSave: function () { ML.state.saveRng(o.rng); ML.state.save(); ML.app.status(); },
       reward: function (r) { return reward(r, foes, o); },
       onFinish: function (r) { finish(r, o); },
-    });
+      });
+    }
   }
 
   // 결과 창에 보일 보상(여기서 실제로 지급)

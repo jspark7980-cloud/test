@@ -18,7 +18,9 @@ ML.Battle = function (opts) {
   this.potions = [0, opts.foePotions || 0];
   var self = this;
   this.sides = [opts.mine, opts.foe].map(function (mons, i) {
-    return { idx: i, units: mons.map(function (m) { return self.makeUnit(m, i); }), active: Math.max(0, mons.findIndex(function (m) { return m.hp > 0; })) };
+    var first = Math.max(0, mons.findIndex(function (m) { return m.hp > 0; }));
+    if (i === 0 && opts.lead != null && mons[opts.lead] && mons[opts.lead].hp > 0) first = opts.lead;   // 고른 선봉
+    return { idx: i, units: mons.map(function (m) { return self.makeUnit(m, i); }), active: first };
   });
   this.appeared = [{}, {}];      // 한 번이라도 나온 몬스터(uid) — 경험치 분배용
   this.defeated = [];            // { side, mon, appeared: [uid…] } 쓰러진 순서
