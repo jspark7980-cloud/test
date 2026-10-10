@@ -77,8 +77,8 @@ var ML = window.ML = window.ML || {};
     var canSwitch = canAct && b.bench(0).length > 0;
     screen.innerHTML = '<div class="battle"><div class="field' + (b.field.rain ? ' rain' : '') + '">' +
       (b.field.rain ? '<div class="weather">🌧️ 비 ' + b.field.rain + '턴</div>' : '') +
-      '<div class="side">' + benchRow(0) + infoBox(me) + '<div class="sprite" id="sp0">' + ML.art.svg(me.mon.species, { size: 200, shiny: me.mon.shiny }) + '</div></div>' +
-      '<div class="side">' + benchRow(1) + infoBox(foe) + '<div class="sprite" id="sp1">' + ML.art.svg(foe.mon.species, { size: 200, shiny: foe.mon.shiny, flip: true }) + '</div></div>' +
+      '<div class="side">' + '<div class="sprite" id="sp0">' + ML.art.svg(me.mon.species, { size: 200, shiny: me.mon.shiny }) + '</div><div class="side-info">' + benchRow(0) + infoBox(me) + '</div></div>' +
+      '<div class="side foe">' + '<div class="side-info">' + benchRow(1) + infoBox(foe) + '</div><div class="sprite" id="sp1">' + ML.art.svg(foe.mon.species, { size: 200, shiny: foe.mon.shiny, flip: true }) + '</div></div>' +
       '</div><div class="controls"><div class="moves">' + moves + '</div><div class="log" id="log"></div></div>' +
       '<div class="row" style="justify-content:space-between"><span class="muted">' + (V.opts.trainer ? V.opts.trainer.icon + ' ' + V.opts.trainer.name + ' · ' : V.opts.kind === 'wild' ? '🌿 야생 · ' : '') + '턴 ' + b.turnNo + '</span>' +
       '<div class="row"><button class="btn" id="sw"' + (canSwitch ? '' : ' disabled') + '>🔄 교체</button>' +

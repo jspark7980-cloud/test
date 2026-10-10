@@ -8,7 +8,8 @@ var ML = window.ML = window.ML || {};
   if (labOn) TABS.push(['lab', '🧪 실험실']);
   var current = null;
 
-  tabs.innerHTML = TABS.map(function (t) { return '<button data-tab="' + t[0] + '" class="tab">' + t[1] + '</button>'; }).join('');
+  tabs.innerHTML = TABS.map(function (t) { return '<button data-tab="' + t[0] + '" class="tab">' + t[1] + '</button>'; }).join('') +
+    '<button class="tab" id="types-btn" title="속성 상성">🔄 상성</button>';
   tabs.addEventListener('click', function (e) {
     var b = e.target.closest('[data-tab]');
     if (!b || ML.battleView.isBusy() || !ML.game) return;
