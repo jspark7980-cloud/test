@@ -297,6 +297,8 @@ B.useMove = function (u, foe, moveId, mimicked) {
     if (!copy || ML.moves[copy].fx && ML.moves[copy].fx.mimic) { this.say('하지만 따라 할 기술이 없다!', ''); return; }
     return this.useMove(u, foe, copy, true);
   }
+  // 일식룡 고유기: 밤의 모습이면 그림자 속성으로 바뀐다
+  if (move.fx && move.fx.formEl && move.fx.formEl[u.form]) move = Object.assign({}, move, { el: move.fx.formEl[u.form] });
 
   var targetsFoe = move.kind === 'attack' || (move.fx && (move.fx.status || move.fx.foe || move.fx.seal));
   if (targetsFoe) {
@@ -304,6 +306,11 @@ B.useMove = function (u, foe, moveId, mimicked) {
     if (!rng.chance(hit)) { this.say('하지만 빗나갔다!', 'miss'); return; }
   }
 
+  // 폭풍고래 고유기: 맞히면 먼저 비를 내리고(이번 공격부터 강화) 때린다
+  if (move.fx && move.fx.rain) {
+    this.field.rain = c.ability.rainTurns;
+    this.say('폭풍이 몰아치며 비가 쏟아진다!', 'field');
+  }
   if (move.kind === 'attack') {
     var r = this.calcDamage(u, foe, move);
     if (r.crit) this.say('급소에 맞았다!', 'crit');

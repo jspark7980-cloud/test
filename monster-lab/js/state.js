@@ -34,13 +34,15 @@ ML.state = {
     g.party = g.party.filter(ok); g.box = g.box.filter(ok);
     g.eggs = (g.eggs || []).filter(function (e) { return ML.species[e.species]; });
     g.party.concat(g.box).forEach(function (m) { m.moves = m.moves.filter(function (x) { return ML.moves[x]; }); });
-    // 패치: 이미 Lv 50을 넘은 태초수는 새 기술 「태초의 일격」을 바로 배운다(가장 약한 기술과 바꿈)
+    // 패치: 고유기를 배울 레벨을 이미 넘긴 전설·태초수는 불러올 때 바로 배운다(가장 약한 기술과 바꿈)
+    var sig = { primordial: [50, 'genesis'], eclipsedragon: [30, 'eclipsefire'], stormwhale: [30, 'stormsurge'], worldtree: [30, 'worldroot'] };
     g.party.concat(g.box).forEach(function (m) {
-      if (m.species !== 'primordial' || m.level < 50 || m.moves.indexOf('genesis') >= 0) return;
-      if (m.moves.length < 4) { m.moves.push('genesis'); return; }
+      var s = sig[m.species];
+      if (!s || m.level < s[0] || m.moves.indexOf(s[1]) >= 0) return;
+      if (m.moves.length < 4) { m.moves.push(s[1]); return; }
       var weak = 0;
       m.moves.forEach(function (x, i) { if ((ML.moves[x].power || 0) < (ML.moves[m.moves[weak]].power || 0)) weak = i; });
-      m.moves[weak] = 'genesis';
+      m.moves[weak] = s[1];
     });
     ML.game = g;
     return g;

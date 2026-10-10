@@ -68,10 +68,12 @@ var ML = window.ML = window.ML || {};
     var foeEls = ML.species[foe.mon.species].els;
     var canAct = !V.busy && !b.over && !b.needReplace[0] && !b.needReplace[1];
     var moves = me.mon.moves.map(function (id) {
-      var mv = ML.moves[id], t = ML.typeMultiplier(mv.el, foeEls), hint = '';
+      var mv = ML.moves[id];
+      if (mv.fx && mv.fx.formEl && mv.fx.formEl[me.form]) mv = Object.assign({}, mv, { el: mv.fx.formEl[me.form] });
+      var t = ML.typeMultiplier(mv.el, foeEls), hint = '';
       if (mv.kind === 'attack') hint = t > 1.01 ? '<span class="hint good">효과 굉장 ×' + t.toFixed(2) + '</span>' : t < 0.99 ? '<span class="hint bad">효과 별로 ×' + t.toFixed(2) + '</span>' : '';
       return '<button class="move" style="--c:' + ML.elements.info[mv.el].main + '" data-move="' + id + '"' + (!canAct || me.sealed[id] ? ' disabled' : '') + '><b>' + mv.name + '</b>' +
-        '<small>' + ML.elements.info[mv.el].icon + ' ' + (mv.kind === 'attack' ? '위력 ' + mv.power : '변화') + ' · 명중 ' + mv.acc + (me.sealed[id] ? ' · 봉인됨' : '') + '</small>' + hint + '</button>';
+        '<small>' + ML.elements.info[mv.el].icon + ' ' + (mv.kind === 'attack' ? '위력 ' + mv.power : '변화') + ' · 명중 ' + mv.acc + (me.sealed[id] ? ' · 봉인됨' : '') + (mv.desc ? '<br>⭐ ' + mv.desc : '') + '</small>' + hint + '</button>';
     }).join('');
     if (me.mon.moves.every(function (id) { return me.sealed[id]; })) moves += '<button class="move" data-move=""' + (canAct ? '' : ' disabled') + '>기다리기</button>';
     var canSwitch = canAct && b.bench(0).length > 0;

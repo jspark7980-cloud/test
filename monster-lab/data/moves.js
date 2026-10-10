@@ -59,5 +59,9 @@ ML.moves = {
 
   // 근원(숨겨진 몬스터)
   originbeam:  { name: '근원의 빛',   el: 'origin', kind: 'attack', power: 100, acc: 100 },
-  genesis:     { name: '태초의 일격', el: 'origin', kind: 'attack', power: 130, acc: 95 },
+  genesis:     { name: '태초의 일격', desc: '고유기', el: 'origin', kind: 'attack', power: 130, acc: 95 },
+  // 전설 고유기 [제안]
+  eclipsefire: { name: '일식 겁화', desc: '고유기 · 밤의 모습이면 그림자 속성',   el: 'fire', kind: 'attack', power: 120, acc: 90, fx: { formEl: { night: 'shadow' } } },
+  stormsurge:  { name: '폭풍 해일포', desc: '고유기 · 비를 내리고 공격', el: 'water', kind: 'attack', power: 120, acc: 85, fx: { rain: true } },
+  worldroot:   { name: '세계수의 뿌리', desc: '고유기 · 준 피해의 30% 흡수', el: 'leaf', kind: 'attack', power: 120, acc: 90, fx: { drain: 0.3 } },
 };

@@ -212,7 +212,7 @@ var ML = window.ML = window.ML || {};
       '<div class="section-t">특성</div>' + m.traits.map(function (t) { return '<div class="trait-line">' + ui.traitChip(t) + ' <span class="muted small">' + ML.traits[t].desc + '</span></div>'; }).join('') +
       '<div class="section-t">기술</div><div class="learn">' + m.moves.map(function (id) {
         var mv = ML.moves[id];
-        return '<div style="--c:' + ML.elements.info[mv.el].main + '"><b>' + mv.name + '</b><br><span class="muted">' + ML.elements.info[mv.el].icon + ' ' + (mv.kind === 'attack' ? '위력 ' + mv.power : '변화') + ' · 명중 ' + mv.acc + '</span></div>';
+        return '<div style="--c:' + ML.elements.info[mv.el].main + '"><b>' + mv.name + '</b><br><span class="muted">' + ML.elements.info[mv.el].icon + ' ' + (mv.kind === 'attack' ? '위력 ' + mv.power : '변화') + ' · 명중 ' + mv.acc + (mv.desc ? '<br>⭐ ' + mv.desc : '') + '</span></div>';
       }).join('') + '</div></div></div>' +
       '<div class="row" style="justify-content:flex-end;margin-top:14px">' + (actions || []).map(function (a) { return '<button class="btn" data-act="' + a[0] + '">' + a[1] + '</button>'; }).join('') +
       '<button class="btn primary" data-close>닫기</button></div>';
