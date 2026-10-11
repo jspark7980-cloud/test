@@ -217,7 +217,12 @@ var ML = window.ML = window.ML || {};
         return '<div class="section-t">지닌 물건</div><div class="trait-line">' + (it ? it.icon + ' <b>' + it.name + '</b> <span class="muted small">' + it.desc + '</span>' : '<span class="muted">없음</span>') +
           (function () {
             var mg = it && it.fx && it.fx.megaStone && ML.megas[it.fx.megaStone];
-            if (!mg) return '';
+            if (!mg) {
+              var own = ML.megas[m.species], inBag = own && ML.state.item('mega_' + m.species) > 0;
+              if (!inBag) return '';
+              var ob = own.bonus;
+              return '<div class="small" style="margin-top:4px">💎 가방의 메가 결정으로 전투에서 <b>' + own.name + '</b>(으)로 메가진화 가능 · 공격 +' + ob.atk + ' 방어 +' + ob.def + ' 속도 +' + ob.spd + '(종족값) · <b>' + own.ability + '</b>: ' + own.desc + '</div>';
+            }
             if (it.fx.megaStone !== m.species) return '<div class="hint bad small">이 몬스터에게는 맞지 않는 메가 결정이다.</div>';
             var b = mg.bonus;
             return '<div class="small" style="margin-top:4px">💎 전투에서 <b>' + mg.name + '</b>(으)로 메가진화 가능 · 공격 +' + b.atk + ' 방어 +' + b.def + ' 속도 +' + b.spd + '(종족값) · <b>' + mg.ability + '</b>: ' + mg.desc + '</div>';

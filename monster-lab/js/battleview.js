@@ -14,7 +14,7 @@ var ML = window.ML = window.ML || {};
     //         onSave(), reward(result) → 결과 창에 붙일 HTML, onFinish(result) 또는 (시험) onExit/onRematch }
     start: function (team, foes, opts) {
       var battle = new ML.Battle({ rng: opts.rng, mine: team, foe: foes, wild: opts.kind === 'wild', lead: opts.lead,
-        foePotions: opts.trainer && opts.trainer.potions || 0 });
+        foePotions: opts.trainer && opts.trainer.potions || 0, bag: opts.bag ? ML.game.items : null });
       V = { battle: battle, opts: opts, shown: 0, busy: false, disp: { hp: {}, active: [battle.sides[0].active, 0] } };
       battle.sides.forEach(function (s) { s.units.forEach(function (u) { V.disp.hp[u.mon.uid] = u.mon.hp; }); });
       if (opts.kind === 'wild') {

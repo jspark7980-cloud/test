@@ -17,6 +17,7 @@ ML.Battle = function (opts) {
   this.escaped = false;
   this.potions = [0, opts.foePotions || 0];
   this.megaUsed = [false, false];   // 메가진화는 편마다 전투당 1번
+  this.bag = opts.bag || null;      // 내 가방(메가 결정이 가방에만 있어도 메가진화)
   var self = this;
   this.sides = [opts.mine, opts.foe].map(function (mons, i) {
     var first = Math.max(0, mons.findIndex(function (m) { return m.hp > 0; }));
@@ -45,9 +46,12 @@ B.name = function (u) {
 };
 
 // ── 메가진화 ─────────────────────────────────────────
+// 메가 결정을 지니고 있거나, 내 편이면 가방에 그 종의 메가 결정이 있으면 된다(장착하지 않아도 됨)
 B.canMega = function (u) {
+  if (u.mega || this.megaUsed[u.side] || u.mon.hp <= 0 || !ML.megas[u.mon.species]) return false;
   var it = u.mon.held && ML.items[u.mon.held];
-  return !!(!u.mega && !this.megaUsed[u.side] && u.mon.hp > 0 && it && it.fx && it.fx.megaStone === u.mon.species && ML.megas[u.mon.species]);
+  if (it && it.fx && it.fx.megaStone === u.mon.species) return true;
+  return !!(u.side === 0 && this.bag && this.bag['mega_' + u.mon.species] > 0);
 };
 B.doMega = function (u) {
   if (!this.canMega(u)) return false;
