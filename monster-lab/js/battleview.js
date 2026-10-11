@@ -4,6 +4,26 @@ var ML = window.ML = window.ML || {};
 (function () {
   var ui = ML.ui, screen = document.getElementById('screen');
   var V = null;   // 지금 전투 화면 상태
+  // 자동 전투: 대련장·무한 모드에서만(opts.autoOk). 켜 두면 다음 전투에도 이어진다
+  ML.autoBattle = false;
+  function auto() { return !!(V && V.opts.autoOk && ML.autoBattle); }
+  // 자동이면 잠시 뒤 그 버튼을 눌러 준다
+  function autoClick(root, sel, ms) {
+    if (!auto()) return;
+    var v = V;
+    setTimeout(function () { if (V === v && auto()) { var b = root.querySelector(sel); if (b && !b.disabled) b.click(); } }, ms || 700);
+  }
+  function autoAct() {
+    var v = V;
+    setTimeout(function () {
+      if (V !== v || !auto() || v.busy) return;
+      var b = v.battle;
+      if (b.over || b.needReplace[0] || b.needReplace[1] || document.querySelector('#modal-root .modal')) return;
+      var a = ML.ai.chooseAction(b, 0);
+      if (a.type === 'move' && b.canMega(b.active(0))) a.mega = true;
+      act(a);
+    }, 350);
+  }
 
   ML.battleView = {
     isBusy: function () { return !!(V && V.busy); },
@@ -24,7 +44,7 @@ var ML = window.ML = window.ML || {};
       if (opts.trainer) battle.log.unshift({ msg: ML.josa(opts.trainer.name + '이(가) 승부를 걸어왔다!'), kind: 'field' });
       render();
       play(true);
-      if (opts.trainer && !opts.skipIntro) {
+      if (opts.trainer && !opts.skipIntro && !auto()) {
         var t = opts.trainer;
         var m = ui.modal('<div class="intro">' + '<div class="t-icon">' + t.icon + '</div><h3>' + t.name + (t.boss ? ' <span class="boss-tag">지역 보스</span>' : '') + '</h3>' +
           '<p>“' + t.line + '”</p><div class="row" style="justify-content:center">' +
@@ -90,7 +110,8 @@ var ML = window.ML = window.ML || {};
       '<div class="row">' + megaBtn + '<button class="btn" id="sw"' + (canSwitch ? '' : ' disabled') + '>🔄 교체</button>' +
       (V.opts.bag ? '<button class="btn" id="bag"' + (canAct ? '' : ' disabled') + '>🎒 가방</button>' : '') +
       (V.opts.kind === 'wild' ? '<button class="btn" id="run"' + (canAct ? '' : ' disabled') + '>🏃 도망</button>' : '') +
-      (V.opts.kind === 'test' ? '<button class="btn" id="quit">그만두기</button>' : '') + '</div></div></div>';
+      (V.opts.kind === 'test' ? '<button class="btn" id="quit">그만두기</button>' : '') +
+      (V.opts.autoOk ? '<button class="btn auto-btn' + (ML.autoBattle ? ' on' : '') + '" id="auto">🤖 자동 ' + (ML.autoBattle ? 'ON' : 'OFF') + '</button>' : '') + '</div></div></div>';
     var log = ui.$('#log');
     b.log.slice(0, V.shown).forEach(function (e) { if (e.msg) appendLog(log, e); });
     if (!log.children.length) log.innerHTML = '<p class="muted">기술을 고르거나 교체하세요. 교체도 1턴을 씁니다.</p>';
@@ -102,6 +123,13 @@ var ML = window.ML = window.ML || {};
     if (ui.$('#bag')) ui.$('#bag').onclick = openBag;
     if (ui.$('#mega')) ui.$('#mega').onclick = function () { V.megaOn = !V.megaOn; render(); if (V.megaOn) ui.toast('기술을 고르면 그 턴 시작에 메가진화한다!'); };
     if (ui.$('#run')) ui.$('#run').onclick = function () { act({ type: 'run' }); };
+    if (ui.$('#auto')) ui.$('#auto').onclick = function () {
+      ML.autoBattle = !ML.autoBattle;
+      ui.toast(ML.autoBattle ? '🤖 자동 전투 ON — 다시 누르면 직접 조작' : '자동 전투 OFF — 직접 조작한다');
+      if (!V.busy) render();
+      else { this.classList.toggle('on', ML.autoBattle); this.textContent = '🤖 자동 ' + (ML.autoBattle ? 'ON' : 'OFF'); }
+      if (ML.autoBattle && !V.busy && !V.battle.over) autoAct();
+    };
     if (ui.$('#quit')) ui.$('#quit').onclick = function () { if (!V.busy) { V = null; ML.app.show('lab'); } };
   }
 
@@ -199,11 +227,13 @@ var ML = window.ML = window.ML || {};
         v.busy = false;
         render();
         if (b.over) setTimeout(function () { if (V === v) showResult(); }, 400);
+        else if (b.needReplace[0] && auto()) { b.replace(0, ML.ai.chooseReplacement(b, 0)); play(false); }
         else if (b.needReplace[0]) pickSwitch(true);
+        else if (auto()) autoAct();
         return;
       }
       var e = b.log[v.shown++];
-      var delay = instant ? 0 : 420, log = ui.$('#log');
+      var delay = instant ? 0 : auto() ? 220 : 420, log = ui.$('#log');
       if (e.msg && log) { if (log.querySelector('.muted')) log.innerHTML = ''; appendLog(log, e); log.scrollTop = log.scrollHeight; }
       if (e.swap !== undefined) { v.disp.active[e.swap] = e.to; if (!instant) { render(); delay = 380; } }
       if (e.hit !== undefined) {
@@ -299,6 +329,7 @@ var ML = window.ML = window.ML || {};
       '<div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn primary" id="r-next">계속</button></div>';
     var md = ui.modal(html, null, true);
     md.querySelector('#r-next').onclick = function () { ui.closeModal(); runQueue(queue, result); };
+    autoClick(md, '#r-next', 1200);
   }
 
   function runQueue(queue, result) {
@@ -336,6 +367,7 @@ var ML = window.ML = window.ML || {};
       };
     });
     m.querySelector('#skip').onclick = done;
+    autoClick(m, '#skip', 500);   // 자동 전투 중에는 새 기술을 배우지 않고 넘긴다(나중에 교습소에서 떠올리기)
   }
 
   function evolveScene(mon, done) {
@@ -353,6 +385,7 @@ var ML = window.ML = window.ML || {};
       var ok = m.querySelector('#evo-ok'); ok.disabled = false; ok.textContent = '확인';
       ok.onclick = done;
       V.opts.onSave();
+      autoClick(m, '#evo-ok', 600);
     }, 2200);
   }
 })();

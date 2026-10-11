@@ -34,7 +34,9 @@ var ML = window.ML = window.ML || {};
     var s = st(), g = ML.game;
     screen.innerHTML = '<div class="sub-head"><button class="btn" id="to-hub">← 연구소</button><h2>🥊 대련장</h2><span class="gold">💰 ' + g.gold + '</span></div>' +
       '<div class="spar-head"><div>🔥 연승 <b>' + s.streak + '</b> (보상 ×' + streakMul().toFixed(1) + ')</div><div>최고 연승 <b>' + s.best + '</b></div><div>대련 승리 <b>' + s.wins + '</b></div><div>대련으로 번 골드 <b>' + s.earned + '</b></div></div>' +
-      '<p class="muted small">상대 3마리와 3대3. 정식 이상은 이기면 확률로 지닌 물건(생명의 구슬·버팀 머리띠·왕의 왕관 등)을 준다. 시작 전과 끝난 뒤 파티를 무료로 회복한다. 지면 골드는 잃지 않지만 연승이 끊긴다. 이길 때마다 보상이 +' + Math.round(C().streakStep * 100) + '%씩 늘어난다(최대 +' + Math.round(C().streakMax * 100) + '%).</p>' +
+      (ML.autoBattle ? '<div class="trainer-box">🤖 <b>자동 대련 중</b> — 같은 난이도로 계속 이어 간다. <button class="btn" id="auto-stop">⏹ 자동 중지</button></div>' : '') +
+      '<p class="muted small">전투 화면의 🤖 자동 버튼을 켜면, 끌 때까지 같은 난이도로 자동 대련이 계속 이어진다(새 기술은 배우지 않고 넘긴다). ' +
+      '상대 3마리와 3대3. 정식 이상은 이기면 확률로 지닌 물건(생명의 구슬·버팀 머리띠·왕의 왕관 등)을 준다. 시작 전과 끝난 뒤 파티를 무료로 회복한다. 지면 골드는 잃지 않지만 연승이 끊긴다. 이길 때마다 보상이 +' + Math.round(C().streakStep * 100) + '%씩 늘어난다(최대 +' + Math.round(C().streakMax * 100) + '%).</p>' +
       '<div class="spar-grid">' + C().tiers.map(function (t, i) {
         var inf = tierInfo(t);
         return '<button class="spar-card" data-tier="' + i + '"><span class="fi">' + t.icon + '</span><b>' + t.name + '</b><span>상대 Lv ' + inf.lv + ' × 3</span>' +
@@ -42,6 +44,7 @@ var ML = window.ML = window.ML || {};
       }).join('') + '</div>';
     ui.$('#to-hub').onclick = function () { ML.hub.render(); };
     screen.querySelectorAll('[data-tier]').forEach(function (b) { b.onclick = function () { start(+b.dataset.tier); }; });
+    if (ui.$('#auto-stop')) ui.$('#auto-stop').onclick = function () { ML.autoBattle = false; ui.toast('자동 대련을 멈췄다.'); render(); };
   }
 
   function start(i) {
@@ -82,6 +85,13 @@ var ML = window.ML = window.ML || {};
       }
       return h;
     },
-    finish: function () { ML.state.healAll(); ML.game.at = 'hub'; ML.state.save(); ML.app.show('hub'); render(); },
+    finish: function (r, o) {
+      ML.state.healAll(); ML.game.at = 'hub'; ML.state.save(); ML.app.show('hub'); render();
+      // 자동 전투가 켜져 있으면 같은 난이도로 바로 다음 대련
+      if (ML.autoBattle && o && o.spar) {
+        var tier = o.spar.tier;
+        setTimeout(function () { if (ML.autoBattle && document.getElementById('auto-stop')) start(tier); }, 1200);
+      }
+    },
   };
 })();

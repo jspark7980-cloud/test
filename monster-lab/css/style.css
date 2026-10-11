@@ -355,3 +355,4 @@ select, input { font: inherit; }
 .ach .ai { font-size: 28px; }
 .ach .ab { flex: 1; }
 .boost-tag { display: inline-block; padding: 0 6px; border-radius: 8px; background: #ff7a3d; color: #fff; font-size: 12px; font-weight: 900; }
+.auto-btn.on { background: linear-gradient(135deg, #4cd38a, #7ab8ff); color: #10131c; font-weight: 900; border: 0; }

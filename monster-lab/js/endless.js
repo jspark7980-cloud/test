@@ -47,7 +47,10 @@ var ML = window.ML = window.ML || {};
   function nextWave() {
     var s = st(), run = s.run, w = run.wave + 1, lv = waveLv(run, w), boss = isBoss(w);
     if (!ML.state.partyAlive()) { ui.toast('싸울 수 있는 몬스터가 없다!'); return; }
-    if (isMythic(w)) return mythicWave(run, w, lv);
+    if (isMythic(w)) {
+      if (ML.autoBattle) { ML.autoBattle = false; ui.toast('✴️ 신화 웨이브! 직접 잡을 수 있게 자동 전투를 껐다.'); }
+      return mythicWave(run, w, lv);
+    }
     var rng = ML.state.rng(), cand = ML.spar.pool(lv), table = w >= 5 ? 'high' : 'low';
     var picks = [0, 1, 2].map(function () { return rng.pick(cand); });
     if (boss) {
@@ -138,8 +141,11 @@ var ML = window.ML = window.ML || {};
       ui.modal('<div class="intro"><div class="t-icon">♾️</div><h3>' + run.wave + '웨이브 클리어!</h3>' +
         '<p>' + (full ? '💖 기절한 몬스터까지 파티 전원을 회복했다!' : '💚 살아 있는 몬스터가 체력을 ' + (C().healBetween >= 1 ? '모두' : Math.round(C().healBetween * 100) + '%') + ' 회복했다. 기절한 몬스터는 ' + (C().fullHealEvery - run.wave % C().fullHealEvery) + '웨이브 뒤에 일어난다.') + '</p>' +
         '<p>모은 골드 💰 ' + run.pot + ' · 다음: ' + next + '웨이브 Lv ' + waveLv(run, next) + (isBoss(next) ? ' <b>👑 보스</b>' : isMythic(next) ? ' <b>✴️ 신화 출현!</b>' : '') + '</p>' +
-        '<div class="row" style="justify-content:center"><button class="btn" id="e-quit">🏳️ 그만두고 받기</button><button class="btn primary" id="e-next">▶ 계속</button></div></div>', null, true);
+        (ML.autoBattle ? '<p>🤖 자동 전투 중 — 잠시 뒤 다음 웨이브로 간다.</p>' : '') +
+        '<div class="row" style="justify-content:center"><button class="btn" id="e-quit">🏳️ 그만두고 받기</button>' + (ML.autoBattle ? '<button class="btn" id="e-manual">⏹ 자동 중지</button>' : '') + '<button class="btn primary" id="e-next">▶ 계속</button></div></div>', null, true);
       ui.$('#e-next').onclick = function () { ui.closeModal(); nextWave(); };
+      if (ui.$('#e-manual')) ui.$('#e-manual').onclick = function () { ML.autoBattle = false; this.remove(); ui.toast('자동 전투를 껐다.'); };
+      if (ML.autoBattle) setTimeout(function () { var b = document.getElementById('e-next'); if (b && ML.autoBattle) b.click(); }, 1500);
       ui.$('#e-quit').onclick = function () { ui.closeModal(); endRun(false); };
     },
   };

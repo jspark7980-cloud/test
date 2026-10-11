@@ -194,7 +194,7 @@ var ML = window.ML = window.ML || {};
   function startBattle(foes, o) {
     var g = ML.game;
     var alive = g.party.map(function (m, i) { return i; }).filter(function (i) { return g.party[i].hp > 0; });
-    if (alive.length <= 1) return go(alive[0]);
+    if (alive.length <= 1 || (ML.autoBattle && (o.spar || o.endless))) return go(alive[0]);
     // 먼저 내보낼 몬스터 고르기(상대 선봉과의 상성 힌트)
     var foe = foes[0], fsp = ML.species[foe.species], t = o.trainer;
     var head = t ? '<div class="intro"><div class="t-icon">' + t.icon + '</div><h3>' + t.name + (t.boss ? ' <span class="boss-tag">지역 보스</span>' : '') + '</h3><p>“' + t.line + '”</p></div>'
@@ -217,7 +217,7 @@ var ML = window.ML = window.ML || {};
       ML.app.battleMode();
       g.stats.battles++;
       ML.battleView.start(g.party, foes, {
-        rng: o.rng, kind: o.kind, trainer: o.trainer, bag: true, lead: lead, skipIntro: alive.length > 1, expMul: o.expMul,
+        rng: o.rng, kind: o.kind, trainer: o.trainer, bag: true, lead: lead, skipIntro: alive.length > 1, expMul: o.expMul, autoOk: !!(o.spar || o.endless),
       onSave: function () { ML.state.saveRng(o.rng); ML.state.save(); ML.app.status(); },
       reward: function (r) { return reward(r, foes, o); },
       onFinish: function (r) { finish(r, o); },
@@ -264,7 +264,7 @@ var ML = window.ML = window.ML || {};
   function finish(r, o) {
     var g = ML.game;
     if (!r.escaped) ML.fusion.tick();      // 휴식·알 카운트(도망친 전투는 세지 않음)
-    if (o.spar) return ML.spar.finish(r);
+    if (o.spar) return ML.spar.finish(r, o);
     if (o.endless) return ML.endless.finish(r);
     if (r.winner === 1) { ML.state.healAll(); g.at = 'hub'; }
     ML.state.save();
