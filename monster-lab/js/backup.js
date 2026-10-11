@@ -9,7 +9,11 @@ var ML = window.ML = window.ML || {};
 
   function b64(bytes) { var s = ''; for (var i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return btoa(s); }
   function unb64(t) { var s = atob(t), out = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) out[i] = s.charCodeAt(i); return out; }
-  function pipe(bytes, stream) { return new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer().then(function (b) { return new Uint8Array(b); }); }
+  // 스트림으로 압축/해제(사파리 호환: Response(bytes).body 사용)
+  function pipe(bytes, stream) {
+    var body = new Response(bytes).body;
+    return new Response(body.pipeThrough(stream)).arrayBuffer().then(function (b) { return new Uint8Array(b); });
+  }
 
   // → Promise<코드 문자열>
   function encode(data) {
@@ -19,16 +23,40 @@ var ML = window.ML = window.ML || {};
   }
   function check(data) { if (!data || !data.game || !data.game.party || !data.game.party.length) throw new Error('bad'); return data; }
   // → Promise<저장 데이터>
+  // 붙여 넣을 때 섞여 들어오는 공백·줄바꿈·보이지 않는 문자·따옴표를 걷어 낸다
+  function clean(text) {
+    var t = String(text || '').replace(/[\s\u200b-\u200d\ufeff"'`“”‘’]/g, '');
+    var i = t.indexOf('MLSAVE');
+    if (i > 0) t = t.slice(i);
+    return t;
+  }
+  function fail(msg) { var e = new Error(msg); e.userMsg = msg; return e; }
   function decode(text) {
-    var t = (text || '').replace(/\s+/g, '');
-    try {
-      if (t.indexOf(PREFIX2) === 0) {
-        if (!canZip) return Promise.reject(new Error('nozip'));
-        return pipe(unb64(t.slice(PREFIX2.length)), new DecompressionStream('deflate-raw')).then(function (b) { return check(JSON.parse(new TextDecoder().decode(b))); });
-      }
-      if (t.indexOf(PREFIX) === 0) t = t.slice(PREFIX.length);
-      return Promise.resolve(check(JSON.parse(decodeURIComponent(escape(atob(t))))));
-    } catch (e) { return Promise.reject(e); }
+    var t = clean(text);
+    if (!t) return Promise.reject(fail('코드를 붙여 넣어 줘.'));
+    var zipped = t.indexOf(PREFIX2) === 0, tagged = zipped || t.indexOf(PREFIX) === 0;
+    if (tagged) t = t.slice(8);
+    t = t.replace(/[^A-Za-z0-9+/=]/g, '');
+    var bytes;
+    try { bytes = unb64(t); } catch (e) { return Promise.reject(fail('코드에 이상한 글자가 섞였다. 처음부터 끝까지 다시 복사해 줘.')); }
+    var parse = function (str) {
+      var data;
+      try { data = JSON.parse(str); } catch (e) { throw fail(tagged ? '코드가 중간에 잘린 것 같다. 끝까지 전부 복사했는지 확인해 줘.' : '몬스터 연구소 저장 코드가 아니다(MLSAVE로 시작해야 한다).'); }
+      try { return check(data); } catch (e) { throw fail('몬스터 연구소 저장 코드가 아니다.'); }
+    };
+    if (!zipped) {
+      try { return Promise.resolve(parse(new TextDecoder().decode(bytes))); } catch (e) { return Promise.reject(e); }
+    }
+    if (!canZip) return Promise.reject(fail('이 브라우저는 압축 코드를 풀 수 없다. 사파리를 최신으로 업데이트해 줘.'));
+    // deflate-raw가 기본, 혹시 몰라 deflate·gzip도 시도
+    var formats = ['deflate-raw', 'deflate', 'gzip'];
+    var tryAt = function (i) {
+      if (i >= formats.length) return Promise.reject(fail('압축을 풀지 못했다. 코드가 잘렸거나 바뀌었을 수 있다. 끝까지 전부 복사했는지 확인해 줘.'));
+      var ds;
+      try { ds = new DecompressionStream(formats[i]); } catch (e) { return tryAt(i + 1); }
+      return pipe(bytes, ds).then(function (b) { return parse(new TextDecoder().decode(b)); }, function () { return tryAt(i + 1); });
+    };
+    return tryAt(0);
   }
   function summary(g) {
     var top = g.party.concat(g.box).reduce(function (a, m) { return m.level > a ? m.level : a; }, 0);
@@ -45,7 +73,7 @@ var ML = window.ML = window.ML || {};
         '<textarea id="bk-out" readonly rows="4" style="width:100%;font-size:12px;word-break:break-all">압축하는 중…</textarea><div class="muted small" id="bk-len"></div>' +
         '<div class="row" style="margin:6px 0 12px"><button class="btn primary" id="bk-copy">📋 코드 복사</button><button class="btn" id="bk-file">📄 파일로 저장</button></div>' : '') +
       '<div class="section-t">불러오기</div><p class="muted small">백업 코드를 붙여 넣거나 백업 파일을 고른다. <b>지금 진행은 백업 내용으로 바뀐다.</b></p>' +
-      '<textarea id="bk-in" rows="4" style="width:100%;font-size:12px" placeholder="MLSAVE1:로 시작하는 코드"></textarea>' +
+      '<textarea id="bk-in" rows="4" style="width:100%;font-size:12px" placeholder="MLSAVE로 시작하는 코드" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea><div class="hint bad small" id="bk-err"></div>' +
       '<div class="row" style="margin-top:6px"><label class="btn">📂 파일 고르기<input type="file" id="bk-pick" accept=".txt,text/plain" style="display:none"></label><button class="btn danger" id="bk-load">불러오기</button><button class="btn" data-close>닫기</button></div>');
     if (has) {
       encode(saved).then(function (c) {
@@ -76,8 +104,12 @@ var ML = window.ML = window.ML || {};
       rd.readAsText(f);
     };
     md.querySelector('#bk-load').onclick = function () {
-      decode(md.querySelector('#bk-in').value).then(confirmLoad, function (e) {
-        ui.toast(e && e.message === 'nozip' ? '이 브라우저는 압축 코드를 풀 수 없다. 사파리를 최신으로 업데이트해 줘.' : '코드가 올바르지 않다. 전부 복사했는지 확인해 줘.');
+      var btn = this; btn.disabled = true; btn.textContent = '확인하는 중…';
+      decode(md.querySelector('#bk-in').value).then(function (data) { btn.disabled = false; btn.textContent = '불러오기'; confirmLoad(data); }, function (e) {
+        btn.disabled = false; btn.textContent = '불러오기';
+        var msg = (e && e.userMsg) || ('불러오기 실패: ' + (e && e.message || e));
+        var er = md.querySelector('#bk-err'); if (er) er.textContent = '⚠️ ' + msg;
+        ui.toast(msg);
       });
     };
     function confirmLoad(data) {
