@@ -51,6 +51,9 @@ ML.items = {
   focussash:    { name: '버팀 머리띠', icon: '🥋', kind: 'held', price: 0, shop: false, fx: { sash: true }, desc: '체력이 가득할 때 쓰러질 공격을 받으면 체력 1로 버틴다(전투당 1회) (대련장 보상)' },
   kingcrown:    { name: '왕의 왕관',   icon: '👑', kind: 'held', price: 0, shop: false, fx: { atk: 0.1, def: 0.1, spd: 0.1 }, desc: '공격·방어·속도 +10% (대련장 보상)' },
 
+  // 원시회귀 구슬 [제안]: 무한 모드 웨이브 클리어 시 아주 낮은 확률(config.endless.primalChance)
+  orb_primordial:   { name: '태초의 구슬', icon: '🔴', kind: 'held', price: 0, shop: false, fx: { primalOrb: 'primordial' },   desc: '태초수 전용. 가방에 있거나 지니고 있으면 전투에 나오자마자 원시회귀한다(무한 모드 희귀 보상)' },
+  orb_infinidragon: { name: '무한의 구슬', icon: '🔵', kind: 'held', price: 0, shop: false, fx: { primalOrb: 'infinidragon' }, desc: '무한신룡 전용. 가방에 있거나 지니고 있으면 전투에 나오자마자 원시회귀한다(무한 모드 희귀 보상)' },
   // 메가 결정 [제안]: 그 종이 지니면 전투에서 메가진화. 3단계용은 5지역부터 상점, 전설용은 5~7지역 전설 장소에서 처음 이기거나 잡으면 얻는다
   mega_furnacerat: { name: '용광서 메가 결정', icon: '💎', kind: 'held', price: 2500, unlock: 5, fx: { megaStone: 'furnacerat' }, desc: '용광서 전용. 가방에 있거나 지니고 있으면 전투에서 한 번 메가진화할 수 있다(장착하지 않아도 됨)' },
   mega_tidalshell: { name: '해일갑각 메가 결정', icon: '💎', kind: 'held', price: 2500, unlock: 5, fx: { megaStone: 'tidalshell' }, desc: '해일갑각 전용. 가방에 있거나 지니고 있으면 전투에서 한 번 메가진화할 수 있다(장착하지 않아도 됨)' },

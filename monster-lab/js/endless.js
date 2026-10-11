@@ -112,6 +112,14 @@ var ML = window.ML = window.ML || {};
       run.pot += e.gold;
       ML.game.stats.wins++;
       h += '<p>✅ ' + e.wave + '웨이브 클리어! 모은 골드 +' + e.gold + ' → 💰 ' + run.pot + '</p>';
+      // 원시회귀 구슬: 웨이브마다 아주 낮은 확률
+      var prng = ML.state.rng();
+      if (prng.chance(C().primalChance)) {
+        var orb = prng.pick(['orb_primordial', 'orb_infinidragon']);
+        ML.state.addItem(orb);
+        h += '<p class="lvup">🌋 ' + ML.items[orb].icon + ' <b>' + ML.items[orb].name + '</b>을(를) 발견했다!! (원시회귀 구슬)</p>';
+      }
+      ML.state.saveRng(prng);
       if (e.boss) {
         var hc = ML.config.held, rng = ML.state.rng(), id;
         if (e.wave >= 20 && rng.chance(C().megaStoneChance)) id = 'mega_' + rng.pick(STONES.concat(['eclipsedragon', 'stormwhale', 'worldtree']));

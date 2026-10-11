@@ -42,13 +42,14 @@ B.makeUnit = function (mon, side) {
 };
 
 B.name = function (u) {
-  return (u.side === 0 ? '' : '상대 ') + (u.mega ? ML.megas[u.mon.species].name : ML.species[u.mon.species].name);
+  var f = this.formOf(u);
+  return (u.side === 0 ? '' : '상대 ') + (f ? f.name : ML.species[u.mon.species].name);
 };
 
 // ── 메가진화 ─────────────────────────────────────────
 // 메가 결정을 지니고 있거나, 내 편이면 가방에 그 종의 메가 결정이 있으면 된다(장착하지 않아도 됨)
 B.canMega = function (u) {
-  if (u.mega || this.megaUsed[u.side] || u.mon.hp <= 0 || !ML.megas[u.mon.species]) return false;
+  if (u.mega || u.primal || this.megaUsed[u.side] || u.mon.hp <= 0 || !ML.megas[u.mon.species]) return false;
   var it = u.mon.held && ML.items[u.mon.held];
   if (it && it.fx && it.fx.megaStone === u.mon.species) return true;
   return !!(u.side === 0 && this.bag && this.bag['mega_' + u.mon.species] > 0);
@@ -63,7 +64,27 @@ B.doMega = function (u) {
   if (this.megaFx(u, 'rainForever')) { this.field.rain = ML.config.ability.rainTurns; this.say('끝없는 폭풍이 몰아친다!', 'field'); }
   return true;
 };
-B.megaFx = function (u, key) { return (u.mega && ML.megas[u.mon.species].fx[key]) || 0; };
+// 메가·원시회귀 상태의 데이터(없으면 null)와 능력 값
+B.formOf = function (u) { return u.primal ? ML.primals[u.mon.species] : u.mega ? ML.megas[u.mon.species] : null; };
+B.megaFx = function (u, key) { var f = this.formOf(u); return (f && f.fx[key]) || 0; };
+
+// ── 원시회귀: 전용 구슬(지님, 또는 내 편이면 가방)이 있으면 나오자마자 자동. 메가진화 횟수와 별개 ──
+B.canPrimal = function (u) {
+  var p = ML.primals[u.mon.species];
+  if (!p || u.primal || u.mon.hp <= 0) return false;
+  var it = u.mon.held && ML.items[u.mon.held];
+  if (it && it.fx && it.fx.primalOrb === u.mon.species) return true;
+  return !!(u.side === 0 && this.bag && this.bag[p.orb] > 0);
+};
+B.doPrimal = function (u) {
+  if (!this.canPrimal(u)) return false;
+  var p = ML.primals[u.mon.species], before = ML.species[u.mon.species].name;
+  u.primal = true;
+  u.stats = ML.calcStats(u.mon, 'primal');
+  this.log.push({ mega: u.side, uid: u.mon.uid });
+  this.say((u.side === 0 ? '' : '상대 ') + before + '의 ' + ML.items[p.orb].name + '이(가) 빛난다… 원시회귀! ' + p.name + '!', 'crit');
+  return true;
+};
 B.say = function (msg, kind) { this.log.push({ msg: ML.josa(msg), kind: kind || '' }); };
 B.active = function (side) { var s = this.sides[side]; return s.units[s.active]; };
 B.ability = function (u) { var a = ML.abilities[ML.species[u.mon.species].ability]; return a && a.key; };
@@ -106,6 +127,7 @@ B.replace = function (side, idx) {
 };
 
 B.onEnter = function (u) {
+  this.doPrimal(u);
   if (this.ability(u) === 'aurora') {
     var f = this.sides[1 - u.side].units[this.sides[1 - u.side].active];
     if (f && f.mon.hp > 0) { this.say(this.name(u) + '의 오로라가 빛났다!', 'ability'); this.changeStage(f, 'spd', -1); }
@@ -175,6 +197,7 @@ B.calcDamage = function (att, def, move, forecast) {
   if (ML.heldFx(att.mon, 'elBoost') === move.el) atkMod *= 1 + c.held.elBoost;
   var meb = this.megaFx(att, 'elBoost');
   if (meb && meb[move.el]) atkMod *= 1 + meb[move.el];
+  atkMod *= 1 + this.megaFx(att, 'dmgUp');
   atkMod *= 1 + ML.heldFx(att.mon, 'dmgUp');
   dmg *= atkMod;
   if (this.ability(def) === 'damageReduce' || this.ability(def) === 'steam') dmg *= 1 - c.ability.damageReduce;
@@ -481,6 +504,7 @@ B.endOfTurn = function () {
     }
     var rg = ML.traitSum(u.mon, 'regen') + (self.ability(u) === 'mossRegen' ? c.ability.mossRegen : 0);
     if (rg && u.mon.hp > 0) self.heal(u, Math.max(1, Math.round(u.stats.hp * rg)), '재생으로 회복했다');
+    if (self.megaFx(u, 'rampDef') && u.mon.hp > 0 && u.stages.def < c.stageMax) self.changeStage(u, 'def', 1);
     var mr = self.megaFx(u, 'regen');
     if (mr && u.mon.hp > 0) self.heal(u, Math.max(1, Math.round(u.stats.hp * mr)), '메가 능력으로 회복했다');
     var hr = ML.heldFx(u.mon, 'regen');

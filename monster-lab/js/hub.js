@@ -230,6 +230,11 @@ var ML = window.ML = window.ML || {};
         var it = m.held && ML.items[m.held];
         return '<div class="section-t">지닌 물건</div><div class="trait-line">' + (it ? it.icon + ' <b>' + it.name + '</b> <span class="muted small">' + it.desc + '</span>' : '<span class="muted">없음</span>') +
           (function () {
+            var pr = ML.primals[m.species];
+            if (pr && ((it && it.fx && it.fx.primalOrb === m.species) || ML.state.item(pr.orb) > 0)) {
+              var pb = pr.bonus;
+              return '<div class="small" style="margin-top:4px">🌋 ' + ML.items[pr.orb].name + '(으)로 전투에 나오면 자동으로 <b>' + pr.name + '</b>(으)로 원시회귀 · 공격 +' + pb.atk + ' 방어 +' + pb.def + ' 속도 +' + pb.spd + '(종족값) · <b>' + pr.ability + '</b>: ' + pr.desc + '</div>';
+            }
             var mg = it && it.fx && it.fx.megaStone && ML.megas[it.fx.megaStone];
             if (!mg) {
               var own = ML.megas[m.species], inBag = own && ML.state.item('mega_' + m.species) > 0;

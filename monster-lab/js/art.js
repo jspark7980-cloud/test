@@ -238,8 +238,12 @@ var ML = window.ML = window.ML || {};
         }
         megaBack = '<defs><radialGradient id="' + gid + '"><stop offset="0" stop-color="' + p.light + '" stop-opacity="0.75"/><stop offset="0.6" stop-color="' + p.main + '" stop-opacity="0.35"/><stop offset="1" stop-color="' + p.main + '" stop-opacity="0"/></radialGradient></defs>' +
           '<circle cx="100" cy="104" r="96" fill="url(#' + gid + ')"/>' +
-          '<path class="mega-ring" d="' + spikes + ' Z" fill="none" stroke="' + p.light + '" stroke-width="3" opacity="0.8" filter="url(#glow)"/>';
-        megaFront = '<g filter="url(#glow)"><path d="M100 4 L114 20 L100 38 L86 20 Z" fill="#ff7ad9" stroke="#fff" stroke-width="2.5"/><path d="M100 10 L108 20 L100 31 L92 20 Z" fill="#7ae8ff"/><path d="M95 15 L100 10 L105 15" stroke="#fff" stroke-width="2" fill="none"/></g>';
+          '<path class="mega-ring" d="' + spikes + ' Z" fill="none" stroke="' + (opts.primal ? '#ff5a2e' : p.light) + '" stroke-width="' + (opts.primal ? 4 : 3) + '" opacity="0.85" filter="url(#glow)"/>';
+        megaFront = opts.primal
+          // 원시회귀: 붉은·금빛 고대 문양(Ω) 결정
+          ? '<g filter="url(#glow)"><circle cx="100" cy="20" r="15" fill="#2a0a06" stroke="#ffb02e" stroke-width="3"/><path d="M92 27 L95 27 C88 22 90 11 100 11 C110 11 112 22 105 27 L108 27" stroke="#ff5a2e" stroke-width="3" fill="none"/></g>' +
+            '<circle cx="100" cy="104" r="80" fill="none" stroke="#ffb02e" stroke-width="1.5" stroke-dasharray="2 7" opacity="0.8"/>'
+          : '<g filter="url(#glow)"><path d="M100 4 L114 20 L100 38 L86 20 Z" fill="#ff7ad9" stroke="#fff" stroke-width="2.5"/><path d="M100 10 L108 20 L100 31 L92 20 Z" fill="#7ae8ff"/><path d="M95 15 L100 10 L105 15" stroke="#fff" stroke-width="2" fill="none"/></g>';
         tf = 'translate(100 172) scale(1.1) translate(-100 -172) ' + tf;
       }
       var size = opts.size || 120;

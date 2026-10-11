@@ -14,3 +14,12 @@ ML.megas = {
   stormwhale:   { name: '메가 폭풍고래', bonus: { atk: 20, def: 20, spd: 10 }, ability: '끝없는 폭풍', desc: '변신하면 비가 내리고, 비가 그치지 않는다', fx: { rainForever: true } },
   worldtree:    { name: '메가 세계수거인', bonus: { atk: 20, def: 25, spd: 5 }, ability: '세계수의 축복', desc: '매 턴 끝에 체력 5% 회복, 받는 피해 -10%', fx: { regen: 0.05, dmgReduce: 0.1 } },
 };
+
+// 원시회귀 [제안]: 근원 두 종 전용. 전용 구슬을 가방에 두거나 지니면 전투에 나오자마자 자동으로 변한다.
+// 메가진화와 따로(편당 1번 제한을 쓰지 않음). 구슬은 무한 모드에서 웨이브를 깰 때마다 아주 낮은 확률로 얻는다.
+ML.primals = {
+  primordial:   { name: '원시 태초수',   orb: 'orb_primordial',   bonus: { atk: 30, def: 30, spd: 20 }, ability: '태초의 장막',
+                  desc: '받는 피해 -25%, 매 턴 끝에 체력 6% 회복, 주는 피해 +15%', fx: { dmgReduce: 0.25, regen: 0.06, dmgUp: 0.15 } },
+  infinidragon: { name: '원시 무한신룡', orb: 'orb_infinidragon', bonus: { atk: 35, def: 25, spd: 20 }, ability: '무한 회귀',
+                  desc: '항상 먼저 움직이고 주는 피해 +25%, 매 턴 끝에 방어 +1(최대 +3)', fx: { firstStrike: true, dmgUp: 0.25, rampDef: true } },
+};
