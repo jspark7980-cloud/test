@@ -229,6 +229,7 @@ var ML = window.ML = window.ML || {};
   function reward(r, foes, o) {
     var g = ML.game, c = ML.config, h = '';
     if (o.spar) return ML.spar.reward(r, o);
+    if (o.endless) return ML.endless.reward(r, o);
     if (r.captured) {
       var where = ML.state.addMon(r.captured);
       if (r.captured.shiny) g.dex.shiny = Object.assign(g.dex.shiny || {}, (function (o) { o[r.captured.species] = true; return o; })({}));
@@ -264,6 +265,7 @@ var ML = window.ML = window.ML || {};
     var g = ML.game;
     if (!r.escaped) ML.fusion.tick();      // 휴식·알 카운트(도망친 전투는 세지 않음)
     if (o.spar) return ML.spar.finish(r);
+    if (o.endless) return ML.endless.finish(r);
     if (r.winner === 1) { ML.state.healAll(); g.at = 'hub'; }
     ML.state.save();
     if (r.winner === 0 && o.trainer && o.trainer.boss && !ML.regions[g.region + 1]) {

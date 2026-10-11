@@ -23,6 +23,7 @@ var ML = window.ML = window.ML || {};
       ['shop', '🛒', '상점', '포획구·회복약·합성석'],
       ['box', '📦', '보관함', '파티 ' + g.party.length + ' · 보관 ' + g.box.length + '마리'],
       ['spar', '🥊', '대련장', '반복 3대3으로 골드 벌기' + (g.spar && g.spar.streak ? ' · 🔥' + g.spar.streak + '연승' : '')],
+      ['endless', '♾️', '무한 모드', (g.endless && g.endless.run ? '도전 중 · ' + g.endless.run.wave + '웨이브' : '끝없는 웨이브') + (g.endless && g.endless.best ? ' · 최고 ' + g.endless.best : '')],
       ['dex', '📖', '도감', '잡은 종 ' + Object.keys(g.dex.caught).length + ' / 본 종 ' + Object.keys(g.dex.seen).length],
       ['fusion', '🧬', '합성소', open2 ? '몬스터 2마리 + 합성석 → 알' : '1지역 보스를 이기면 열린다', !open2],
       ['hatch', '🥚', '부화장', open2 ? '알 ' + g.eggs.length + ' / ' + ML.config.fusion.maxEggs + (g.eggs.some(function (e) { return !e.left; }) ? ' · 부화 준비!' : '') : '1지역 보스를 이기면 열린다', !open2],
@@ -41,6 +42,7 @@ var ML = window.ML = window.ML || {};
         else if (f === 'box') renderBox();
         else if (f === 'dex') ML.app.show('dex');
         else if (f === 'spar') ML.spar.render();
+        else if (f === 'endless') ML.endless.render();
         else if (!open2) ui.toast('1지역 보스를 이기면 열린다.');
         else if (f === 'fusion') ML.fusion.renderLab();
         else ML.fusion.renderHatch();

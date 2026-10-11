@@ -12,7 +12,7 @@ ML.config = {
   traitStabBonus: 0.1,     // 특성 "속성 강화"
 
   // 능력치
-  maxLevel: 100,            // (요청으로 50 → 100)
+  maxLevel: Infinity,       // (요청으로 50 → 100 → 제한 없음)
   statPerLevel: 0.06,      // 능력치 = 종족값 × (1 + 레벨 × 0.06) × 개체값
   hpPerLevel: 3,           // 체력만 + 레벨 × 3
   ivRange: 0.1,            // 개체값 0.9 ~ 1.1
@@ -133,6 +133,19 @@ ML.config = {
       { name: '강적 대련',   icon: '😈', lvOffset: 3,  goldPerLv: 11, traits: 'high', potions: 1, desc: '3레벨 높고 좋은 특성이 잘 붙는다' },
       { name: '지옥 대련',   icon: '💀', lvOffset: 6,  goldPerLv: 16, traits: 'high', potions: 2, desc: '6레벨 높고 회복약 2개' },
     ],
+  },
+
+  // 무한 모드 [제안]: 웨이브마다 상대 3마리. 상대 레벨 = 지금 파티 평균 + startOffset + 웨이브 × lvPerWave(내림)
+  // (경험치로 내 레벨이 오르면 상대도 따라 오른다 → 웨이브가 쌓일수록 상대가 내 파티보다 점점 높아진다)
+  endless: {
+    startOffset: -6, lvPerWave: 0.4,
+    healBetween: 1,         // 웨이브 사이: 살아 있는 몬스터 체력 100% 회복(기절한 몬스터는 그대로)
+    fullHealEvery: 3,       // 3웨이브마다 전원 완전 회복(기절도 회복)
+    goldPerLv: 6,           // 웨이브 보상 = 상대 평균 레벨 × 3 × goldPerLv (모아 두었다가 그만두면 받는다)
+    loseKeep: 0.5,          // 지면 모은 골드의 50%만 받는다
+    bossEvery: 10,          // 10웨이브마다 보스(메가진화·지닌 물건) + 지닌 물건 보상
+    megaStoneChance: 0.25,  // 보스 웨이브(20웨이브부터) 보상이 메가 결정일 확률
+    legendFrom: 30,         // 30웨이브부터 보스에 전설이 섞인다
   },
 
   // 지닌 물건 [제안]

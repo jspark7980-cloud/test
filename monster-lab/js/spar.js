@@ -20,7 +20,7 @@ var ML = window.ML = window.ML || {};
       if (!sp.stage) return false;
       var prev = Object.keys(ML.species).filter(function (k) { return ML.species[k].evolve && ML.species[k].evolve[0] === id; })[0];
       var minLv = prev ? ML.species[prev].evolve[1] : 1;
-      var next = sp.evolve ? sp.evolve[1] : 99;
+      var next = sp.evolve ? sp.evolve[1] : Infinity;
       return lv >= minLv && lv < next + 4;
     });
   }
@@ -59,7 +59,7 @@ var ML = window.ML = window.ML || {};
   }
 
   ML.spar = {
-    render: render,
+    render: render, pool: pool,
     reward: function (r, o) {
       var g = ML.game, s = st(), h = '';
       if (r.winner === 0) {
