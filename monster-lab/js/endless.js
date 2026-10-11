@@ -13,9 +13,9 @@ var ML = window.ML = window.ML || {};
   function st() { var g = ML.game; g.endless = g.endless || { best: 0, earned: 0, runs: 0, run: null }; return g.endless; }
   function avgLv() { var p = ML.game.party; return Math.round(p.reduce(function (s, m) { return s + m.level; }, 0) / p.length); }
   function waveLv(run, w) { return C().startLv + (w - 1) * C().lvPerWave; }
-  // 신화 웨이브: 상대 레벨이 처음 mythicLv 이상이 되는 웨이브, 그 뒤 mythicEvery마다
+  // 신화 웨이브: 상대 레벨이 처음 mythicLv 이상이 되는 웨이브(한 번만)
   function firstMythic() { return Math.ceil((C().mythicLv - C().startLv) / C().lvPerWave) + 1; }
-  function isMythic(w) { var f = firstMythic(); return w >= f && (w - f) % C().mythicEvery === 0; }
+  function isMythic(w) { return w === firstMythic(); }   // (요청) 도전마다 한 번만: 상대가 처음 Lv 500이 되는 웨이브
   function waveGold(lv) { return Math.round(lv * 3 * C().goldPerLv * ML.state.goldMul()); }
   function isBoss(w) { return w % C().bossEvery === 0 && !isMythic(w); }
 
@@ -24,7 +24,7 @@ var ML = window.ML = window.ML || {};
     screen.innerHTML = '<div class="sub-head"><button class="btn" id="to-hub">← 연구소</button><h2>♾️ 무한 모드</h2><span class="gold">💰 ' + g.gold + '</span></div>' +
       '<div class="spar-head"><div>🏆 최고 기록 <b>' + s.best + '웨이브</b></div><div>도전 <b>' + s.runs + '번</b></div><div>무한 모드로 번 골드 <b>' + s.earned + '</b></div></div>' +
       '<p class="muted small">상대 3마리와 3대3을 끝없이 이어 간다. 상대 레벨은 <b>Lv ' + C().startLv + '부터 웨이브마다 +' + C().lvPerWave + '</b>(레벨 제한 없음). <b>무한 모드에서는 경험치를 얻지 않는다(레벨업 없음)</b> — 지금 파티의 힘으로만 도전한다. ' +
-      '상대가 <b>Lv ' + C().mythicLv + '</b>에 이르는 ' + firstMythic() + '웨이브에 <b>✴️ 신화 무한신룡</b>이 나타나 포획할 수 있다(그 뒤 ' + C().mythicEvery + '웨이브마다 다시). ' +
+      '상대가 <b>Lv ' + C().mythicLv + '</b>에 이르는 ' + firstMythic() + '웨이브에 <b>✴️ 신화 무한신룡</b>이 나타나 포획할 수 있다(<b>도전마다 한 번뿐</b> — 놓치면 다음 도전에서 다시 84웨이브까지 가야 한다). ' +
       '웨이브 사이에 살아 있는 몬스터는 체력을 ' + (C().healBetween >= 1 ? '모두' : Math.round(C().healBetween * 100) + '%') + ' 회복하지만, <b>기절한 몬스터는 ' + C().fullHealEvery + '웨이브마다만</b> 다시 일어난다. 가방의 회복약은 쓸 수 있다. ' +
       '골드는 모아 두었다가 <b>그만두면 전부</b>, <b>지면 ' + Math.round(C().loseKeep * 100) + '%</b>만 받는다. ' + C().bossEvery + '웨이브마다 메가진화하는 보스가 나오고, 이기면 지닌 물건을 준다. 경험치는 보통 전투처럼 받는다.</p>' +
       (run ? '<div class="trainer-box"><b>진행 중인 도전</b> — ' + run.wave + '웨이브까지 깸 · 모은 골드 💰 ' + run.pot + '<div class="row" style="margin-top:8px"><button class="btn primary big" id="next">▶ ' + (run.wave + 1) + '웨이브 (Lv ' + waveLv(run, run.wave + 1) + ')</button><button class="btn" id="quit">🏳️ 그만두고 보상 받기</button></div></div>'
