@@ -38,7 +38,8 @@ var ML = window.ML = window.ML || {};
     if (!el) return;
     if (!g) { el.innerHTML = ''; return; }
     var reg = ML.regions[g.region];
-    el.innerHTML = '💰 ' + g.gold + ' · 📍 ' + (g.at === 'hub' ? '연구소' : reg.places[g.at].name);
+    var ach = g.title && ML.achievements.filter(function (a) { return a.id === g.title; })[0];
+    el.innerHTML = (ach ? '<span class="iv-tag">' + ach.icon + ' ' + ach.name + '</span> ' : '') + '💰 ' + g.gold.toLocaleString() + ' · 📍 ' + (g.at === 'hub' ? '연구소' : reg.places[g.at].name);
   }
 
   ML.app = {

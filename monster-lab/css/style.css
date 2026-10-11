@@ -341,3 +341,14 @@ select, input { font: inherit; }
 @keyframes megaflash { 0% { filter: brightness(4) saturate(0); transform: scale(0.8); } 60% { filter: brightness(1.8); transform: scale(1.12); } 100% { filter: none; transform: none; } }
 .mega-ring { transform-origin: 100px 104px; animation: megaspin 8s linear infinite; }
 @keyframes megaspin { to { transform: rotate(360deg); } }
+/* 기술 교습소 */
+.tutor-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+.tutor-mv { text-align: left; padding: 10px 12px; border-radius: 12px; background: var(--panel2); border: 2px solid var(--line); border-left: 6px solid var(--c); color: inherit; font: inherit; }
+.tutor-mv:disabled { opacity: 0.45; }
+/* 업적 */
+.ach-list { display: grid; gap: 8px; }
+.ach { display: flex; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 12px; background: var(--panel2); border: 2px solid var(--line); }
+.ach.done { border-color: #ffd76b; }
+.ach.claimed { opacity: 0.55; }
+.ach .ai { font-size: 28px; }
+.ach .ab { flex: 1; }

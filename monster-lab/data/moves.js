@@ -57,6 +57,14 @@ ML.moves = {
   fogcurse:    { name: '안개 저주',   el: 'shadow', kind: 'support', acc: 90, fx: { seal: true } },
   mimic:       { name: '거울 흉내',   el: 'shadow', kind: 'support', acc: 100, fx: { mimic: true } },
 
+  // 교습소 전용 최강기 [제안]: 기술 교습소에서만 배운다(tutor: 'only')
+  sunburst:    { name: '태양 붕괴',   desc: '교습 최강기', tutor: 'only', el: 'fire',    kind: 'attack', power: 140, acc: 85, fx: { status: { type: 'burn', chance: 0.2 } } },
+  abyssal:     { name: '심해 대해일', desc: '교습 최강기', tutor: 'only', el: 'water',   kind: 'attack', power: 140, acc: 85, fx: { foe: { spd: -1, chance: 0.3 } } },
+  gaiabloom:   { name: '대지의 개화', desc: '교습 최강기', tutor: 'only', el: 'leaf',    kind: 'attack', power: 140, acc: 85, fx: { drain: 0.25 } },
+  judgebolt:   { name: '심판의 뇌격', desc: '교습 최강기', tutor: 'only', el: 'thunder', kind: 'attack', power: 140, acc: 85, fx: { status: { type: 'para', chance: 0.2 } } },
+  tectonic:    { name: '대륙 붕괴',   desc: '교습 최강기', tutor: 'only', el: 'rock',    kind: 'attack', power: 140, acc: 85, fx: { foe: { def: -1, chance: 0.3 } } },
+  voidrift:    { name: '공허의 균열', desc: '교습 최강기', tutor: 'only', el: 'shadow',  kind: 'attack', power: 140, acc: 85, fx: { crit: 0.2 } },
+
   // 근원(숨겨진 몬스터)
   originbeam:  { name: '근원의 빛',   el: 'origin', kind: 'attack', power: 100, acc: 100 },
   genesis:     { name: '태초의 일격', desc: '고유기', el: 'origin', kind: 'attack', power: 130, acc: 95 },
