@@ -303,7 +303,7 @@ var ML = window.ML = window.ML || {};
     var b = V.battle, opts = V.opts, win = b.winner === 0;
     var result = { winner: b.winner, captured: b.captured, escaped: b.escaped, battle: b };
     if (opts.bag && b.megaUsed[0] && ML.game) ML.game.stats.megas = (ML.game.stats.megas || 0) + 1;   // 업적용
-    var exp = ML.battleExp(b, opts.expBoost ? ML.config.test.expBoost : (opts.expMul || 1));
+    var exp = opts.expMul === 0 ? {} : ML.battleExp(b, opts.expBoost ? ML.config.test.expBoost : (opts.expMul || 1));   // expMul 0 = 경험치 없음(무한 모드)
     var rows = [], queue = [];
     b.sides[0].units.forEach(function (u) {
       var mon = u.mon, gain = exp[mon.uid] || 0;

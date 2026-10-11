@@ -23,7 +23,7 @@ var ML = window.ML = window.ML || {};
     var s = st(), g = ML.game, run = s.run;
     screen.innerHTML = '<div class="sub-head"><button class="btn" id="to-hub">← 연구소</button><h2>♾️ 무한 모드</h2><span class="gold">💰 ' + g.gold + '</span></div>' +
       '<div class="spar-head"><div>🏆 최고 기록 <b>' + s.best + '웨이브</b></div><div>도전 <b>' + s.runs + '번</b></div><div>무한 모드로 번 골드 <b>' + s.earned + '</b></div></div>' +
-      '<p class="muted small">상대 3마리와 3대3을 끝없이 이어 간다. 상대 레벨은 <b>Lv ' + C().startLv + '부터 웨이브마다 +' + C().lvPerWave + '</b>(레벨 제한 없음). 무한 모드 경험치는 <b>' + C().expMul + '배</b>. ' +
+      '<p class="muted small">상대 3마리와 3대3을 끝없이 이어 간다. 상대 레벨은 <b>Lv ' + C().startLv + '부터 웨이브마다 +' + C().lvPerWave + '</b>(레벨 제한 없음). <b>무한 모드에서는 경험치를 얻지 않는다(레벨업 없음)</b> — 지금 파티의 힘으로만 도전한다. ' +
       '상대가 <b>Lv ' + C().mythicLv + '</b>에 이르는 ' + firstMythic() + '웨이브에 <b>✴️ 신화 무한신룡</b>이 나타나 포획할 수 있다(그 뒤 ' + C().mythicEvery + '웨이브마다 다시). ' +
       '웨이브 사이에 살아 있는 몬스터는 체력을 ' + (C().healBetween >= 1 ? '모두' : Math.round(C().healBetween * 100) + '%') + ' 회복하지만, <b>기절한 몬스터는 ' + C().fullHealEvery + '웨이브마다만</b> 다시 일어난다. 가방의 회복약은 쓸 수 있다. ' +
       '골드는 모아 두었다가 <b>그만두면 전부</b>, <b>지면 ' + Math.round(C().loseKeep * 100) + '%</b>만 받는다. ' + C().bossEvery + '웨이브마다 메가진화하는 보스가 나오고, 이기면 지닌 물건을 준다. 경험치는 보통 전투처럼 받는다.</p>' +
