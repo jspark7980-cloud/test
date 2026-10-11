@@ -47,8 +47,11 @@ var ML = window.ML = window.ML || {};
     if (!zipped) {
       try { return Promise.resolve(parse(new TextDecoder().decode(bytes))); } catch (e) { return Promise.reject(e); }
     }
-    if (!canZip) return Promise.reject(fail('이 브라우저는 압축 코드를 풀 수 없다. 사파리를 최신으로 업데이트해 줘.'));
-    // deflate-raw가 기본, 혹시 몰라 deflate·gzip도 시도
+    // 1) 직접 만든 해제기(js/inflate.js) — 브라우저 기능에 기대지 않는다
+    try { return Promise.resolve(parse(new TextDecoder().decode(ML.inflateRaw(bytes)))); }
+    catch (e) { if (e.userMsg) return Promise.reject(e); }
+    // 2) 실패하면 브라우저 내장 해제(deflate-raw → deflate → gzip)
+    if (!canZip) return Promise.reject(fail('압축을 풀지 못했다. 코드가 잘렸거나 바뀌었을 수 있다. 끝까지 전부 복사했는지 확인해 줘.'));
     var formats = ['deflate-raw', 'deflate', 'gzip'];
     var tryAt = function (i) {
       if (i >= formats.length) return Promise.reject(fail('압축을 풀지 못했다. 코드가 잘렸거나 바뀌었을 수 있다. 끝까지 전부 복사했는지 확인해 줘.'));
