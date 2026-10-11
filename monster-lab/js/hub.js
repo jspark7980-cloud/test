@@ -275,7 +275,9 @@ var ML = window.ML = window.ML || {};
   // 능력 강화제: 몬스터 고르기 → 그 능력치 +5%(영구, 최대치까지)
   function useBoost(id) {
     var g = ML.game, all = g.party.concat(g.box), it = ML.items[id], c = ML.config.boost, nm = { hp: '체력', atk: '공격', def: '방어', spd: '속도' }[it.stat];
-    var md = ui.modal('<h3>' + it.icon + ' ' + it.name + ' — 누구의 ' + nm + '을(를) 올릴까?</h3><p class="muted small">한 번에 +' + Math.round(c.step * 100) + '%, 능력치마다 최대 +' + Math.round(c.max * 100) + '%. 되돌릴 수 없다.</p><div class="tile-grid">' +
+    var t2 = it.tier === 2, step = t2 ? c.step2 : c.step, lo = t2 ? c.max : 0, hi = t2 ? c.max2 : c.max;
+    var md = ui.modal('<h3>' + it.icon + ' ' + it.name + ' — 누구의 ' + nm + '을(를) 올릴까?</h3><p class="muted small">한 번에 +' + Math.round(step * 100) + '%, ' +
+      (t2 ? nm + ' 강화가 +' + Math.round(lo * 100) + '%인 몬스터만, 최종 +' + Math.round(hi * 100) + '%까지' : '능력치마다 최대 +' + Math.round(hi * 100) + '%(그 뒤로는 상급 진수)') + '. 되돌릴 수 없다.</p><div class="tile-grid">' +
       all.map(function (p) { return monTile(p, 'pick').replace('</button>', '<span class="small">' + nm + ' +' + Math.round(((p.boost && p.boost[it.stat]) || 0) * 100) + '%</span></button>'); }).join('') +
       '</div><div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn" data-close>취소</button></div>');
     md.querySelectorAll('[data-mon]').forEach(function (b) {
@@ -283,10 +285,11 @@ var ML = window.ML = window.ML || {};
         var m = all.filter(function (p) { return p.uid === b.dataset.mon; })[0];
         m.boost = m.boost || {};
         var cur = m.boost[it.stat] || 0;
-        if (cur >= c.max - 1e-9) { ui.toast('이미 ' + nm + ' 강화가 최대(+' + Math.round(c.max * 100) + '%)다.'); return; }
+        if (cur >= hi - 1e-9) { ui.toast('이미 ' + nm + ' 강화가 최대(+' + Math.round(hi * 100) + '%)다.' + (t2 ? '' : ' 상급 진수로 더 올릴 수 있다.')); return; }
+        if (cur < lo - 1e-9) { ui.toast(nm + ' 강화를 먼저 +' + Math.round(lo * 100) + '%까지 채워야 한다(지금 +' + Math.round(cur * 100) + '%).'); return; }
         if (!ML.state.takeItem(id)) return;
         var before = ML.calcStats(m);
-        m.boost[it.stat] = Math.round((cur + c.step) * 1000) / 1000;
+        m.boost[it.stat] = Math.round(Math.min(hi, cur + step) * 1000) / 1000;
         var after = ML.calcStats(m);
         if (it.stat === 'hp' && m.hp > 0) m.hp += after.hp - before.hp;
         ML.state.save(); ui.closeModal(); renderBag();

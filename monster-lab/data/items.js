@@ -22,6 +22,11 @@ ML.items = {
   boost_atk:    { name: '공격의 정수', icon: '⚔️', kind: 'boost', price: 100000, stat: 'atk', desc: '몬스터 1마리의 공격 +5% (영구, 능력치당 최대 +50%)' },
   boost_def:    { name: '방어의 정수', icon: '🛡️', kind: 'boost', price: 100000, stat: 'def', desc: '몬스터 1마리의 방어 +5% (영구, 능력치당 최대 +50%)' },
   boost_spd:    { name: '속도의 정수', icon: '💨', kind: 'boost', price: 100000, stat: 'spd', desc: '몬스터 1마리의 속도 +5% (영구, 능력치당 최대 +50%)' },
+  // 상급 강화제(요청, 100만 골드): 그 능력치 강화가 +50%를 채운 뒤에만 쓸 수 있다. 한 번에 +4%, 최종 +200%까지
+  boost2_hp:    { name: '체력의 진수', icon: '💖', kind: 'boost', tier: 2, price: 1000000, stat: 'hp',  desc: '체력 강화 +50%를 채운 몬스터의 체력 +4% (영구, 최종 +200%)' },
+  boost2_atk:   { name: '공격의 진수', icon: '🗡️', kind: 'boost', tier: 2, price: 1000000, stat: 'atk', desc: '공격 강화 +50%를 채운 몬스터의 공격 +4% (영구, 최종 +200%)' },
+  boost2_def:   { name: '방어의 진수', icon: '🏰', kind: 'boost', tier: 2, price: 1000000, stat: 'def', desc: '방어 강화 +50%를 채운 몬스터의 방어 +4% (영구, 최종 +200%)' },
+  boost2_spd:   { name: '속도의 진수', icon: '🌪️', kind: 'boost', tier: 2, price: 1000000, stat: 'spd', desc: '속도 강화 +50%를 채운 몬스터의 속도 +4% (영구, 최종 +200%)' },
   fusionstone:  { name: '합성석',      icon: '💠', kind: 'fusion', price: 150, desc: '합성에 1개 쓴다' },
   charm:        { name: '계승 부적',   icon: '🧿', kind: 'fusion', price: 200, unlock: 2, desc: '합성: 부모 특성을 더 많이 물려받는다' },
   catalyst:     { name: '돌연변이 촉매', icon: '🧫', kind: 'fusion', price: 250, unlock: 2, desc: '합성: 돌연변이 5% → 15%' },
@@ -60,6 +65,6 @@ ML.items = {
 
 // 상점 진열 순서. unlock: 그 지역이 열려야 판다(보조 아이템은 2지역부터)
 ML.shopList = ['ball', 'greatball', 'ball_fire', 'ball_water', 'ball_leaf', 'ball_rock', 'ball_thunder', 'ball_shadow',
-  'potion', 'superpotion', 'cure', 'ivpill', 'traitcharm', 'boost_hp', 'boost_atk', 'boost_def', 'boost_spd', 'fusionstone', 'charm', 'catalyst', 'purewater',
+  'potion', 'superpotion', 'cure', 'ivpill', 'traitcharm', 'boost_hp', 'boost_atk', 'boost_def', 'boost_spd', 'boost2_hp', 'boost2_atk', 'boost2_def', 'boost2_spd', 'fusionstone', 'charm', 'catalyst', 'purewater',
   'orb_fire', 'orb_water', 'orb_leaf', 'orb_thunder', 'orb_rock', 'orb_shadow', 'powerband', 'hardshell', 'swiftfeather', 'sharpclaw', 'berry', 'purebell', 'luckycoin', 'learnkit',
   'mega_furnacerat', 'mega_tidalshell', 'mega_eldwarden', 'mega_stormphoenix', 'mega_ridgebear', 'mega_eclipsecat'];

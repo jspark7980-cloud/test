@@ -160,7 +160,7 @@ ML.config = {
   },
 
   // 능력 강화제 [제안]: 한 번에 +5%, 능력치마다 최대 +50%
-  boost: { step: 0.05, max: 0.5 },
+  boost: { step: 0.05, max: 0.5, step2: 0.04, max2: 2.0 },   // 상급(진수): +50%를 채운 뒤 +4%씩, 최종 +200%
 
   // 시험 전투
   test: { defaultLevel: 10, expBoost: 10 },
