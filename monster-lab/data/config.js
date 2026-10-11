@@ -163,7 +163,7 @@ ML.config = {
   boost: { step: 0.05, max: 0.5, step2: 0.04, max2: 2.0 },   // 상급(진수): +50%를 채운 뒤 +4%씩, 최종 +200%
 
   // 기술 교습소 [제안]: 공격 기술 = 위력² × 3골드, 변화 기술 3000, 교습 전용 최강기 300,000, 자기 종이 배우는 기술 다시 떠올리기 1000
-  tutor: { attackMul: 3, support: 3000, only: 300000, relearn: 1000 },
+  tutor: { attackMul: 3, support: 3000, only: 300000, relearn: 1000, ultimate: 2000000, ultimateOrigin: 5000000 },   // 궁극기 200만(근원 500만)
 
   // 시험 전투
   test: { defaultLevel: 10, expBoost: 10 },

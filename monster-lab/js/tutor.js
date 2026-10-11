@@ -1,6 +1,7 @@
 // 기술 교습소 [제안]: 골드를 내고 기술을 가르친다.
-// 배울 수 있는 기술 = 몬스터 속성의 기술(근원 속성은 모든 속성) + 교습 전용 최강기 + 자기 종 배움표에서 지금 레벨까지의 기술(떠올리기)
-// 다른 종의 고유기(전설·근원)는 그 종만 배운다.
+// 배울 수 있는 기술 = 몬스터 속성과 같은 속성의 기술만(요청). 교습 전용 최강기·궁극기 포함, 자기 종 배움표의 기술은 싸게 떠올리기.
+// 다른 종의 고유기는 못 배운다. 근원 속성(태초수·무한신룡)은 근원 기술만.
+// 목록은 공격 기술 / 유틸(변화) 기술로 나눠 보여 준다.
 var ML = window.ML = window.ML || {};
 
 (function () {
@@ -8,42 +9,58 @@ var ML = window.ML = window.ML || {};
   var pick = null;   // 고른 몬스터 uid
 
   function own(m) { return ML.learnsetOf(m.species).filter(function (e) { return e[0] <= m.level; }).map(function (e) { return e[1]; }); }
-  function isSig(id) { var mv = ML.moves[id]; return mv.el === 'origin' || /고유기/.test(mv.desc || ''); }
+  function isSig(id) { var mv = ML.moves[id]; return !mv.tutor && (mv.el === 'origin' || /고유기/.test(mv.desc || '')); }
   function price(m, id) {
     var c = ML.config.tutor, mv = ML.moves[id];
     if (own(m).indexOf(id) >= 0) return c.relearn;
+    if (mv.tutor === 'ultimate') return mv.el === 'origin' ? c.ultimateOrigin : c.ultimate;
     if (mv.tutor === 'only') return c.only;
     return mv.kind === 'attack' ? mv.power * mv.power * c.attackMul : c.support;
   }
   function teachable(m) {
-    var els = ML.species[m.species].els, all = els.indexOf('origin') >= 0, mine = own(m);
+    var els = ML.species[m.species].els, mine = own(m);
     return Object.keys(ML.moves).filter(function (id) {
       var mv = ML.moves[id];
+      if (els.indexOf(mv.el) < 0) return false;          // 속성이 다르면 못 배운다
       if (mine.indexOf(id) >= 0) return true;
-      if (isSig(id)) return false;
-      return all || els.indexOf(mv.el) >= 0;
+      return !isSig(id);
     }).sort(function (a, b) {
       var A = ML.moves[a], B = ML.moves[b];
-      return ML.elements.order.indexOf(A.el) - ML.elements.order.indexOf(B.el) || (A.kind === B.kind ? 0 : A.kind === 'attack' ? -1 : 1) || (A.power || 0) - (B.power || 0);
+      return (A.power || 0) - (B.power || 0) || els.indexOf(A.el) - els.indexOf(B.el);
     });
+  }
+  // 유틸 기술 효과를 짧게
+  function fxText(mv) {
+    var fx = mv.fx || {}, t = [], S = { atk: '공격', def: '방어', spd: '속도', eva: '회피' };
+    if (fx.status) t.push(ML.STATUS_NAMES[fx.status.type] + (fx.status.chance < 1 ? ' ' + Math.round(fx.status.chance * 100) + '%' : ''));
+    for (var k in fx.self || {}) t.push('내 ' + S[k] + ' +' + fx.self[k]);
+    for (var k2 in fx.foe || {}) if (k2 !== 'chance') t.push('상대 ' + S[k2] + ' ' + fx.foe[k2]);
+    if (fx.heal) t.push('체력 ' + Math.round(fx.heal * 100) + '% 회복');
+    if (fx.seal) t.push('상대 기술 봉인');
+    if (fx.mimic) t.push('상대 기술 따라 하기');
+    return t.join(', ');
   }
   function findMon(uid) { var g = ML.game; return g.party.concat(g.box).filter(function (m) { return m.uid === uid; })[0]; }
 
   function render() {
     var g = ML.game, m = pick && findMon(pick);
     var h = '<div class="sub-head"><button class="btn" id="to-hub">← 연구소</button><h2>🎓 기술 교습소</h2><span class="gold">💰 ' + g.gold + '</span></div>' +
-      '<p class="muted small">골드를 내고 기술을 가르친다. 몬스터 속성의 기술(근원 속성은 모든 속성)과 <b>교습 전용 최강기(위력 140)</b>를 배울 수 있고, 자기 종이 배우는 기술은 싸게 다시 떠올린다. 다른 종의 고유기는 배울 수 없다.</p>' +
+      '<p class="muted small">골드를 내고 기술을 가르친다. <b>몬스터와 같은 속성의 기술만</b> 배울 수 있다. 교습 전용 <b>최강기(위력 140, 30만)</b>와 <b>궁극기(위력 180, 200만 · 근원은 위력 200, 500만)</b>도 있다. 자기 종이 배우는 기술은 싸게 다시 떠올린다. 다른 종의 고유기는 배울 수 없다.</p>' +
       '<div class="section-t">누구에게 가르칠까?</div><div class="tile-grid">' + g.party.concat(g.box).map(function (p) {
         return '<button class="mon-tile' + (p.uid === pick ? ' on' : '') + '" data-mon="' + p.uid + '" style="' + (p.uid === pick ? 'outline:3px solid var(--accent, #7ab8ff)' : '') + '">' + ML.art.svg(p.species, { size: 64, shiny: p.shiny }) + '<b>' + ML.species[p.species].name + '</b><span class="small">Lv ' + p.level + '</span></button>';
       }).join('') + '</div>';
     if (m) {
       var list = teachable(m);
-      h += '<div class="section-t">' + ML.species[m.species].name + '의 기술: ' + m.moves.map(function (x) { return ML.moves[x].name; }).join(', ') + '</div><div class="learn tutor-list">' + list.map(function (id) {
+      var card = function (id) {
         var mv = ML.moves[id], known = m.moves.indexOf(id) >= 0, p = price(m, id), info = ML.elements.info[mv.el];
-        return '<button class="tutor-mv" data-mv="' + id + '" style="--c:' + info.main + '"' + (known || g.gold < p ? ' disabled' : '') + '><b>' + mv.name + '</b>' + (mv.tutor === 'only' ? ' <span class="boss-tag">최강기</span>' : '') +
-          '<br><span class="muted small">' + info.icon + ' ' + (mv.kind === 'attack' ? '위력 ' + mv.power : '변화') + ' · 명중 ' + mv.acc + (mv.desc && mv.tutor !== 'only' ? ' · ' + mv.desc : '') + '</span>' +
+        return '<button class="tutor-mv" data-mv="' + id + '" style="--c:' + info.main + '"' + (known || g.gold < p ? ' disabled' : '') + '><b>' + mv.name + '</b>' + (mv.tutor === 'ultimate' ? ' <span class="boss-tag" style="background:linear-gradient(90deg,#ff7ad9,#7ae8ff);color:#10131c">궁극기</span>' : mv.tutor === 'only' ? ' <span class="boss-tag">최강기</span>' : '') +
+          '<br><span class="muted small">' + info.icon + ' ' + (mv.kind === 'attack' ? '위력 ' + mv.power : '변화') + ' · 명중 ' + mv.acc + (mv.desc && !mv.tutor ? ' · ' + mv.desc : '') + (mv.kind !== 'attack' ? ' · ' + fxText(mv) : '') + '</span>' +
           '<br><span class="gold small">' + (known ? '이미 안다' : '💰 ' + p.toLocaleString()) + '</span></button>';
-      }).join('') + '</div>';
+      };
+      var atk = list.filter(function (id) { return ML.moves[id].kind === 'attack'; }), util = list.filter(function (id) { return ML.moves[id].kind !== 'attack'; });
+      h += '<div class="section-t">' + ML.species[m.species].name + '(' + ML.species[m.species].els.map(function (e) { return ML.elements.info[e].icon + ML.elements.info[e].name; }).join('·') + ')의 기술: ' + m.moves.map(function (x) { return ML.moves[x].name; }).join(', ') + '</div>' +
+        '<div class="section-t">⚔️ 공격 기술 (' + atk.length + ')</div><div class="learn tutor-list">' + atk.map(card).join('') + '</div>' +
+        '<div class="section-t">🛠️ 유틸 기술 (' + util.length + ')</div>' + (util.length ? '<div class="learn tutor-list">' + util.map(card).join('') + '</div>' : '<p class="muted small">이 속성으로 배울 수 있는 유틸 기술이 없다.</p>');
     }
     screen.innerHTML = h;
     ui.$('#to-hub').onclick = function () { pick = null; ML.hub.render(); };

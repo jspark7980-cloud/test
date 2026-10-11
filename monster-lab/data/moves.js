@@ -65,6 +65,15 @@ ML.moves = {
   tectonic:    { name: '대륙 붕괴',   desc: '교습 최강기', tutor: 'only', el: 'rock',    kind: 'attack', power: 140, acc: 85, fx: { foe: { def: -1, chance: 0.3 } } },
   voidrift:    { name: '공허의 균열', desc: '교습 최강기', tutor: 'only', el: 'shadow',  kind: 'attack', power: 140, acc: 85, fx: { crit: 0.2 } },
 
+  // 교습소 궁극기 [제안]: 기술 교습소에서만, 200만 골드(근원은 500만). tutor: 'ultimate'
+  ult_fire:    { name: '종말의 업화',   desc: '교습 궁극기', tutor: 'ultimate', el: 'fire',    kind: 'attack', power: 180, acc: 90, fx: { status: { type: 'burn', chance: 0.3 } } },
+  ult_water:   { name: '창세의 대홍수', desc: '교습 궁극기', tutor: 'ultimate', el: 'water',   kind: 'attack', power: 180, acc: 90, fx: { foe: { spd: -1, chance: 0.5 } } },
+  ult_leaf:    { name: '천년 숲의 분노', desc: '교습 궁극기', tutor: 'ultimate', el: 'leaf',   kind: 'attack', power: 180, acc: 90, fx: { drain: 0.3 } },
+  ult_thunder: { name: '뇌신의 천벌',   desc: '교습 궁극기', tutor: 'ultimate', el: 'thunder', kind: 'attack', power: 180, acc: 90, fx: { status: { type: 'para', chance: 0.3 } } },
+  ult_rock:    { name: '행성 낙하',     desc: '교습 궁극기', tutor: 'ultimate', el: 'rock',    kind: 'attack', power: 180, acc: 90, fx: { foe: { def: -1, chance: 0.5 } } },
+  ult_shadow:  { name: '영원한 밤',     desc: '교습 궁극기', tutor: 'ultimate', el: 'shadow',  kind: 'attack', power: 180, acc: 90, fx: { crit: 0.3 } },
+  ult_origin:  { name: '근원 회귀',     desc: '교습 궁극기', tutor: 'ultimate', el: 'origin',  kind: 'attack', power: 200, acc: 100 },
+
   // 근원(숨겨진 몬스터)
   originbeam:  { name: '근원의 빛',   el: 'origin', kind: 'attack', power: 100, acc: 100 },
   genesis:     { name: '태초의 일격', desc: '고유기', el: 'origin', kind: 'attack', power: 130, acc: 95 },
