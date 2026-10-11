@@ -54,11 +54,13 @@ var ML = window.ML = window.ML || {};
   function starterScreen() {
     tabs.style.visibility = 'hidden';
     screen.innerHTML = '<div class="starter"><h2>연구소에 온 걸 환영해!</h2><p class="muted">함께 여행할 첫 몬스터를 한 마리 골라 줘. (Lv 5, 특성 3개는 무작위)</p>' +
+      '<p><button class="btn" id="restore">💾 백업 코드로 이어 하기</button></p>' +
       '<div class="dex-grid">' + STARTERS.map(function (id) {
         var sp = ML.species[id], ab = ML.abilities[sp.ability];
         return '<button class="card" data-st="' + id + '">' + ML.art.svg(id, { size: 130 }) + '<div class="nm">' + sp.name + '</div>' +
           '<div class="sub">' + ui.elChips(sp.els) + '</div><div class="muted small" style="margin-top:4px">' + ab.name + '</div></button>';
       }).join('') + '</div></div>';
+    screen.querySelector('#restore').onclick = function () { ML.backup.open(); };
     screen.querySelectorAll('[data-st]').forEach(function (c) {
       c.onclick = function () {
         var id = c.dataset.st, sp = ML.species[id];

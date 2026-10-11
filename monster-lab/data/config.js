@@ -159,6 +159,9 @@ ML.config = {
     dropTable: [['lifeorb', 20], ['focussash', 20], ['kingcrown', 10], ['berry', 10], ['sharpclaw', 10], ['luckycoin', 10], ['learnkit', 10], ['powerband', 5], ['swiftfeather', 5]],
   },
 
+  // 능력 강화제 [제안]: 한 번에 +5%, 능력치마다 최대 +50%
+  boost: { step: 0.05, max: 0.5 },
+
   // 시험 전투
   test: { defaultLevel: 10, expBoost: 10 },
 };

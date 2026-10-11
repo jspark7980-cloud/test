@@ -28,12 +28,13 @@ var ML = window.ML = window.ML || {};
       ['fusion', '🧬', '합성소', open2 ? '몬스터 2마리 + 합성석 → 알' : '1지역 보스를 이기면 열린다', !open2],
       ['hatch', '🥚', '부화장', open2 ? '알 ' + g.eggs.length + ' / ' + ML.config.fusion.maxEggs + (g.eggs.some(function (e) { return !e.left; }) ? ' · 부화 준비!' : '') : '1지역 보스를 이기면 열린다', !open2],
     ];
-    screen.innerHTML = '<div class="hub"><div class="hub-head"><h2>🏠 연구소</h2><div class="row">' + (g.ended ? '<button class="btn" id="end-again">🏆 엔딩 다시 보기</button>' : '') + '<button class="btn primary big" id="go-map">🗺️ 지도로 나가기</button></div></div>' +
+    screen.innerHTML = '<div class="hub"><div class="hub-head"><h2>🏠 연구소</h2><div class="row">' + (g.ended ? '<button class="btn" id="end-again">🏆 엔딩 다시 보기</button>' : '') + '<button class="btn" id="backup">💾 저장 백업</button><button class="btn primary big" id="go-map">🗺️ 지도로 나가기</button></div></div>' +
       '<div class="fac-grid">' + fac.map(function (f) {
         return '<button class="fac' + (f[4] ? ' locked' : '') + '" data-fac="' + f[0] + '"><span class="fi">' + (f[4] ? '🔒' : f[1]) + '</span><b>' + f[2] + '</b><span class="muted small">' + f[3] + '</span></button>';
       }).join('') + '</div></div>';
     ui.$('#go-map').onclick = function () { ML.app.show('map'); };
     if (ui.$('#end-again')) ui.$('#end-again').onclick = function () { ML.explore.ending(); };
+    ui.$('#backup').onclick = function () { ML.backup.open(); };
     screen.querySelectorAll('[data-fac]').forEach(function (b) {
       b.onclick = function () {
         var f = b.dataset.fac;
@@ -209,6 +210,7 @@ var ML = window.ML = window.ML || {};
               '<div class="bar"><i class="' + gr[1] + '" style="width:' + Math.max(3, p) + '%"></i></div><span class="muted small">' + rg.min[k[0]] + '~' + rg.max[k[0]] + '</span><b class="' + gr[1] + '-t">' + p + '%</b></div>';
           }).join('');
       })() +
+      (m.boost && Object.keys(m.boost).some(function (k) { return m.boost[k]; }) ? '<div class="small">💪 능력 강화: ' + [['hp', '체력'], ['atk', '공격'], ['def', '방어'], ['spd', '속도']].filter(function (k) { return m.boost[k[0]]; }).map(function (k) { return k[1] + ' +' + Math.round(m.boost[k[0]] * 100) + '%'; }).join(' · ') + '</div>' : '') +
       '<div class="small muted">경험치 ' + m.exp + ' / ' + need + (ev ? ' · Lv' + ev[1] + '에 ' + ML.species[ev[0]].name + '(으)로 진화' : '') + '</div>' +
       '<div class="section-t">고유 능력 — ' + ab.name + '</div><div class="muted small">' + ab.desc + '</div>' +
       (function () {
@@ -270,6 +272,29 @@ var ML = window.ML = window.ML || {};
     md.querySelector('#held-back').onclick = done;
     md.querySelectorAll('[data-pick]').forEach(function (b) { b.onclick = function () { giveHeld(m, b.dataset.pick); done(); }; });
   }
+  // 능력 강화제: 몬스터 고르기 → 그 능력치 +5%(영구, 최대치까지)
+  function useBoost(id) {
+    var g = ML.game, all = g.party.concat(g.box), it = ML.items[id], c = ML.config.boost, nm = { hp: '체력', atk: '공격', def: '방어', spd: '속도' }[it.stat];
+    var md = ui.modal('<h3>' + it.icon + ' ' + it.name + ' — 누구의 ' + nm + '을(를) 올릴까?</h3><p class="muted small">한 번에 +' + Math.round(c.step * 100) + '%, 능력치마다 최대 +' + Math.round(c.max * 100) + '%. 되돌릴 수 없다.</p><div class="tile-grid">' +
+      all.map(function (p) { return monTile(p, 'pick').replace('</button>', '<span class="small">' + nm + ' +' + Math.round(((p.boost && p.boost[it.stat]) || 0) * 100) + '%</span></button>'); }).join('') +
+      '</div><div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn" data-close>취소</button></div>');
+    md.querySelectorAll('[data-mon]').forEach(function (b) {
+      b.onclick = function () {
+        var m = all.filter(function (p) { return p.uid === b.dataset.mon; })[0];
+        m.boost = m.boost || {};
+        var cur = m.boost[it.stat] || 0;
+        if (cur >= c.max - 1e-9) { ui.toast('이미 ' + nm + ' 강화가 최대(+' + Math.round(c.max * 100) + '%)다.'); return; }
+        if (!ML.state.takeItem(id)) return;
+        var before = ML.calcStats(m);
+        m.boost[it.stat] = Math.round((cur + c.step) * 1000) / 1000;
+        var after = ML.calcStats(m);
+        if (it.stat === 'hp' && m.hp > 0) m.hp += after.hp - before.hp;
+        ML.state.save(); ui.closeModal(); renderBag();
+        ui.toast(ML.species[m.species].name + '의 ' + nm + '이(가) ' + before[it.stat] + ' → ' + after[it.stat] + '(으)로 올랐다! (강화 +' + Math.round(m.boost[it.stat] * 100) + '%)');
+      };
+    });
+  }
+
   // 가방에서: 물건 → 몬스터 고르기
   function useHeld(id) {
     var g = ML.game, all = g.party.concat(g.box);
@@ -321,7 +346,7 @@ var ML = window.ML = window.ML || {};
   // ── 가방 탭 ───────────────────────────────────────
   function renderBag() {
     var g = ML.game, ids = Object.keys(g.items).filter(function (id) { return ML.items[id] && g.items[id] > 0; });
-    var kinds = [['heal', '회복'], ['held', '지닌 물건(장비)'], ['iv', '육성'], ['trait', '육성(특성)'], ['ball', '포획 도구'], ['fusion', '합성']];
+    var kinds = [['heal', '회복'], ['held', '지닌 물건(장비)'], ['boost', '능력 강화'], ['iv', '육성'], ['trait', '육성(특성)'], ['ball', '포획 도구'], ['fusion', '합성']];
     screen.innerHTML = '<div class="sub-head"><h2>🎒 가방</h2><span class="gold">💰 ' + g.gold + '</span></div>' +
       kinds.map(function (k) {
         var list = ids.filter(function (id) { return ML.items[id].kind === k[0]; });
@@ -329,11 +354,11 @@ var ML = window.ML = window.ML || {};
         return '<div class="section-t">' + k[1] + '</div><div class="bag-grid">' + list.map(function (id) {
           var it = ML.items[id];
           return '<button class="bag-item" data-item="' + id + '"><span class="bi">' + it.icon + '</span><div><b>' + it.name + '</b> ×' + g.items[id] +
-            '<br><span class="muted small">' + it.desc + (it.kind === 'heal' ? ' · 눌러서 사용' : it.kind === 'ball' ? ' · 야생 전투에서 사용' : (it.kind === 'iv' || it.kind === 'trait') ? ' · 눌러서 사용' : it.kind === 'held' ? ' · 눌러서 쥐여 주기' : '') + '</span></div></button>';
+            '<br><span class="muted small">' + it.desc + (it.kind === 'heal' ? ' · 눌러서 사용' : it.kind === 'ball' ? ' · 야생 전투에서 사용' : (it.kind === 'iv' || it.kind === 'trait') ? ' · 눌러서 사용' : it.kind === 'held' ? ' · 눌러서 쥐여 주기' : it.kind === 'boost' ? ' · 눌러서 사용' : '') + '</span></div></button>';
         }).join('') + '</div>';
       }).join('') + (ids.length ? '' : '<p class="muted">가방이 비어 있다. 연구소 상점에서 살 수 있다.</p>');
     screen.querySelectorAll('[data-item]').forEach(function (b) {
-      b.onclick = function () { var k = ML.items[b.dataset.item].kind; if (k === 'heal') useOutside(b.dataset.item); else if (k === 'iv') useIvPill(b.dataset.item); else if (k === 'trait') useTraitCharm(b.dataset.item); else if (k === 'held') useHeld(b.dataset.item); };
+      b.onclick = function () { var k = ML.items[b.dataset.item].kind; if (k === 'heal') useOutside(b.dataset.item); else if (k === 'iv') useIvPill(b.dataset.item); else if (k === 'trait') useTraitCharm(b.dataset.item); else if (k === 'held') useHeld(b.dataset.item); else if (k === 'boost') useBoost(b.dataset.item); };
     });
   }
 

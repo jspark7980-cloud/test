@@ -90,6 +90,7 @@ ML.calcStats = function (mon, mega) {
     var v = (sp.stats[k] + (k === 'hp' ? 0 : mb[k] || 0)) * mul * mon.ivs[k];
     if (k === 'hp') v += lv * c.hpPerLevel;
     else v *= 1 + ML.traitSum(mon, k) + ML.heldFx(mon, k);
+    if (mon.boost && mon.boost[k]) v *= 1 + mon.boost[k];     // 능력 강화제(영구)
     out[k] = Math.max(1, Math.round(v));
   });
   return out;
