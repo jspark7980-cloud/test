@@ -150,8 +150,10 @@ B.calcDamage = function (att, def, move, forecast) {
   }
   dmg *= type;
   var originAtt = this.ability(att) === 'origin';     // 근원: 모든 기술이 자속 보정, 주는 피해 +20%
-  if (originAtt || attEls.indexOf(move.el) >= 0) dmg *= c.stab + (ML.hasTraitFx(att.mon, 'stabBonus') ? c.traitStabBonus : 0);
+  var eternalAtt = this.ability(att) === 'eternal';   // 무한의 권능(신화): 모든 기술 자속 보정, 주는 피해 +25%
+  if (originAtt || eternalAtt || attEls.indexOf(move.el) >= 0) dmg *= c.stab + (ML.hasTraitFx(att.mon, 'stabBonus') ? c.traitStabBonus : 0);
   if (originAtt) dmg *= 1 + c.ability.originBonus;
+  if (eternalAtt) dmg *= 1 + c.ability.eternalBonus;
 
   // 공격 보정
   var atkMod = 1;
@@ -173,6 +175,7 @@ B.calcDamage = function (att, def, move, forecast) {
   dmg *= atkMod;
   if (this.ability(def) === 'damageReduce' || this.ability(def) === 'steam') dmg *= 1 - c.ability.damageReduce;
   dmg *= 1 - this.megaFx(def, 'dmgReduce');
+  if (this.ability(def) === 'eternal') dmg *= 1 - c.ability.eternalReduce;
 
   if (forecast) return { dmg: dmg, type: type };
 
@@ -480,6 +483,10 @@ B.endOfTurn = function () {
     if (hr && u.mon.hp > 0) self.heal(u, Math.max(1, Math.round(u.stats.hp * hr)), '먹다 남은 열매로 회복했다');
     for (var m in u.sealed) { if (--u.sealed[m] <= 0) delete u.sealed[m]; }
     if (self.ability(u) === 'origin' && u.mon.hp > 0 && u.stages.atk < ML.config.stageMax) self.changeStage(u, 'atk', 1);
+    if (self.ability(u) === 'eternal' && u.mon.hp > 0) {
+      if (u.stages.atk < c.stageMax) self.changeStage(u, 'atk', 1);
+      self.heal(u, Math.max(1, Math.round(u.stats.hp * c.ability.eternalRegen)), '무한의 권능으로 회복했다');
+    }
     if (self.ability(u) === 'dayNight' && u.mon.hp > 0) {
       u.form = u.form === 'day' ? 'night' : 'day';
       self.say(self.name(u) + '이(가) ' + (u.form === 'day' ? '낮' : '밤') + '의 모습으로 바뀌었다!', 'ability');

@@ -16,7 +16,7 @@ var ML = window.ML = window.ML || {};
       if (dex.caught[id]) {
         h += '<button class="card" data-sp="' + id + '"><div class="dex-no">No.' + no + '</div>' + ML.art.svg(id, { size: 100 }) +
           '<div class="nm">' + (dex.shiny && dex.shiny[id] ? '✨' : '') + sp.name + '</div><div class="sub">' + ui.elChips(sp.els) + '</div></button>';
-      } else if (dex.seen[id] && sp.rarity !== 'hidden') {
+      } else if (dex.seen[id] && sp.rarity !== 'hidden' && sp.rarity !== 'mythic') {
         h += '<button class="card seen" data-seen="' + id + '"><div class="dex-no">No.' + no + '</div><div class="silhouette">' + ML.art.svg(id, { size: 100 }) + '</div>' +
           '<div class="nm">' + sp.name + '</div><div class="sub muted">본 적 있음</div></button>';
       } else {

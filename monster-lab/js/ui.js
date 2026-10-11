@@ -20,7 +20,7 @@ ML.ui = {
 
   stageLabel: function (sp) {
     if (sp.stage) return sp.stage + '단계';
-    return { rare: '희귀', fusion: '합성 전용', legend: '전설', hidden: '숨겨진' }[sp.rarity] || '';
+    return { rare: '희귀', fusion: '합성 전용', legend: '전설', hidden: '숨겨진', mythic: '신화' }[sp.rarity] || '';
   },
 
   // locked = true면 바깥을 눌러도 닫히지 않는다(반드시 골라야 하는 창)

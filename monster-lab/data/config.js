@@ -54,6 +54,7 @@ ML.config = {
     sealTurns: 2,           // 기술 봉인
     // 합성 전용종
     originBonus: 0.2,       // 태초수: 주는 피해 +20%
+    eternalBonus: 0.2, eternalReduce: 0.1, eternalRegen: 0.03,   // 무한신룡(신화)
     steamBurn: 0.2, thunderCritPara: 0.5, mossRegen: 0.04, phantomEvasion: 0.15, sporeSleep: 0.2,
   },
 
@@ -83,13 +84,13 @@ ML.config = {
   exp: {
     shareAll: true,
     rate: 0.5,                         // 받는 경험치 배율(전원 지급이라 절반)
-    base: { 1: 6, 2: 9, 3: 12, rare: 12, fusion: 14, legend: 20, hidden: 20 },
+    base: { 1: 6, 2: 9, 3: 12, rare: 12, fusion: 14, legend: 20, hidden: 20, mythic: 30 },
     nextBase: 12, nextPerLevel: 6,     // 다음 레벨 필요 = 12 + 레벨 × 6
   },
 
   // 포획: 확률 = 종 기본율 × (1 + 2 × (1 − 남은 체력 비율)) × 상태 배율 × 도구 배율, 최대 95%
   capture: {
-    base: { 1: 0.40, 2: 0.25, 3: 0.12, rare: 0.10, fusion: 0.08, legend: 0.04, hidden: 0.02 },
+    base: { 1: 0.40, 2: 0.25, 3: 0.12, rare: 0.10, fusion: 0.08, legend: 0.04, hidden: 0.02, mythic: 0.05 },
     lowHpBonus: 2,
     status: { sleep: 2.0, para: 1.5, burn: 1.3, poison: 1.3 },
     specialSame: 2.5, specialOther: 0.5,
@@ -135,10 +136,12 @@ ML.config = {
     ],
   },
 
-  // 무한 모드 [제안]: 웨이브마다 상대 3마리. 상대 레벨 = 지금 파티 평균 + startOffset + 웨이브 × lvPerWave(내림)
-  // (경험치로 내 레벨이 오르면 상대도 따라 오른다 → 웨이브가 쌓일수록 상대가 내 파티보다 점점 높아진다)
+  // 무한 모드 [제안]: 웨이브마다 상대 3마리. 상대 레벨은 고정: startLv + (웨이브 − 1) × lvPerWave
   endless: {
-    startOffset: -6, lvPerWave: 0.4,
+    startLv: 85, lvPerWave: 5,
+    expMul: 1.5,            // 무한 모드 경험치 1.5배(상대 레벨 상승 +5와 비슷하게 따라간다)
+    mythicLv: 500,          // 상대 레벨이 처음 500 이상이 되는 웨이브에 신화 무한신룡이 야생으로 나타난다(잡을 수 있음)
+    mythicEvery: 10,        // 그 뒤로 10웨이브마다 다시 나타난다
     healBetween: 1,         // 웨이브 사이: 살아 있는 몬스터 체력 100% 회복(기절한 몬스터는 그대로)
     fullHealEvery: 3,       // 3웨이브마다 전원 완전 회복(기절도 회복)
     goldPerLv: 6,           // 웨이브 보상 = 상대 평균 레벨 × 3 × goldPerLv (모아 두었다가 그만두면 받는다)

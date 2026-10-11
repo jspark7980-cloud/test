@@ -22,7 +22,7 @@ var ML = window.ML = window.ML || {};
   };
 
   var STAGE_SCALE = { 1: 0.74, 2: 0.88, 3: 1.0 };
-  var RARITY_SCALE = { rare: 0.86, fusion: 1.0, legend: 1.06, hidden: 1.06 };
+  var RARITY_SCALE = { rare: 0.86, fusion: 1.0, legend: 1.06, hidden: 1.06, mythic: 1.1 };
 
   function el(cx, cy, rx, ry) {
     return 'M' + (cx - rx) + ' ' + cy + ' a' + rx + ' ' + ry + ' 0 1 0 ' + (2 * rx) + ' 0 a' + rx + ' ' + ry + ' 0 1 0 ' + (-2 * rx) + ' 0 Z';

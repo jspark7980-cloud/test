@@ -31,7 +31,7 @@ var ML = window.ML = window.ML || {};
     return p;
   }
 
-  function isLegendary(id) { var r = ML.species[id].rarity; return r === 'legend' || r === 'hidden'; }
+  function isLegendary(id) { var r = ML.species[id].rarity; return r === 'legend' || r === 'hidden' || r === 'mythic'; }
 
   function hatchLevel(a, b) { return Math.max(C().hatchMinLevel, Math.ceil((a.level + b.level) / 4)); }
 

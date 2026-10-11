@@ -170,5 +170,47 @@ var ML = window.ML = window.ML || {};
       o += P('M100 96 L106 104 L100 112 L94 104 Z', '#ff7ad9', st('#ffffff', 1.5) + ' filter="url(#glow)"');
       return o;
     },
+
+    // ── 무한신룡(신화): 우주를 품은 몸, 뒤에 무한(∞) 고리, 빛의 날개 4장, 여섯 속성 뿔 왕관.
+    infinidragon: function (p, id) {
+      var o = '<defs>' +
+        lin(id + 'void', 0, 0, 1, 1, [[0, '#2a1458'], [0.5, '#130a33'], [1, '#05192e']]) +
+        lin(id + 'rim', 0, 0, 1, 0, [[0, '#ff7ad9'], [0.33, '#ffd76b'], [0.66, '#7ae8ff'], [1, '#b98bff']]) +
+        lin(id + 'wing', 0, 0, 1, 0, [[0, '#ffffff', 0.05], [0.5, '#b98bff', 0.55], [1, '#7ae8ff', 0.9]]) +
+        rad(id + 'halo', [[0, '#ffffff', 0.9], [0.4, '#ffd76b', 0.45], [1, '#b98bff', 0]]) + '</defs>';
+      // 뒤의 빛무리와 무한 고리
+      o += '<circle cx="100" cy="74" r="70" fill="url(#' + id + 'halo)" opacity="0.7"/>';
+      o += P('M100 70 C80 40 36 40 36 70 C36 100 80 100 100 70 C120 40 164 40 164 70 C164 100 120 100 100 70 Z', 'none', st('url(#' + id + 'rim)', 5) + ' filter="url(#glow)"');
+      // 빛의 날개 2쌍
+      var wings = P('M114 92 L192 34 L172 74 L196 80 L160 104 L180 118 L126 118 Z', 'url(#' + id + 'wing)', st('#ffffff', 1.4)) +
+        P('M118 104 L184 126 L156 132 L170 150 L124 128 Z', 'url(#' + id + 'wing)', st('#ffffff', 1.2) + ' opacity="0.85"');
+      o += wings + mirror(wings);
+      // 휘감긴 꼬리(뱀처럼 몸을 감싼다)
+      o += P('M112 160 C150 170 172 150 160 128 C152 114 136 122 142 134 C146 142 156 140 156 132', 'none', st('url(#' + id + 'rim)', 9));
+      o += P('M112 160 C150 170 172 150 160 128 C152 114 136 122 142 134 C146 142 156 140 156 132', 'none', st('#130a33', 5));
+      // 몸통
+      o += P('M100 64 C122 72 132 100 126 130 C122 152 112 166 100 166 C88 166 78 152 74 130 C68 100 78 72 100 64 Z', 'url(#' + id + 'void)', st('url(#' + id + 'rim)', 3));
+      // 몸 안의 별
+      [[92, 96, 1.8], [108, 110, 2.4], [96, 132, 1.6], [112, 140, 1.4], [86, 118, 1.2], [104, 88, 1.3], [90, 150, 1.5]].forEach(function (q) {
+        o += '<circle cx="' + q[0] + '" cy="' + q[1] + '" r="' + q[2] + '" fill="#ffffff" filter="url(#glow)"/>';
+      });
+      o += P('M100 112 L103 120 L111 120 L105 125 L107 133 L100 128 L93 133 L95 125 L89 120 L97 120 Z', '#ffd76b', ' filter="url(#glow)" opacity="0.9"');
+      // 다리·발톱
+      o += P('M86 160 L80 176 L94 176 L96 162 Z M114 160 L120 176 L106 176 L104 162 Z', 'url(#' + id + 'void)', st('url(#' + id + 'rim)', 2));
+      o += P('M80 176 L77 170 M86 176 L84 169 M120 176 L123 170 M114 176 L116 169', 'none', st('#ffd76b', 2));
+      // 목·머리(용)
+      o += P('M90 72 C92 58 96 52 100 50 C104 52 108 58 110 72 Z', 'url(#' + id + 'void)', st('url(#' + id + 'rim)', 2.5));
+      o += P('M100 22 C114 22 124 32 122 44 L116 54 L100 60 L84 54 L78 44 C76 32 86 22 100 22 Z', 'url(#' + id + 'void)', st('url(#' + id + 'rim)', 3));
+      o += P('M90 54 L100 66 L110 54 Z', '#130a33', st('url(#' + id + 'rim)', 2));
+      // 여섯 속성 뿔 왕관
+      ML.elements.order.forEach(function (e, i) {
+        var a = -150 + i * 24, r = (a * Math.PI) / 180, x1 = 100 + Math.cos(r) * 18, y1 = 38 + Math.sin(r) * 16, x2 = 100 + Math.cos(r) * 38, y2 = 38 + Math.sin(r) * 34;
+        o += P('M' + (x1 - 3).toFixed(1) + ' ' + y1.toFixed(1) + ' L' + x2.toFixed(1) + ' ' + y2.toFixed(1) + ' L' + (x1 + 3).toFixed(1) + ' ' + y1.toFixed(1) + ' Z', ML.elements.info[e].main, st('#ffffff', 1.2) + ' filter="url(#glow)"');
+      });
+      // 눈
+      o += P('M86 38 L97 41 L88 45 Z', '#7ae8ff', ' filter="url(#glow)"') + P('M114 38 L103 41 L112 45 Z', '#7ae8ff', ' filter="url(#glow)"');
+      o += '<circle cx="100" cy="30" r="3.5" fill="#ff7ad9" filter="url(#glow)"' + st('#ffffff', 1) + '/>';
+      return o;
+    },
   };
 })();

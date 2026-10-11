@@ -393,7 +393,7 @@ var ML = window.ML = window.ML || {};
 
   function rerollTrait(id, mon, slot) {
     if (!ML.state.takeItem(id)) return;
-    var r = ML.species[mon.species].rarity, legendary = r === 'legend' || r === 'hidden';
+    var r = ML.species[mon.species].rarity, legendary = r === 'legend' || r === 'hidden' || r === 'mythic';
     var rng = ML.state.rng(), old = mon.traits[slot];
     // 나머지 특성·지금 특성과 겹치지 않게, 전설·숨겨진 몬스터는 나쁨 없이
     var nu = ML.rollTraits(rng, legendary ? 'legendary' : ML.config.traitCharmTable, 1, mon.traits, legendary)[0] || old;

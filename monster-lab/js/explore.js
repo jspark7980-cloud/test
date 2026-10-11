@@ -217,7 +217,7 @@ var ML = window.ML = window.ML || {};
       ML.app.battleMode();
       g.stats.battles++;
       ML.battleView.start(g.party, foes, {
-        rng: o.rng, kind: o.kind, trainer: o.trainer, bag: true, lead: lead, skipIntro: alive.length > 1,
+        rng: o.rng, kind: o.kind, trainer: o.trainer, bag: true, lead: lead, skipIntro: alive.length > 1, expMul: o.expMul,
       onSave: function () { ML.state.saveRng(o.rng); ML.state.save(); ML.app.status(); },
       reward: function (r) { return reward(r, foes, o); },
       onFinish: function (r) { finish(r, o); },

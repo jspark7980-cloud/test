@@ -1,5 +1,5 @@
 // 몬스터 종. 수치는 [제안](DESIGN.md·MONSTERS.md).
-// stage: 1·2·3 = 진화 단계, 0 = 진화 없음(희귀·합성 전용·전설·숨겨진)
+// stage: 1·2·3 = 진화 단계, 0 = 진화 없음(희귀·합성 전용·전설·숨겨진·신화)
 // evolve: [진화할 종, 레벨] · learn: 배우는 기술 [레벨, 기술] 또는 계열 이름(ML.learnsets)
 // art: SVG 부품(js/art.js) · ability: ML.abilities 키
 var ML = window.ML = window.ML || {};
@@ -47,6 +47,7 @@ ML.abilities = {
   dayNight: {"key": "dayNight", "name": "낮·밤 전환", "desc": "매 턴 끝 낮↔밤. 낮: 불꽃 기술 +30% / 밤: 그림자 기술 +30%·속도 +20%"},
   rain: {"key": "rain", "name": "비 내리기", "desc": "등장 시 비 5턴: 물결·번개 기술 +30%"},
   revive: {"key": "revive", "name": "1회 부활", "desc": "전투당 1회, 쓰러지면 체력 40%로 부활"},
+  eternal: {"key": "eternal", "name": "무한의 권능", "desc": "상성 없음. 모든 기술이 자기 속성 보정(×1.2)을 받고 주는 피해 +20%, 받는 피해 -10%. 턴이 끝날 때마다 공격 +1(최대 +3), 체력 3% 회복"},
   originTBD: {"key": "origin", "name": "근원의 힘", "desc": "상성 없음. 모든 속성의 기술이 자기 속성 보정(×1.2)을 받고, 주는 피해 +20%. 턴이 끝날 때마다 공격 +1(최대 +3)"},
 };
 
@@ -189,4 +190,7 @@ ML.species = {
   primordial: { name: "태초수", els: ["origin"], stage: 0, rarity: "hidden", stats: { hp: 146, atk: 146, def: 134, spd: 134 }, fusionValue: 100, evolve: null, ability: "originTBD",
     learn: [[1, "originbeam"], [1, "warcry"], [10, "spring"], [20, "eruption"], [30, "tidal"], [40, "thunderfall"], [45, "eclipse"], [50, "genesis"]],
     art: {"body": "round", "horns": ["crown", 3], "wings": 2, "tail": "wisp", "pattern": "swirl", "aura": 3, "eyes": "glow"} },
+  infinidragon: { name: "무한신룡", els: ["origin"], stage: 0, rarity: "mythic", stats: { hp: 151, atk: 151, def: 139, spd: 139 }, fusionValue: 100, evolve: null, ability: "eternal",
+    learn: [[1, "originbeam"], [1, "eruption"], [1, "quake"], [1, "tidal"], [1, "thunderfall"], [1, "eclipse"], [1, "genesis"], [1, "infinity"]],
+    art: {"body": "long"} },
 };

@@ -272,7 +272,7 @@ var ML = window.ML = window.ML || {};
   function showResult() {
     var b = V.battle, opts = V.opts, win = b.winner === 0;
     var result = { winner: b.winner, captured: b.captured, escaped: b.escaped, battle: b };
-    var exp = ML.battleExp(b, opts.expBoost ? ML.config.test.expBoost : 1);
+    var exp = ML.battleExp(b, opts.expBoost ? ML.config.test.expBoost : (opts.expMul || 1));
     var rows = [], queue = [];
     b.sides[0].units.forEach(function (u) {
       var mon = u.mon, gain = exp[mon.uid] || 0;
