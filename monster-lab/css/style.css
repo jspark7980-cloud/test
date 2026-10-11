@@ -356,3 +356,7 @@ select, input { font: inherit; }
 .ach .ab { flex: 1; }
 .boost-tag { display: inline-block; padding: 0 6px; border-radius: 8px; background: #ff7a3d; color: #fff; font-size: 12px; font-weight: 900; }
 .auto-btn.on { background: linear-gradient(135deg, #4cd38a, #7ab8ff); color: #10131c; font-weight: 900; border: 0; }
+.bar.bar-boost { display: flex; }
+.bar.bar-boost > i { border-radius: 0; }
+.bar.bar-boost > i:first-child { border-radius: 6px 0 0 6px; }
+.bar.bar-boost > i.boost { background: linear-gradient(90deg, #ff9a3d, #ff5f6d); border-radius: 0 6px 6px 0; }

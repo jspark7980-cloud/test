@@ -205,14 +205,21 @@ var ML = window.ML = window.ML || {};
       '<div class="section-t">체력 ' + m.hp + ' / ' + st.hp + (m.status ? ' · ' + ML.STATUS_NAMES[m.status] : '') + '</div>' +
       (function () {
         var tot = ML.ivTotalPct(m), tg = ML.ivGrade(tot);
-        var rg = ML.statRange(m);
+        var rg = ML.statRange(m), rn = ML.statRange(Object.assign({}, m, { boost: null }));   // rn: 강화 빼고
         return '<div class="section-t">능력치 · 개체값 <span class="iv-tag ' + tg[1] + '">종합 ' + tot + '% · ' + tg[0] + '</span></div>' +
           '<div class="muted small">이 몬스터의 능력치 / 같은 종·같은 레벨에서 나올 수 있는 최대치 (최저~최고)</div>' +
           [['hp', '체력'], ['atk', '공격'], ['def', '방어'], ['spd', '속도']].map(function (k) {
             var p = ML.ivPct(m.ivs[k[0]]), gr = ML.ivGrade(p);
             var bt = m.boost && m.boost[k[0]] ? ' <span class="boost-tag">' + Math.round((1 + m.boost[k[0]]) * 100) + '%</span>' : '';
             return '<div class="stat stat2' + (m.boost && (m.boost.hp || m.boost.atk || m.boost.def || m.boost.spd) ? ' wide' : '') + '"><span>' + k[1] + bt + '</span><b class="sv">' + rg.now[k[0]] + '<span class="muted"> / ' + rg.max[k[0]] + '</span></b>' +
-              '<div class="bar"><i class="' + gr[1] + '" style="width:' + Math.max(3, p) + '%"></i></div><span class="muted small">' + rg.min[k[0]] + '~' + rg.max[k[0]] + '</span><b class="' + gr[1] + '-t">' + p + '%</b></div>';
+              (function () {
+                // 막대: 강화가 있으면 끝을 "강화 포함 최대치"로 늘리고, 개체값 부분(색) + 강화로 오른 부분(주황)을 이어 그린다
+                var kk = k[0], b = m.boost && m.boost[kk];
+                if (!b) return '<div class="bar"><i class="' + gr[1] + '" style="width:' + Math.max(3, p) + '%"></i></div>';
+                var lo = rn.min[kk], span = Math.max(1, rg.max[kk] - lo);
+                var w1 = Math.max(3, (rn.now[kk] - lo) / span * 100), w2 = Math.max(0, (rg.now[kk] - rn.now[kk]) / span * 100);
+                return '<div class="bar bar-boost"><i class="' + gr[1] + '" style="width:' + w1.toFixed(1) + '%"></i><i class="boost" style="width:' + w2.toFixed(1) + '%"></i></div>';
+              })() + '<span class="muted small">' + rn.min[k[0]] + '~' + rg.max[k[0]] + '</span><b class="' + gr[1] + '-t">' + p + '%</b></div>';
           }).join('');
       })() +
       (m.boost && Object.keys(m.boost).some(function (k) { return m.boost[k]; }) ? '<div class="small">💪 능력 강화: ' + [['hp', '체력'], ['atk', '공격'], ['def', '방어'], ['spd', '속도']].filter(function (k) { return m.boost[k[0]]; }).map(function (k) { return k[1] + ' +' + Math.round(m.boost[k[0]] * 100) + '%'; }).join(' · ') + '</div>' : '') +
