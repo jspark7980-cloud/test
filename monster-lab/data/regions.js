@@ -86,8 +86,9 @@ ML.regions = {
                 wild: [['tidalshell', 25, 42, 45], ['eldwarden', 25, 42, 45], ['stormphoenix', 25, 42, 45], ['ridgebear', 25, 42, 45]] },
       boss:   { name: '화산 정상', kind: 'boss', x: 880, y: 300, icon: '👑', desc: '합성으로만 얻는 몬스터를 다루는 용암 군주가 기다린다.', trainer: 'boss4' },
       altar:  { name: '검은 태양 제단', kind: 'legend', x: 880, y: 500, icon: '🌑', desc: '낮에도 해가 검게 보이는 제단. 날개 소리가 들린다.', legend: ['eclipsedragon', 50] },
+      core:   { name: '용암 심장', kind: 'legend', x: 880, y: 100, icon: '🌋', desc: '화산의 가장 깊은 곳. 땅 전체가 숨 쉬듯 붉게 맥박친다. 처음 이기거나 잡으면 대지의 구슬을 얻는다.', legend: ['terradon', 55], stone: 'orb_terradon' },
     },
-    edges: [['gate', 'ash'], ['gate', 'temple'], ['ash', 'lava'], ['temple', 'crater'], ['lava', 'crater'], ['crater', 'boss'], ['boss', 'altar']],
+    edges: [['gate', 'ash'], ['gate', 'temple'], ['ash', 'lava'], ['temple', 'crater'], ['lava', 'crater'], ['crater', 'boss'], ['boss', 'altar'], ['boss', 'core']],
   },
   // ── 5~7지역 [제안]: 4지역 이후 이어지는 고레벨 지역. 보스가 메가진화를 쓴다 ──
   5: {

@@ -360,3 +360,4 @@ select, input { font: inherit; }
 .bar.bar-boost > i { border-radius: 0; }
 .bar.bar-boost > i:first-child { border-radius: 6px 0 0 6px; }
 .bar.bar-boost > i.boost { background: linear-gradient(90deg, #ff9a3d, #ff5f6d); border-radius: 0 6px 6px 0; }
+.field.sun { background: radial-gradient(ellipse at 50% 0%, rgba(255,140,40,.28), transparent 70%), var(--panel, #161a24); }

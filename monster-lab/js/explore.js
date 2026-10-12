@@ -240,7 +240,7 @@ var ML = window.ML = window.ML || {};
     // 5~7지역 전설 장소: 처음 이기거나 잡으면 그 전설의 메가 결정
     if (o.stone && (r.captured || r.winner === 0)) {
       var ps = ML.state.prog();
-      if (!ps.stoneGot) { ps.stoneGot = true; ML.state.addItem(o.stone); h += '<p class="lvup">💎 ' + ML.items[o.stone].name + '을(를) 얻었다! 가방에 있기만 해도 전투에서 메가진화할 수 있다.</p>'; }
+      if (!ps.stoneGot) { ps.stoneGot = true; ML.state.addItem(o.stone); h += '<p class="lvup">' + ML.items[o.stone].icon + ' ' + ML.items[o.stone].name + '을(를) 얻었다! 가방에 있기만 해도 ' + (ML.items[o.stone].fx.primalOrb ? '전투에 나오자마자 원시회귀한다.' : '전투에서 메가진화할 수 있다.') + '</p>'; }
     }
     if (r.winner === 0 && !r.captured) {
       g.stats.wins++;

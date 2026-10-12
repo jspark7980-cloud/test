@@ -81,5 +81,6 @@ ML.moves = {
   // 전설 고유기 [제안]
   eclipsefire: { name: '일식 겁화', desc: '고유기 · 밤의 모습이면 그림자 속성',   el: 'fire', kind: 'attack', power: 120, acc: 90, fx: { formEl: { night: 'shadow' } } },
   stormsurge:  { name: '폭풍 해일포', desc: '고유기 · 비를 내리고 공격', el: 'water', kind: 'attack', power: 120, acc: 85, fx: { rain: true } },
+  terraburst:  { name: '대지 분화',   desc: '고유기 · 가뭄이면 위력 1.5배', el: 'rock', kind: 'attack', power: 120, acc: 90, fx: { sunPower: 1.5, status: { type: 'burn', chance: 0.2 } } },
   worldroot:   { name: '세계수의 뿌리', desc: '고유기 · 준 피해의 30% 흡수', el: 'leaf', kind: 'attack', power: 120, acc: 90, fx: { drain: 0.3 } },
 };

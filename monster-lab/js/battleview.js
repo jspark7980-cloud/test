@@ -101,8 +101,9 @@ var ML = window.ML = window.ML || {};
     var megaBtn = '';
     if (b.canMega(me)) megaBtn = '<button class="btn mega-btn' + (V.megaOn ? ' on' : '') + '" id="mega"' + (canAct ? '' : ' disabled') + '>💎 메가진화' + (V.megaOn ? ' ON' : '') + '</button>';
     else V.megaOn = false;
-    screen.innerHTML = '<div class="battle"><div class="field' + (b.field.rain ? ' rain' : '') + '">' +
+    screen.innerHTML = '<div class="battle"><div class="field' + (b.field.rain ? ' rain' : b.field.sun ? ' sun' : '') + '">' +
       (b.field.rain ? '<div class="weather">🌧️ 비 ' + b.field.rain + '턴</div>' : '') +
+      (b.field.sun ? '<div class="weather">☀️ 가뭄 ' + (b.sunLocked() ? '∞' : b.field.sun + '턴') + '</div>' : '') +
       '<div class="side">' + '<div class="sprite" id="sp0">' + ML.art.svg(me.mon.species, { size: 200, shiny: me.mon.shiny, mega: me.mega || me.primal, primal: me.primal }) + '</div><div class="side-info">' + benchRow(0) + infoBox(me) + '</div></div>' +
       '<div class="side foe">' + '<div class="side-info">' + benchRow(1) + infoBox(foe) + '</div><div class="sprite" id="sp1">' + ML.art.svg(foe.mon.species, { size: 200, shiny: foe.mon.shiny, flip: true, mega: foe.mega || foe.primal, primal: foe.primal }) + '</div></div>' +
       '</div><div class="controls"><div class="moves">' + moves + '</div><div class="log" id="log"></div></div>' +

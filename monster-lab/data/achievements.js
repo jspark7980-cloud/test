@@ -21,6 +21,7 @@ var ML = window.ML = window.ML || {};
     { id: 'shiny5', icon: '🌟', name: '색다른 수집가', desc: '색다른 개체 5종 잡기',  need: function (g) { return [Object.keys(g.dex.shiny || {}).length, 5]; }, reward: { gold: 300000, items: { boost_spd: 1 } } },
     // 전설·신화
     { id: 'legend3', icon: '🐉', name: '전설의 증인',  desc: '전설 3종(일식룡·폭풍고래·세계수거인) 모두 잡기', need: function (g) { return [has(g, ['eclipsedragon', 'stormwhale', 'worldtree']), 3]; }, reward: { gold: 100000, items: { traitcharm: 3 } } },
+    { id: 'terradon', icon: '🌋', name: '대지의 왕',    desc: '테라돈 잡기',           need: function (g) { return [has(g, ['terradon']), 1]; },     reward: { gold: 150000, items: { traitcharm: 3 } } },
     { id: 'origin',  icon: '✴️', name: '근원에 닿다',  desc: '태초수 잡기',           need: function (g) { return [has(g, ['primordial']), 1]; },   reward: { gold: 200000, items: { boost_atk: 1 } } },
     { id: 'mythic',  icon: '♾️', name: '무한을 손에',  desc: '신화 무한신룡 잡기',    need: function (g) { return [has(g, ['infinidragon']), 1]; }, reward: { gold: 5000000, items: { boost2_atk: 2 } } },
     // 지역

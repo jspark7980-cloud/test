@@ -50,6 +50,7 @@ ML.config = {
     nightSpdBonus: 0.2,
     rainTurns: 5,           // 폭풍고래
     rainBonus: 0.3,
+    sunTurns: 5, sunBonus: 0.3, sunWaterCut: 0.5,   // 테라돈 가뭄: 불꽃·바위 +30%, 물결 -50%
     reviveHpPct: 0.4,       // 세계수거인
     sealTurns: 2,           // 기술 봉인
     // 합성 전용종

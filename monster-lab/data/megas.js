@@ -18,6 +18,8 @@ ML.megas = {
 // 원시회귀 [제안]: 근원 두 종 전용. 전용 구슬을 가방에 두거나 지니면 전투에 나오자마자 자동으로 변한다.
 // 메가진화와 따로(편당 1번 제한을 쓰지 않음). 구슬은 무한 모드에서 웨이브를 깰 때마다 아주 낮은 확률로 얻는다.
 ML.primals = {
+  terradon:     { name: '원시 테라돈',   orb: 'orb_terradon',     bonus: { atk: 40, def: 30, spd: 10 }, ability: '끝없는 가뭄',
+                  desc: '가뭄이 그치지 않고 비를 막는다. 물결 공격 기술은 모두 증발(누가 쓰든)', fx: { sunForever: true } },
   primordial:   { name: '원시 태초수',   orb: 'orb_primordial',   bonus: { atk: 30, def: 30, spd: 20 }, ability: '태초의 장막',
                   desc: '받는 피해 -25%, 매 턴 끝에 체력 6% 회복, 주는 피해 +15%', fx: { dmgReduce: 0.25, regen: 0.06, dmgUp: 0.15 } },
   infinidragon: { name: '원시 무한신룡', orb: 'orb_infinidragon', bonus: { atk: 35, def: 25, spd: 20 }, ability: '무한 회귀',

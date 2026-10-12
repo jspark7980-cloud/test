@@ -11,7 +11,7 @@ ML.Battle = function (opts) {
   this.log = [];
   this.over = false;
   this.winner = null;          // 0 = 내 편, 1 = 상대
-  this.field = { rain: 0 };
+  this.field = { rain: 0, sun: 0 };   // 날씨: 비 / 가뭄(테라돈)
   this.wild = !!opts.wild;        // 야생: 포획·도망 가능
   this.captured = null;
   this.escaped = false;
@@ -61,9 +61,20 @@ B.doMega = function (u) {
   u.stats = ML.calcStats(u.mon, true);
   this.log.push({ mega: u.side, uid: u.mon.uid });
   this.say((u.side === 0 ? '' : '상대 ') + before + '의 메가 결정이 빛난다… ' + ML.megas[u.mon.species].name + '(으)로 메가진화했다!', 'crit');
-  if (this.megaFx(u, 'rainForever')) { this.field.rain = ML.config.ability.rainTurns; this.say('끝없는 폭풍이 몰아친다!', 'field'); }
+  if (this.megaFx(u, 'rainForever') && this.setRain(ML.config.ability.rainTurns)) this.say('끝없는 폭풍이 몰아친다!', 'field');
   return true;
 };
+// ── 날씨: 비와 가뭄은 함께 오지 않는다. 원시 테라돈이 나와 있으면(끝없는 가뭄) 비를 부를 수 없다 ──
+B.sunLocked = function () {
+  var self = this;
+  return [0, 1].some(function (i) { var a = self.sides[i] && self.active(i); return a && a.mon.hp > 0 && self.megaFx(a, 'sunForever'); });
+};
+B.setRain = function (n) {
+  if (this.sunLocked()) { this.say('비구름이 끝없는 가뭄에 증발했다!', 'field'); return false; }
+  this.field.rain = n; this.field.sun = 0; return true;
+};
+B.setSun = function (n) { this.field.sun = n; this.field.rain = 0; return true; };
+
 // 메가·원시회귀 상태의 데이터(없으면 null)와 능력 값
 B.formOf = function (u) { return u.primal ? ML.primals[u.mon.species] : u.mega ? ML.megas[u.mon.species] : null; };
 B.megaFx = function (u, key) { var f = this.formOf(u); return (f && f.fx[key]) || 0; };
@@ -132,10 +143,12 @@ B.onEnter = function (u) {
     var f = this.sides[1 - u.side].units[this.sides[1 - u.side].active];
     if (f && f.mon.hp > 0) { this.say(this.name(u) + '의 오로라가 빛났다!', 'ability'); this.changeStage(f, 'spd', -1); }
   }
-  if (this.ability(u) === 'rain') {
-    this.field.rain = ML.config.ability.rainTurns;
-    this.say('비가 내리기 시작했다!', 'field');
+  if (this.ability(u) === 'rain' && this.setRain(ML.config.ability.rainTurns)) this.say('비가 내리기 시작했다!', 'field');
+  if (this.ability(u) === 'drought') {
+    this.setSun(ML.config.ability.sunTurns);
+    this.say(this.name(u) + '의 열맥! 땅이 갈라지며 가뭄이 시작됐다!', 'field');
   }
+  if (this.megaFx(u, 'sunForever')) this.say('끝없는 가뭄! 물결 기술은 모두 증발한다!', 'field');
   if (u.mon.status === 'sleep' && !u.statusTurns) u.statusTurns = 1;
 };
 
@@ -164,7 +177,8 @@ B.calcDamage = function (att, def, move, forecast) {
   var c = ML.config, d = c.damage, rng = this.rng;
   var atk = att.stats.atk * this.stageMul(att.stages.atk);
   var dfn = def.stats.def * this.stageMul(def.stages.def);
-  var dmg = move.power * (atk / dfn) * (d.lvBase + att.mon.level * d.lvScale) * d.scale;
+  var power = move.power * (move.fx && move.fx.sunPower && this.field.sun > 0 ? move.fx.sunPower : 1);   // 대지 분화: 가뭄이면 강해진다
+  var dmg = power * (atk / dfn) * (d.lvBase + att.mon.level * d.lvScale) * d.scale;
 
   var defEls = ML.species[def.mon.species].els;
   var attEls = ML.species[att.mon.species].els;
@@ -190,6 +204,7 @@ B.calcDamage = function (att, def, move, forecast) {
   });
   if (this.sideHasTeamBuff(att.side)) atkMod *= 1 + c.ability.teamAtkBuff;
   if (this.field.rain > 0 && (move.el === 'water' || move.el === 'thunder')) atkMod *= 1 + c.ability.rainBonus;
+  if (this.field.sun > 0) { if (move.el === 'fire' || move.el === 'rock') atkMod *= 1 + c.ability.sunBonus; if (move.el === 'water') atkMod *= 1 - c.ability.sunWaterCut; }
   if (this.ability(att) === 'dayNight') {
     if (att.form === 'day' && move.el === 'fire') atkMod *= 1 + c.ability.dayNightBonus;
     if (att.form === 'night' && move.el === 'shadow') atkMod *= 1 + c.ability.dayNightBonus;
@@ -365,10 +380,9 @@ B.useMove = function (u, foe, moveId, mimicked) {
   }
 
   // 폭풍고래 고유기: 맞히면 먼저 비를 내리고(이번 공격부터 강화) 때린다
-  if (move.fx && move.fx.rain) {
-    this.field.rain = c.ability.rainTurns;
-    this.say('폭풍이 몰아치며 비가 쏟아진다!', 'field');
-  }
+  if (move.fx && move.fx.rain && this.setRain(c.ability.rainTurns)) this.say('폭풍이 몰아치며 비가 쏟아진다!', 'field');
+  // 원시 테라돈의 끝없는 가뭄: 물결 공격 기술은 증발
+  if (move.kind === 'attack' && move.el === 'water' && this.sunLocked()) { this.say('하지만 물결 기술이 끝없는 가뭄에 증발했다!', 'miss'); return; }
   if (move.kind === 'attack') {
     var r = this.calcDamage(u, foe, move);
     if (r.crit) this.say('급소에 맞았다!', 'crit');
@@ -521,8 +535,12 @@ B.endOfTurn = function () {
     }
   });
   var storm = [0, 1].some(function (i) { var a = self.active(i); return a.mon.hp > 0 && self.megaFx(a, 'rainForever'); });
-  if (storm) this.field.rain = c.ability.rainTurns;
-  else if (this.field.rain > 0 && --this.field.rain === 0) this.say('비가 그쳤다.', 'field');
+  if (this.sunLocked()) { this.field.sun = c.ability.sunTurns; this.field.rain = 0; }
+  else if (storm) { this.field.rain = c.ability.rainTurns; this.field.sun = 0; }
+  else {
+    if (this.field.rain > 0 && --this.field.rain === 0) this.say('비가 그쳤다.', 'field');
+    if (this.field.sun > 0 && --this.field.sun === 0) this.say('가뭄이 끝났다.', 'field');
+  }
 };
 
 B.checkFaint = function () {

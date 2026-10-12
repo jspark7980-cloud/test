@@ -52,6 +52,7 @@ ML.items = {
   kingcrown:    { name: '왕의 왕관',   icon: '👑', kind: 'held', price: 0, shop: false, fx: { atk: 0.1, def: 0.1, spd: 0.1 }, desc: '공격·방어·속도 +10% (대련장 보상)' },
 
   // 원시회귀 구슬 [제안]: 무한 모드 웨이브 클리어 시 아주 낮은 확률(config.endless.primalChance)
+  orb_terradon:     { name: '대지의 구슬', icon: '🟠', kind: 'held', price: 0, shop: false, fx: { primalOrb: 'terradon' },     desc: '테라돈 전용. 가방에 있거나 지니고 있으면 전투에 나오자마자 원시회귀한다(4지역 용암 심장에서 처음 이기거나 잡으면)' },
   orb_primordial:   { name: '태초의 구슬', icon: '🔴', kind: 'held', price: 0, shop: false, fx: { primalOrb: 'primordial' },   desc: '태초수 전용. 가방에 있거나 지니고 있으면 전투에 나오자마자 원시회귀한다(무한 모드 희귀 보상)' },
   orb_infinidragon: { name: '무한의 구슬', icon: '🔵', kind: 'held', price: 0, shop: false, fx: { primalOrb: 'infinidragon' }, desc: '무한신룡 전용. 가방에 있거나 지니고 있으면 전투에 나오자마자 원시회귀한다(무한 모드 희귀 보상)' },
   // 메가 결정 [제안]: 그 종이 지니면 전투에서 메가진화. 3단계용은 5지역부터 상점, 전설용은 5~7지역 전설 장소에서 처음 이기거나 잡으면 얻는다
